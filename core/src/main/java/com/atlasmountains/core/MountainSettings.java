@@ -60,11 +60,11 @@ public final class MountainSettings {
 
     // ---- Cross profile (step 3) --------------------------------------------------
     /** Face slope on rock, as tan. 1.0 is 45 degrees. Also the thermal critical angle on rock. */
-    public double faceSlope = 1.0;
+    public double faceSlope = 1.15;
     /** Flank slope just below the rock line, as tan. 0.7 is 35 degrees. */
-    public double flankTopSlope = 0.70;
+    public double flankTopSlope = 0.90;
     /** Concavity exponent of the grass flank. 1 is straight, higher is more concave. */
-    public double flankConcavity = 1.5;
+    public double flankConcavity = 1.3;
 
     // ---- Detail noise (step 4) ---------------------------------------------------
     /** Peak-to-trough amplitude of the ridged detail noise at the summits, blocks. Seasoning, not shape. */
@@ -155,28 +155,36 @@ public final class MountainSettings {
     /** Spines (ranges) per chain: bounds, and the relative weights of 1, 2, 3 and 4 spines. */
     public int chainRangesMin = 1;
     public int chainRangesMax = 4;
-    public double[] chainRangesWeights = {30, 38, 24, 8};
+    public double[] chainRangesWeights = {15, 35, 32, 18};
     /** Width of the inner-mask fade outside the outermost spine, blocks (see ChainLayout.inner). */
     public double innerFade = 120;
     /**
      * Gap between neighbouring spines in a chain, blocks. A tight gap (less than two range half-widths,
      * about 650) makes the ranges meet back to back in a col; a wide gap leaves a flat valley with lakes.
      */
-    public double spineGapTightMin = 360;
-    public double spineGapTightMax = 520;
-    public double spineGapWideMin = 760;
-    public double spineGapWideMax = 900;
-    /** Fraction of gaps that are wide (the flat valleys). */
+    public double spineGapTightMin = 260;
+    public double spineGapTightMax = 400;
+    public double spineGapWideMin = 620;
+    public double spineGapWideMax = 740;
+    /**
+     * Enclosed valleys: a gap is tight along the chain (ranges back to back in a col) except for
+     * pockets where it swells to a wide gap and closes again, so the flat valley with its lakes is
+     * walled in by the two ranges at both ends. Each valleyPocketSpacing blocks of each gap has this
+     * chance of one pocket, valleyPocketHalfMin..Max blocks long each way from its centre.
+     */
     public double spineGapWideChance = 0.35;
+    public double valleyPocketSpacing = 1600;
+    public double valleyPocketHalfMin = 350;
+    public double valleyPocketHalfMax = 550;
     /** Probability that a chain forks once; a child forks again with 0.6 of this, up to chainMaxBranchDepth. */
-    public double chainBranchChance = 0.85;
-    public int chainMaxBranchDepth = 3;
+    public double chainBranchChance = 0.7;
+    public int chainMaxBranchDepth = 2;
     /** Angle between a child chain and its parent, degrees, uniform between these two. */
-    public double chainBranchAngleMin = 30;
-    public double chainBranchAngleMax = 75;
+    public double chainBranchAngleMin = 35;
+    public double chainBranchAngleMax = 65;
     /** Child length as a fraction of the parent's, uniform between these two. */
-    public double chainBranchLengthMin = 0.5;
-    public double chainBranchLengthMax = 0.9;
+    public double chainBranchLengthMin = 0.45;
+    public double chainBranchLengthMax = 0.8;
     /** Each chain's summits are scaled by a factor uniform between these two (whole chains differ in height). */
     public double chainHeightScaleMin = 0.85;
     public double chainHeightScaleMax = 1.2;
@@ -198,7 +206,7 @@ public final class MountainSettings {
      * converge and diverge instead of running parallel; each spine also wanders on its own with a
      * second, shorter wave (spineWiggleAmplitude / spineWiggleWavelength) on top of spineCurve*.
      */
-    public double spineGapVariation = 0.45;
+    public double spineGapVariation = 0.35;
     public double spineGapWavelength = 1800;
     public double spineWiggleAmplitude = 90;
     public double spineWiggleWavelength = 450;
@@ -206,7 +214,7 @@ public final class MountainSettings {
      * Outer spines start and stop part-way along the chain: each end of an outer spine is pulled in
      * by up to this fraction of the chain length (the middle spine always runs the full length).
      */
-    public double spineStaggerMax = 0.3;
+    public double spineStaggerMax = 0.2;
     /**
      * With the footprint installed, a chain is trimmed to the stretch of its centreline that lies
      * inside vanilla's mountain footprint, sampled every chainTrimStep blocks, so chains end with
@@ -216,6 +224,8 @@ public final class MountainSettings {
     public boolean chainTrimToFootprint = true;
     public double chainTrimStep = 100;
     public double chainTrimMinLength = 900;
+    /** After trimming a chain keeps its spines as long as it is still at least this many times longer than its zone is wide. */
+    public double chainTrimMinAspect = 1.2;
 
     // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
     /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
