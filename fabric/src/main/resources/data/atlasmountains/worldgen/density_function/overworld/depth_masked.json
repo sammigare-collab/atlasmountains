@@ -6,7 +6,8 @@
     "argument1": {
       "type": "atlasmountains:terrain_height",
       "eroded": false,
-      "mask_relief": true
+      "mask_relief": true,
+      "chains": true
     },
     "argument2": {
       "type": "minecraft:mul",

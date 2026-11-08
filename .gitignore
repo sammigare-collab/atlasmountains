@@ -22,3 +22,6 @@ bin/
 Thumbs.db
 .DS_Store
 desktop.ini
+
+# dev server run directory
+fabric/run/

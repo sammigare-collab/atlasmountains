@@ -1,6 +1,6 @@
 {
   "type": "minecraft:flat_cache",
   "argument": {
-    "type": "atlasmountains:plate_continents"
+    "type": "atlasmountains:continents"
   }
 }

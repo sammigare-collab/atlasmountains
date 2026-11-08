@@ -59,13 +59,13 @@ def write(rel, obj):
 def rename(obj, old, new):
     return json.loads(json.dumps(obj).replace(f'"{old}"', f'"{new}"'))
 
-TERRAIN = {'type': f'{NS}:terrain_height'}
-TERRAIN_FAST = {'type': f'{NS}:terrain_height', 'eroded': False}   # analytic model, no erosion; for biome depth only
+TERRAIN = {'type': f'{NS}:terrain_height', 'chains': False}                 # "everywhere" preset: parallel spines
+TERRAIN_FAST = {'type': f'{NS}:terrain_height', 'eroded': False, 'chains': False}   # analytic model, no erosion; for biome depth only
 MASK = {'type': f'{NS}:mountain_mask'}
 SC = f'{NS}:overworld/sloped_cheese'
 SC_MASKED = f'{NS}:overworld/sloped_cheese_masked'      # relief faded by the mask (mixed world)
-TERRAIN_MASKED = {'type': f'{NS}:terrain_height', 'mask_relief': True}
-TERRAIN_FAST_MASKED = {'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True}
+TERRAIN_MASKED = {'type': f'{NS}:terrain_height', 'mask_relief': True, 'chains': True}     # mixed preset: chains
+TERRAIN_FAST_MASKED = {'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'chains': True}
 
 def mul(a, b): return {'type': 'minecraft:mul', 'argument1': a, 'argument2': b}
 def add(a, b): return {'type': 'minecraft:add', 'argument1': a, 'argument2': b}
@@ -139,12 +139,12 @@ write(f'{NS}/worldgen/density_function/overworld/depth.json',
       mul(1.0 / 128, add(TERRAIN_FAST, mul(-1.0, 'minecraft:y'))))
 write(f'{NS}/worldgen/density_function/overworld/depth_masked.json',
       mul(1.0 / 128, add(TERRAIN_FAST_MASKED, mul(-1.0, 'minecraft:y'))))
-# Plate continentalness, once per column. The vanilla terrain splines (offset, factor, jaggedness)
+# Continentalness (noise continents by default, plates optional), once per column. The vanilla terrain splines (offset, factor, jaggedness)
 # read "minecraft:overworld/continents" and "minecraft:overworld/erosion" BY NAME, not the router
 # entries, so the mixed preset ships its own copies of those splines below pointing at these two.
 PLATES = f'{NS}:overworld/continents'
 write(f'{NS}/worldgen/density_function/overworld/continents.json',
-      {'type': 'minecraft:flat_cache', 'argument': {'type': f'{NS}:plate_continents'}})
+      {'type': 'minecraft:flat_cache', 'argument': {'type': f'{NS}:continents'}})
 erosion_df = rename(load('worldgen/density_function/overworld/erosion.json'), 'minecraft:erosion', f'{NS}:erosion')
 write(f'{NS}/worldgen/density_function/overworld/erosion.json', erosion_df)
 EROSION_FLOORED = f'{NS}:overworld/erosion_floored'
@@ -213,7 +213,7 @@ top_block = {'type': 'minecraft:stone_depth', 'offset': 0, 'surface_type': 'floo
 surface_layer = {'type': 'minecraft:stone_depth', 'offset': 0, 'surface_type': 'floor', 'add_surface_depth': True, 'secondary_depth_range': 0}
 above_water = {'type': 'minecraft:water', 'offset': 0, 'surface_depth_multiplier': 0, 'add_stone_depth': False}
 snow = {'type': 'minecraft:y_above', 'anchor': {'absolute': SNOW_LINE}, 'surface_depth_multiplier': SNOW_JITTER_MULT, 'add_stone_depth': False}
-steep = {'type': f'{NS}:slope_above', 'degrees': ROCK_SLOPE_DEG}
+def steep(chains): return {'type': f'{NS}:slope_above', 'degrees': ROCK_SLOPE_DEG, 'chains': chains}
 in_mountains = {'type': f'{NS}:in_mountains', 'threshold': 0.5}
 
 rock = seq(   # warm rock palette: a simple noise-selected mix of three vanilla blocks
@@ -221,15 +221,15 @@ rock = seq(   # warm rock palette: a simple noise-selected mix of three vanilla 
     cond(noise_between(0.3, 10.0), block('minecraft:packed_mud')),
     block('minecraft:stone'),
 )
-mountain_rules = seq(
+def mountain_rules(chains): return seq(
     cond(top_block, seq(
         cond(snow, block('minecraft:snow_block')),
-        cond(steep, rock),
+        cond(steep(chains), rock),
         cond(above_water, block('minecraft:grass_block', {'snowy': 'false'})),
         block('minecraft:gravel'),
     )),
     cond(surface_layer, seq(
-        cond(steep, rock),
+        cond(steep(chains), rock),
         block('minecraft:dirt'),
     )),
 )
@@ -308,9 +308,9 @@ def build_variant(settings_name, preset_name, mixed):
     sr = copy.deepcopy(vanilla_sr)
     if mixed:
         sr['sequence'][1] = cond({'type': 'minecraft:above_preliminary_surface'},
-                                 seq(cond(in_mountains, mountain_rules), vanilla_surface['then_run']))
+                                 seq(cond(in_mountains, mountain_rules(True)), vanilla_surface['then_run']))
     else:
-        sr['sequence'][1] = cond({'type': 'minecraft:above_preliminary_surface'}, mountain_rules)
+        sr['sequence'][1] = cond({'type': 'minecraft:above_preliminary_surface'}, mountain_rules(False))
     ns['surface_rule'] = sr
     write(f'{NS}/worldgen/noise_settings/{settings_name}.json', ns)
 

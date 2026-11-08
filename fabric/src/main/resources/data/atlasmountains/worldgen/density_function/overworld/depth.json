@@ -5,7 +5,8 @@
     "type": "minecraft:add",
     "argument1": {
       "type": "atlasmountains:terrain_height",
-      "eroded": false
+      "eroded": false,
+      "chains": false
     },
     "argument2": {
       "type": "minecraft:mul",

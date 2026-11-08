@@ -10,10 +10,17 @@ public final class CrestProfile {
 
     private final MountainSettings s;
     private final long seed;
+    private final SpineLayout layout;
 
     public CrestProfile(MountainSettings settings, long seed) {
+        this(settings, seed, null);
+    }
+
+    /** With a layout, summit heights are scaled by {@link SpineLayout#summitScale} (taller peaks at chain forks). */
+    public CrestProfile(MountainSettings settings, long seed, SpineLayout layout) {
         this.s = settings;
         this.seed = seed;
+        this.layout = layout;
     }
 
     /** Position along the spine of summit i on range k. */
@@ -25,7 +32,8 @@ public final class CrestProfile {
     /** Height of summit i on range k. */
     public double summitHeight(int range, long i) {
         double var = Hash.signed(Hash.hash(seed, 505, range, i)) * s.peakHeightVariation;
-        return s.summitHeight * (1 + var);
+        double scale = layout == null ? 1.0 : layout.summitScale(range, summitAlong(range, i));
+        return s.summitHeight * (1 + var) * scale;
     }
 
     /**
