@@ -63,7 +63,11 @@ caves stop at 150, treeline 100 (no trees in the mountain biomes above it), dime
     placed where the world's erosion noise is low (`chainErosionBelow`), so they cluster into the hilly
     provinces of the biome layer and leave the plains alone; the cell containing spawn always has one.
     The mask is the capsule around a chain's spines, fading over `chainEdgeWidth` at the sides and ends
-    (the relief is scaled by the mask) and at the coast.
+    (the relief is scaled by the mask) and at the coast. A chain is at least `chainMinAspect` times longer
+    than it is wide. Vanilla terrain is removed only by the *inner* mask (between a chain's spines, where
+    the flat valley floor and lakes live); under the outer flanks vanilla carries on and our flank is
+    unioned over it, so the foot of a range grows out of real hills, and the surface rules and biome
+    (`on_our_slope`) hand over to vanilla's where our terrain is within 6 blocks of the floor.
   - *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Climate noises are slowed
     to Large Biomes scale (temperature, vegetation and erosion 4x vanilla); the ridge noise is left
     alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring erosion at -0.1.
@@ -116,7 +120,6 @@ jungles and forests on the flanks; nothing outside the preset is changed.
 - Vanilla cave carvers still cut the lower flanks (they run to y 180); the density-function caves
   stop at y 300.
 - Our three biomes are chosen by temperature only; humidity and erosion do not affect them.
-- Inside a chain zone the land between and beside the ranges is the flat valley floor at y 64 (with
-  lakes), not vanilla terrain; vanilla returns over the 500-block edge fade.
+- Between a chain's spines the land is the flat valley floor at y 64 (with lakes), not vanilla terrain.
 - Chain placement depends on the world's erosion noise, which the mod receives when the overworld
   loads; the standalone preview tool has no erosion and shows every candidate chain.
