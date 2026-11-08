@@ -31,7 +31,7 @@ class GeometryTest {
                 double h = gen.baseHeightAt(bx + dx, bz + dz, sc);
                 if (h > best) { best = h; bx += dx; bz += dz; }
             }
-        double[] across = gen.layout().alongDirection();
+        double[] across = ((RangeLayout) gen.layout()).alongDirection();
         double cx = across[1], cz = -across[0];
         double drop3 = best - gen.baseHeightAt(bx + 3 * cx, bz + 3 * cz, sc);
         assertTrue(drop3 >= 2.0, "should fall at least 2 blocks over 3 across the range, fell " + drop3);

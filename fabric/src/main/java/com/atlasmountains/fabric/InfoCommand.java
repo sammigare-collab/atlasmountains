@@ -29,17 +29,16 @@ public final class InfoCommand {
                 .then(CommandManager.literal("info").executes(ctx -> {
                     ServerCommandSource src = ctx.getSource();
                     Vec3d p = src.getPosition();
-                    RegionCache cache = AtlasMountainsMod.cache();
+                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getWorld());
                     MountainSettings s = cache.settings();
                     int rx = (int) Math.floor(p.x / s.regionSizeBlocks);
                     int rz = (int) Math.floor(p.z / s.regionSizeBlocks);
                     boolean cached = cache.isCached(rx, rz);
                     double cont = cache.continents().continentalness(p.x, p.z);
-                    double coast = cache.continents().signedDistance(p.x, p.z);
-                    String line1 = String.format(Locale.UK, "region %d,%d  cached: %s  seed %d  continentalness %.2f (%s, coast %.0f blocks %s)  mask %.2f",
-                            rx, rz, cached ? "yes" : "no", cache.seed(), cont,
+                    String line1 = String.format(Locale.UK, "region %d,%d  cached: %s  seed %d  layout %s  continentalness %.2f (%s)  mask %.2f",
+                            rx, rz, cached ? "yes" : "no", cache.seed(), s.chainLayout ? "chains" : "parallel", cont,
                             cont < -0.455 ? "deep ocean" : cont < -0.19 ? "ocean" : cont < -0.11 ? "coast" : cont < 0.03 ? "near inland" : cont < 0.3 ? "mid inland" : "far inland",
-                            Math.abs(coast), coast >= 0 ? "inland" : "offshore", cache.mask(p.x, p.z));
+                            cache.mask(p.x, p.z));
                     String line2;
                     if (cached) {
                         double h = cache.baseHeight(p.x, p.z);
@@ -57,7 +56,7 @@ public final class InfoCommand {
                     // 8 km square around the player, 200 blocks per character: # mountains, + edge, . vanilla land, ~ sea
                     ServerCommandSource src = ctx.getSource();
                     Vec3d p = src.getPosition();
-                    RegionCache cache = AtlasMountainsMod.cache();
+                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getWorld());
                     int step = 200, half = 4000;
                     StringBuilder all = new StringBuilder("mountain mask scan, " + step + " blocks per character, north at top, you are at the centre (# mountains, + edge, . land, ~ sea)\n");
                     for (int z = -half; z <= half; z += step) {
@@ -80,7 +79,7 @@ public final class InfoCommand {
                     ServerCommandSource src = ctx.getSource();
                     int spanKm = IntegerArgumentType.getInteger(ctx, "spanKm");
                     Vec3d p = src.getPosition();
-                    RegionCache cache = AtlasMountainsMod.cache();
+                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getWorld());
                     Path dir = src.getServer().getSavePath(WorldSavePath.ROOT).resolve(AtlasMountainsMod.MOD_ID);
                     File out = dir.resolve(String.format(Locale.UK, "continents_%d_%d_%dkm.png", (int) p.x, (int) p.z, spanKm)).toFile();
                     try {
@@ -93,6 +92,51 @@ public final class InfoCommand {
                     src.sendFeedback(() -> Text.literal("continent map written to " + out.getPath()), false);
                     return 1;
                 })))
+                .then(CommandManager.literal("fields")
+                        .then(CommandManager.argument("spanKm", IntegerArgumentType.integer(4, 200))
+                        .then(CommandManager.argument("erosionBelow", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(-1, 1))
+                        .then(CommandManager.argument("ridgesAbove", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(-1, 1)).executes(ctx -> {
+                    // The world's own biome noises around the player: continents as colour, and in brown the
+                    // "biome-level mountain" footprint erosion < erosionBelow AND folded ridges > ridgesAbove
+                    // (vanilla's peaks are roughly erosion < -0.375 and folded ridges > 0.05). Raw noises, no floor.
+                    ServerCommandSource src = ctx.getSource();
+                    int spanKm = IntegerArgumentType.getInteger(ctx, "spanKm");
+                    double eBelow = com.mojang.brigadier.arguments.DoubleArgumentType.getDouble(ctx, "erosionBelow");
+                    double rAbove = com.mojang.brigadier.arguments.DoubleArgumentType.getDouble(ctx, "ridgesAbove");
+                    Vec3d p = src.getPosition();
+                    ServerWorld world = src.getWorld();
+                    NoiseConfig cfg = world.getChunkManager().getNoiseConfig();
+                    var erosion = cfg.getOrCreateSampler(net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.NOISE_PARAMETERS, AtlasMountainsMod.id("erosion")));
+                    var ridge = cfg.getOrCreateSampler(net.minecraft.world.gen.noise.NoiseParametersKeys.RIDGE);
+                    RegionCache cache = AtlasMountainsMod.cacheFor(world);
+                    int span = spanKm * 1000, bpp = Math.max(1, span / 1000), n = span / bpp;
+                    java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(n, n, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                    long landPx = 0, mtPx = 0;
+                    for (int py = 0; py < n; py++) for (int px = 0; px < n; px++) {
+                        double x = p.x - span / 2.0 + (px + 0.5) * bpp, z = p.z - span / 2.0 + (py + 0.5) * bpp;
+                        double c = cache.continents().continentalness(x, z);
+                        int rgb = ContinentMap.landColour(c);
+                        if (c > -0.19) {
+                            landPx++;
+                            double e = erosion.sample(x * 0.25, 0, z * 0.25);
+                            double r = ridge.sample(x * 0.25, 0, z * 0.25);
+                            double folded = -3 * (Math.abs(Math.abs(r) - 2.0 / 3) - 1.0 / 3);
+                            if (e < eBelow && folded > rAbove) {
+                                mtPx++;
+                                double m = Math.min(1, (eBelow - e) / 0.15) * Math.min(1, (folded - rAbove) / 0.15);
+                                rgb = ContinentMap.blend(rgb, 0x5a3a1e, 0.4 + 0.6 * m);
+                            }
+                        }
+                        img.setRGB(px, py, rgb);
+                    }
+                    Path dir = src.getServer().getSavePath(WorldSavePath.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                    File out = dir.resolve(String.format(Locale.UK, "fields_%d_%d_%dkm_e%.2f_r%.2f.png", (int) p.x, (int) p.z, spanKm, eBelow, rAbove)).toFile();
+                    try { out.getParentFile().mkdirs(); javax.imageio.ImageIO.write(img, "png", out); }
+                    catch (IOException ex) { src.sendError(Text.literal("could not write: " + ex.getMessage())); return 0; }
+                    final String msg = String.format(Locale.UK, "fields map written to %s (footprint %.0f%% of land)", out.getPath(), 100.0 * mtPx / Math.max(1, landPx));
+                    src.sendFeedback(() -> Text.literal(msg), false);
+                    return 1;
+                })))))
                 .then(CommandManager.literal("heightmap")
                         .then(CommandManager.argument("sizeBlocks", IntegerArgumentType.integer(256, 16384))
                         .then(CommandManager.argument("stepBlocks", IntegerArgumentType.integer(1, 64)).executes(ctx -> {

@@ -119,7 +119,52 @@ public final class MountainSettings {
     /** Erosion brush radius in samples. */
     public int dropletRadius = 1;
 
-    // ---- Mountain mask (mixed world) ---------------------------------------------
+    // ---- Layout mode -------------------------------------------------------------
+    /**
+     * true: mountain chains ({@link ChainLayout}; the mixed "Atlas Mountains" preset).
+     * false: parallel spines over the whole world ({@link RangeLayout}; the "everywhere" preset and the diagnostics).
+     */
+    public boolean chainLayout = false;
+
+    // ---- Mountain chains (chainLayout = true) ------------------------------------
+    /** Cell size of the chain lattice, blocks. One chain per cell at most; sets how far apart chains are. */
+    public double chainCellSize = 6000;
+    /** Probability that a cell has a chain (before the erosion gate). */
+    public double chainChance = 0.9;
+    /**
+     * Biome-layer gate: a chain is placed with full chainChance where the world's erosion noise at
+     * its origin is below this minus half chainErosionBand, with no chance above this plus half the
+     * band. Vanilla: erosion below about -0.375 is its mountain range, -0.375..0.05 hills, above that flat.
+     */
+    public double chainErosionBelow = -0.15;
+    public double chainErosionBand = 0.4;
+    /** Chain length, blocks, uniform between these two. */
+    public double chainLengthMin = 5000;
+    public double chainLengthMax = 11000;
+    /** Lateral curve of the chain centreline: amplitude and wavelength, blocks. */
+    public double chainCurveAmplitude = 450;
+    public double chainCurveWavelength = 5000;
+    /** Spines (ranges) per chain, uniform between these two. */
+    public int chainRangesMin = 1;
+    public int chainRangesMax = 3;
+    /** Probability that a chain forks once; a child forks again with 0.6 of this, up to chainMaxBranchDepth. */
+    public double chainBranchChance = 0.55;
+    public int chainMaxBranchDepth = 2;
+    /** Angle between a child chain and its parent, degrees, uniform between these two. */
+    public double chainBranchAngleMin = 35;
+    public double chainBranchAngleMax = 65;
+    /** Child length as a fraction of the parent's, uniform between these two. */
+    public double chainBranchLengthMin = 0.45;
+    public double chainBranchLengthMax = 0.8;
+    /** Summits within junctionBoostLength (blocks, along the spine) of a fork are up to this fraction taller. */
+    public double junctionBoost = 0.18;
+    public double junctionBoostLength = 450;
+    /** Zone capsule extends this far beyond the outer spine's valley edge before the mask starts to fade. */
+    public double chainZoneMargin = 0;
+    /** Width of the mask fade at the chain sides and ends, blocks (relief tapers to vanilla over it). */
+    public double chainEdgeWidth = 500;
+
+    // ---- Mountain mask: stretched zone noise (chainLayout = false, mixed world) ------
     /** Wavelength of the mask noise along the range direction, blocks. Zones are long this way. */
     public double maskWavelengthAlong = 6000;
     /** Wavelength across the range direction, blocks. Zones are narrow this way. */
@@ -132,36 +177,47 @@ public final class MountainSettings {
     public double maskEdgeWidth = 0.16;
     /** Continentalness at and below which mountains are fully faded out (coast is -0.19..-0.11; -0.15 is the shoreline). */
     public double maskInlandStart = -0.15;
-    /** Continentalness at and above which mountains are fully on (0.05 is {@link #nearInlandDistance} blocks inland). */
+    /** Continentalness at and above which mountains are fully on. */
     public double maskInlandFull = 0.05;
 
-    // ---- Plate continents (mixed world; replaces vanilla continentalness) -----------
+    // ---- Continents (mixed world; replaces vanilla continentalness) ------------------
+    /** true: noise continents ({@link NoiseContinents}, Continents-mod style). false: Voronoi plates ({@link PlateContinents}). */
+    public boolean noiseContinents = true;
+    /** Wavelength of the largest continent noise octave, blocks. Sets continent and ocean size. */
+    public double continentWavelength = 36000;
+    /** Octaves of continent noise; each halves the wavelength. More = finer coastal detail. */
+    public int continentOctaves = 7;
+    /** Amplitude falloff per octave (0.5 = rough coasts, 0.65 = rougher, 0.4 = smooth blobs). */
+    public double continentGain = 0.5;
+    /** Noise value above which there is land. Higher = less land. About 0.1 gives a third land. */
+    public double continentLandThreshold = 0.18;
+    /** Spawn island: the noise is raised by this at the origin, fading out over continentSpawnRadius blocks. */
+    public double continentSpawnBoost = 0.4;
+    public double continentSpawnRadius = 9000;
+
+    // ---- Plate continents (noiseContinents = false). The distance ramp fields at the end apply to both models. ----
     /** Lattice spacing of the Voronoi plates, blocks. A continent is a cluster of a few plates. */
-    public double plateSizeBlocks = 10000;
-    /**
-     * Fraction of plates that are land. Adjacent land plates merge into one continent, so this
-     * sets continent size: at 0.4 a continent is typically 3 to 8 plates and ringed by sea;
-     * above about 0.55 the land joins up into one world-spanning mass. The origin plate is always land.
-     */
-    public double plateLandFraction = 0.32;
+    public double plateSizeBlocks = 15000;
+    /** Fraction of plates that are land; adjacent land plates merge. Above about 0.55 the land joins up. The origin plate is always land. */
+    public double plateLandFraction = 0.46;
     /** The coast is pulled this far inside the land plates, blocks (widens the sea between continents). */
-    public double coastInset = 1200;
+    public double coastInset = 1000;
     /** Cell-centre jitter as a fraction of the lattice spacing (0 = square grid, 1 = anywhere in the cell). */
     public double plateJitter = 0.8;
     /** Domain-warp amplitude, blocks: how far plate edges bend away from straight lines. */
-    public double plateWarpAmplitude = 2400;
+    public double plateWarpAmplitude = 4500;
     /** Wavelength of that warp, blocks. */
-    public double plateWarpWavelength = 9000;
+    public double plateWarpWavelength = 14000;
     /** Second, medium-scale warp: breaks the remaining straight edges into lobes and inlets. Amplitude, blocks. */
-    public double plateWarp2Amplitude = 1000;
+    public double plateWarp2Amplitude = 1500;
     /** Wavelength of the medium warp, blocks. */
-    public double plateWarp2Wavelength = 2600;
+    public double plateWarp2Wavelength = 4500;
     /** Each plate is stretched along a random direction by a ratio between 1 and this, so continents are elongated. */
-    public double plateStretchMax = 2.2;
+    public double plateStretchMax = 1.5;
     /** Amplitude of the kilometre-scale coast shape noise, blocks: bays, peninsulas, offshore islets. */
-    public double coastShapeAmplitude = 900;
+    public double coastShapeAmplitude = 1300;
     /** Wavelength of the coast shape noise, blocks. */
-    public double coastShapeWavelength = 4500;
+    public double coastShapeWavelength = 6500;
     /** Amplitude of the small coastal noise added to the coast distance, blocks (bays and headlands). */
     public double coastNoiseAmplitude = 160;
     /** Wavelength of the coastal noise, blocks. */

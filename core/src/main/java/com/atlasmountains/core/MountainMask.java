@@ -11,29 +11,31 @@ package com.atlasmountains.core;
 public final class MountainMask {
 
     private final MountainSettings s;
-    private final RangeLayout layout;
-    private final PlateContinents continents;
+    private final SpineLayout layout;
+    private final Continents continents;
     private final long seed;
     /** False makes every position count as inland (the "everywhere" preset and the heightmap diagnostics). */
     public volatile boolean fadeAtCoast = true;
 
-    public MountainMask(MountainSettings settings, RangeLayout layout, PlateContinents continents, long seed) {
+    public MountainMask(MountainSettings settings, SpineLayout layout, Continents continents, long seed) {
         this.s = settings;
         this.layout = layout;
         this.continents = continents;
         this.seed = Hash.hash(seed, 1010);
     }
 
-    public PlateContinents continents() { return continents; }
+    public Continents continents() { return continents; }
 
     private static double smoothstep(double t) {
         t = Math.max(0, Math.min(1, t));
         return t * t * (3 - 2 * t);
     }
 
-    /** The zone noise alone, 0..1, no inland ramp. */
+    /** The zones alone, 0..1, no inland ramp: the layout's chains if it has them, else the stretched zone noise. */
     public double zone(double x, double z, double[] scratch) {
-        layout.toFrame(x, z, scratch);
+        double lz = layout.zone(x, z);
+        if (!Double.isNaN(lz)) return lz;
+        ((RangeLayout) layout).toFrame(x, z, scratch);
         double u = scratch[0] / s.maskWavelengthAcross, v = scratch[1] / s.maskWavelengthAlong;
         double sum = 0, amp = 1, norm = 0;
         for (int o = 0; o < s.maskOctaves; o++) {

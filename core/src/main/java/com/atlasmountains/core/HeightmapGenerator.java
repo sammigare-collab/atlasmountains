@@ -9,30 +9,42 @@ public final class HeightmapGenerator {
 
     private final MountainSettings s;
     private final long seed;
-    private final RangeLayout layout;
+    private final SpineLayout layout;
     private final CrestProfile crest;
     private final CrossProfile cross;
     private final long detailSeed, lakeSeed;
 
+    /** Layout chosen by {@link MountainSettings#chainLayout}: chains, or parallel spines everywhere. */
     public HeightmapGenerator(MountainSettings settings, long seed) {
+        this(settings, seed, settings.chainLayout ? new ChainLayout(settings, seed) : new RangeLayout(settings, seed));
+    }
+
+    public HeightmapGenerator(MountainSettings settings, long seed, SpineLayout layout) {
         this.s = settings;
         this.seed = seed;
-        this.layout = new RangeLayout(settings, seed);
-        this.crest = new CrestProfile(settings, seed);
+        this.layout = layout;
+        this.crest = new CrestProfile(settings, seed, layout);
         this.cross = new CrossProfile(settings);
         this.detailSeed = Hash.hash(seed, 606);
         this.lakeSeed = Hash.hash(seed, 707);
     }
 
-    public RangeLayout layout() { return layout; }
+    public SpineLayout layout() { return layout; }
     public CrestProfile crest() { return crest; }
     public MountainSettings settings() { return s; }
 
     /** Un-noised analytic shape: spine, crest, cross profile only (steps 1 to 3). */
     public double baseHeightAt(double x, double z, RangeLayout.Sample scratch) {
         layout.sample(x, z, scratch);
-        double c = crest.height(scratch.range, scratch.along);
-        return cross.height(c, scratch.distance);
+        double h = cross.height(crest.height(scratch.range, scratch.along), scratch.distance);
+        // The second spine matters only where two spines are closer than two half-widths (chains
+        // joining at a fork): the union of the two mountains is continuous where either alone
+        // would show a seam. Between parallel spines the second is in the valley and adds nothing.
+        if (scratch.distance2 < s.halfWidth()) {
+            double h2 = cross.height(crest.height(scratch.range2, scratch.along2), scratch.distance2);
+            if (h2 > h) h = h2;
+        }
+        return h;
     }
 
     /** Ridged multifractal in [0,1], sharp ridges at 1. */

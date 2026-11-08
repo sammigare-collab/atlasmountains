@@ -2,7 +2,9 @@ package com.atlasmountains.core.diag;
 
 import com.atlasmountains.core.MountainMask;
 import com.atlasmountains.core.MountainSettings;
-import com.atlasmountains.core.PlateContinents;
+import com.atlasmountains.core.ChainLayout;
+import com.atlasmountains.core.Continents;
+import com.atlasmountains.core.SpineLayout;
 import com.atlasmountains.core.RangeLayout;
 import com.atlasmountains.core.SettingsOverrides;
 
@@ -30,11 +32,6 @@ import java.io.IOException;
  */
 public final class ContinentMap {
 
-    /** Prototype switch: draw belts along land-land plate boundaries instead of the current zones. */
-    static boolean BELTS = Boolean.getBoolean("belts");
-    static double BELT_HALF_WIDTH = Double.parseDouble(System.getProperty("beltHalfWidth", "2200"));
-    static double BELT_FRACTION = Double.parseDouble(System.getProperty("beltFraction", "0.6"));
-
     public static void main(String[] args) throws IOException {
         long seed = args.length > 0 ? Long.parseLong(args[0]) : 1;
         int span = args.length > 1 ? Integer.parseInt(args[1]) : 64000;
@@ -45,8 +42,8 @@ public final class ContinentMap {
         MountainSettings s = new MountainSettings();
         for (int i = 6; i < args.length; i++) SettingsOverrides.apply(s, args[i]);
 
-        PlateContinents plates = new PlateContinents(s, seed);
-        RangeLayout layout = new RangeLayout(s, seed);
+        Continents plates = Continents.create(s, seed);
+        SpineLayout layout = s.chainLayout ? new ChainLayout(s, seed) : new RangeLayout(s, seed);
         MountainMask mask = new MountainMask(s, layout, plates, seed);
         String info = render(s, plates, mask, seed, span, bpp, cx, cz, new File(out));
         System.out.println(info);
@@ -54,7 +51,7 @@ public final class ContinentMap {
     }
 
     /** Renders the map and writes it to {@code out}; returns the legend line. */
-    public static String render(MountainSettings s, PlateContinents plates, MountainMask mask, long seed,
+    public static String render(MountainSettings s, Continents plates, MountainMask mask, long seed,
                                 int span, int bpp, int cx, int cz, File out) throws IOException {
         int n = span / bpp;
         BufferedImage img = new BufferedImage(n, n, BufferedImage.TYPE_INT_RGB);
@@ -68,7 +65,7 @@ public final class ContinentMap {
                 int rgb = landColour(c);
                 if (c > -0.19) {
                     landPx++;
-                    double m = (BELTS ? plates.beltMask(x, z, BELT_HALF_WIDTH, BELT_FRACTION) : mask.zone(x, z, scratch)) * mask.inland(x, z);
+                    double m = mask.zone(x, z, scratch) * mask.inland(x, z);
                     if (m > 0.01) {
                         zonePx += m;
                         rgb = blend(rgb, 0x5a3a1e, m);
@@ -87,9 +84,10 @@ public final class ContinentMap {
         g.drawLine(20, n - 24, 20 + bar, n - 24);
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, Math.max(12, n / 60)));
         g.drawString("10 km", 20, n - 32);
-        String info = String.format("seed %d   span %d km   plates ~%.0f km, %d%% land   land %.0f%%   zones %.0f%% of land   deep ocean %.0f%%",
-                seed, span / 1000, s.plateSizeBlocks / 1000, Math.round(s.plateLandFraction * 100), 100 * landPx / (n * (double) n),
-                100 * zonePx / Math.max(1, landPx), 100 * deepPx / (n * (double) n));
+        String info = String.format("seed %d   span %d km   %s   land %.0f%%   mountain zones %.0f%% of land   deep ocean %.0f%%",
+                seed, span / 1000, s.noiseContinents ? String.format("noise continents %.0f km", s.continentWavelength / 1000)
+                        : String.format("plates ~%.0f km, %d%% land", s.plateSizeBlocks / 1000, Math.round(s.plateLandFraction * 100)),
+                100 * landPx / (n * (double) n), 100 * zonePx / Math.max(1, landPx), 100 * deepPx / (n * (double) n));
         g.setColor(new Color(0, 0, 0, 160));
         g.fillRect(10, 10, g.getFontMetrics().stringWidth(info) + 20, g.getFontMetrics().getHeight() + 10);
         g.setColor(Color.WHITE);
@@ -101,7 +99,7 @@ public final class ContinentMap {
         return info;
     }
 
-    static int landColour(double c) {
+    public static int landColour(double c) {
         if (c <= -0.455) return lerpColour(0x0b1f4d, 0x14407a, (c + 1.0) / (1.0 - 0.455));         // deep ocean
         if (c <= -0.19) return lerpColour(0x14407a, 0x3f86c2, (c + 0.455) / (0.455 - 0.19));      // ocean, shallowing
         if (c <= -0.11) return 0xe3d6a3;                                                            // beach band
@@ -115,7 +113,7 @@ public final class ContinentMap {
         return blend(a, b, t);
     }
 
-    static int blend(int a, int b, double t) {
+    public static int blend(int a, int b, double t) {
         int r = (int) Math.round(((a >> 16) & 255) * (1 - t) + ((b >> 16) & 255) * t);
         int gg = (int) Math.round(((a >> 8) & 255) * (1 - t) + ((b >> 8) & 255) * t);
         int bl = (int) Math.round((a & 255) * (1 - t) + (b & 255) * t);

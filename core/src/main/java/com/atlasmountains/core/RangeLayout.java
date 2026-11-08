@@ -7,7 +7,7 @@ package com.atlasmountains.core;
  * For any block position this gives the nearest spine, the signed distance to it
  * and the position along it.
  */
-public final class RangeLayout {
+public final class RangeLayout implements SpineLayout {
 
     public static final class Sample {
         /** Index of the nearest spine. */
@@ -18,6 +18,9 @@ public final class RangeLayout {
         public double along;
         /** Distance to the second nearest spine (the other side of the valley). */
         public double distance2;
+        /** Index of that second spine, and the position along it. */
+        public int range2;
+        public double along2;
     }
 
     private final MountainSettings s;
@@ -61,32 +64,34 @@ public final class RangeLayout {
         return k * s.rangeSpacing + offset(k) + curve(k, v);
     }
 
+    @Override
     public void sample(double x, double z, Sample out) {
         // rotate world -> (u across, v along)
         double u = x * cos + z * sin;
         double v = -x * sin + z * cos;
         int k0 = (int) Math.round(u / s.rangeSpacing);
         double best = Double.MAX_VALUE, second = Double.MAX_VALUE;
-        int bestK = k0;
-        double bestAlong = v;
+        int bestK = k0, secondK = k0;
+        double bestAlong = v, secondAlong = v;
         for (int k = k0 - 1; k <= k0 + 1; k++) {
             double du = u - spineU(k, v);
             double slope = curveSlope(k, v);
             double q = 1 + slope * slope;
             double dist = Math.abs(du) / Math.sqrt(q); // perpendicular distance to the locally tilted spine
+            // foot of the perpendicular on the spine, so "along" is orthogonal to "distance"
+            double along = v + slope * du / q;
             if (dist < best) {
-                second = best;
-                best = dist;
-                bestK = k;
-                // foot of the perpendicular on the spine, so "along" is orthogonal to "distance"
-                bestAlong = v + slope * du / q;
+                second = best; secondK = bestK; secondAlong = bestAlong;
+                best = dist; bestK = k; bestAlong = along;
             } else if (dist < second) {
-                second = dist;
+                second = dist; secondK = k; secondAlong = along;
             }
         }
         out.range = bestK;
         out.distance = best;
-        out.distance2 = second;
         out.along = bestAlong;
+        out.range2 = secondK;
+        out.distance2 = second;
+        out.along2 = secondAlong;
     }
 }

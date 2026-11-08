@@ -45,17 +45,40 @@ valley floor 80, rock line 340, summit 600, sea level 79, snow line 540, caves s
 
 ## World presets
 
-- **Atlas Mountains** (`atlasmountains:atlasmountains`): a vanilla world whose mountains are replaced by ours.
-  Vanilla never makes its own peaks (its erosion input is floored at -0.2). Mountain zones come from
-  a noise stretched ~4:1 along the range direction (`MountainSettings.mask*`), faded out towards
-  the coast using vanilla's continentalness. Inside a zone: our ranges, valleys and lakes at vanilla
-  sea level; our three biomes and surface rules. Outside: untouched vanilla. Terrain, biomes and
-  surface all read the same `atlasmountains:mountain_mask`.
-- **Atlas Mountains (everywhere)** (`atlasmountains:all`): the whole world is mountain country; for testing.
+- **Atlas Mountains** (`atlasmountains:atlasmountains`): continents, vanilla terrain and biomes, our
+  mountains in chains. Three layers, all in `core/`:
+  - *Continents* (`NoiseContinents`, `MountainSettings.continent*`): a large fractal noise, Continents-mod
+    style, replaces vanilla's continentalness: mostly ocean, big organic landmasses and islands, spawn
+    on land. Mapped onto vanilla's continentalness scale by gradient-normalised distance to the shore,
+    so beaches and the mountain coast fade are a fixed number of blocks. `PlateContinents` (Voronoi
+    plates) is the alternative model (`noiseContinents=false`).
+  - *Mountain chains* (`ChainLayout`, `MountainSettings.chain*`): each chain is a curved centreline of its
+    own direction, 5 to 11 km long, carrying 1 to 3 parallel spines of the usual design; about half fork
+    once or twice at 35 to 65 degrees, and summits near a fork are up to 18% taller. Chains are only
+    placed where the world's erosion noise is low (`chainErosionBelow`), so they cluster into the hilly
+    provinces of the biome layer and leave the plains alone; the cell containing spawn always has one.
+    The mask is the capsule around a chain's spines, fading over `chainEdgeWidth` at the sides and ends
+    (the relief is scaled by the mask) and at the coast.
+  - *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Climate noises are slowed
+    (temperature 16x, vegetation 16x, erosion 8x) so biomes span kilometres; the ridge noise is left
+    alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring erosion at -0.1.
+    Note: vanilla's terrain splines read `minecraft:overworld/continents` and `/erosion` by name, so
+    the preset ships repointed copies (`vanilla_*` density functions) that read the mod's continents and
+    the floored erosion; the router entries alone only affect biomes.
+  Inside a chain: our ranges, valleys and lakes at vanilla sea level; our three biomes and surface rules.
+  Terrain, biomes and surface all read the same `atlasmountains:mountain_mask`.
+- **Atlas Mountains (everywhere)** (`atlasmountains:all`): the whole world is mountain country with the
+  parallel-spine layout (`RangeLayout`); for testing the mountain design. Separate terrain cache
+  (`<world>/atlasmountains/parallel/` vs `chains/`).
 
-Commands: `/atlasmountains info`, `/atlasmountains scan` (mask map around you, to the log),
-`/atlasmountains heightmap <size> <step>` (surface heightmap PNG into `<world>/atlasmountains/`;
-about 1.5 ms per column, so 6144 at step 16 takes a few minutes).
+Commands: `/atlasmountains info` (layout, continentalness, mask, terrain height), `/atlasmountains scan`
+(mask map around you to the log: `#` mountains, `+` edge, `.` land, `~` sea), `/atlasmountains continents <km>`
+(PNG of continents and chains around you into `<world>/atlasmountains/`, quick), `/atlasmountains fields <km>
+<erosionBelow> <ridgesAbove>` (PNG of where the world's erosion/ridge noises would put biome-level mountains),
+`/atlasmountains heightmap <size> <step>` (surface heightmap PNG; about 1.5 ms per column).
+
+Layout previews without the game: `java -cp build/classes com.atlasmountains.core.diag.ContinentMap <seed> [span] [blocksPerPixel] [cx] [cz] [out.png] [name=value...]`
+with `chainLayout=true` (no erosion gating outside the game, so it shows every candidate chain).
 
 ## Biomes
 
@@ -66,13 +89,15 @@ freeze_top_layer (snow comes from the surface rule, top of the relief only). Ore
 carvers and mob spawns are vanilla. The vanilla overworld biome list is not used because it put
 jungles and forests on the flanks; nothing outside the preset is changed.
 
-## Tested
+## Tested (2026-11-08, chains + noise continents)
 
-- `gradlew build` (Loom 1.10.5, Gradle 8.14.3) and `:core:test` pass.
-- Dedicated dev server (`gradlew :fabric:runServer`) loads the preset, erodes the four spawn
-  regions in ~9 s, and generates ~6 chunks/s on a 2-core machine; 1,900 chunks read back from
-  the region files match the cached heightmap and show the expected surface blocks.
-- Not yet tested: the client, and the look from a valley floor.
+- `gradlew build` and `:core:test` pass.
+- Dedicated dev server, seed 1, both presets: the mixed preset loads, chains follow the erosion
+  noise, continentalness/beach/ocean/deep-ocean bands verified at probed positions, chunks generated
+  over a chain and read back from the region files (summits to y 281, snow/rock/grass surface);
+  the everywhere preset loads with the parallel layout and gives the same spawn height as before.
+- Region generation (chains) about 3 s per 2048x2048 region on a 2-core machine.
+- Not tested: the client; the look of a fork and its taller summit from the ground; long play.
 
 ## Known limitations
 
@@ -80,5 +105,8 @@ jungles and forests on the flanks; nothing outside the preset is changed.
   25 to 35% of the relief; vanilla placement modifiers cannot filter by height.
 - Vanilla cave carvers still cut the lower flanks (they run to y 180); the density-function caves
   stop at y 300.
-- The `continents` and `erosion` climate noises are rescaled and shipped but no longer affect
-  biome choice (temperature only), so they only matter if more biomes are added.
+- Our three biomes are chosen by temperature only; humidity and erosion do not affect them.
+- Inside a chain zone the land between and beside the ranges is the flat valley floor at y 64 (with
+  lakes), not vanilla terrain; vanilla returns over the 500-block edge fade.
+- Chain placement depends on the world's erosion noise, which the mod receives when the overworld
+  loads; the standalone preview tool has no erosion and shows every candidate chain.
