@@ -87,15 +87,17 @@ public final class RegionCache {
      * Always equals the zone mask for the parallel layout.
      */
     public double innerMask(double x, double z) {
-        ChainLayout chains = chainLayout();
-        if (chains == null) return mask(x, z);
         int bx = (int) Math.floor(x), bz = (int) Math.floor(z);
         long key = ((long) bx << 32) ^ (bz & 0xffffffffL);
         ColumnCache c = innerColumnCache.get();
         int i = (int) (Hash.mix(key) & ((1 << COLUMN_CACHE_BITS) - 1));
         if (c.keys[i] == key) return c.values[i];
         double m = mask(bx, bz);
-        double v = m <= 0 ? 0 : m * chains.inner(bx, bz);
+        SpineLayout layout = pipeline.generator().layout();
+        double v = m <= 0 ? 0
+                 : layout instanceof ChainLayout chains ? m * chains.inner(bx, bz)
+                 : layout instanceof RangeLayout rl ? m * rl.valley(bx, bz)
+                 : m;
         c.keys[i] = key;
         c.values[i] = v;
         return v;

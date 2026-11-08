@@ -32,8 +32,11 @@ public final class AtlasMountainsMod implements ModInitializer {
         return Identifier.of(MOD_ID, path);
     }
 
-    /** The chain-layout cache (the mixed "Atlas Mountains" preset). */
-    public static RegionCache cache() { return cache(true); }
+    /** Whether the mixed "Atlas Mountains" preset lays its mountains as chains (true) or as vanilla's mountain footprint with parallel ranges (false). */
+    public static final boolean MIXED_USES_CHAINS = false;
+
+    /** The cache that generates the mixed "Atlas Mountains" preset. */
+    public static RegionCache cache() { return cache(MIXED_USES_CHAINS); }
 
     /** The terrain cache for a layout, created lazily (in memory, seed 0, if sampled before a server has started). */
     public static RegionCache cache(boolean chains) {
@@ -68,7 +71,7 @@ public final class AtlasMountainsMod implements ModInitializer {
 
     /** The cache that generates a given world: chains for the mixed preset (mask biome source), parallel otherwise. */
     public static RegionCache cacheFor(net.minecraft.server.world.ServerWorld world) {
-        return cache(world.getChunkManager().getChunkGenerator().getBiomeSource() instanceof AtlasBiomeSource);
+        return cache(world.getChunkManager().getChunkGenerator().getBiomeSource() instanceof AtlasBiomeSource && MIXED_USES_CHAINS);
     }
 
     private static void shutdownCaches() {
@@ -83,6 +86,7 @@ public final class AtlasMountainsMod implements ModInitializer {
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, id("mountain_mask"), MountainMaskFunction.CODEC_HOLDER.codec());
         Registry.register(Registries.MATERIAL_CONDITION, id("on_our_slope"), OnOurSlopeCondition.CODEC_HOLDER.codec());
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, id("continents"), ContinentsFunction.CODEC_HOLDER.codec());
+        Registry.register(Registries.DENSITY_FUNCTION_TYPE, id("stretched_erosion"), StretchedErosionFunction.CODEC_HOLDER.codec());
         Registry.register(Registries.MATERIAL_CONDITION, id("slope_above"), SlopeAboveCondition.CODEC_HOLDER.codec());
         Registry.register(Registries.MATERIAL_CONDITION, id("in_mountains"), InMountainsCondition.CODEC_HOLDER.codec());
         Registry.register(Registries.BIOME_SOURCE, id("mask"), AtlasBiomeSource.CODEC);
@@ -91,13 +95,19 @@ public final class AtlasMountainsMod implements ModInitializer {
         // are only placed in the biome layer's hilly provinces.
         ServerWorldEvents.LOAD.register((server, world) -> {
             if (world.getRegistryKey() != World.OVERWORLD) return;
-            if (!(world.getChunkManager().getChunkGenerator().getBiomeSource() instanceof AtlasBiomeSource)) return;
             var sampler = world.getChunkManager().getNoiseConfig().getOrCreateSampler(
                     RegistryKey.of(RegistryKeys.NOISE_PARAMETERS, id("erosion")));
-            var chains = cache(true).chainLayout();
+            MountainSettings s = new MountainSettings();
+            StretchedErosionFunction.install(sampler, seed, s.erosionStretch);
+            if (!(world.getChunkManager().getChunkGenerator().getBiomeSource() instanceof AtlasBiomeSource)) return;
+            RegionCache mixed = cache();
+            var chains = mixed.chainLayout();
             if (chains != null) {
-                chains.setErosion((x, z) -> sampler.sample(x * 0.25, 0, z * 0.25));
+                chains.setErosion(StretchedErosionFunction::erosion);
                 LOGGER.info("mountain chains now follow the overworld erosion");
+            } else {
+                mixed.mountainMask().setErosion(StretchedErosionFunction::erosion);
+                LOGGER.info("mountain zones are the overworld's mountain footprint (erosion below {}, stretched {}x)", s.erosionMountainBelow, s.erosionStretch);
             }
         });
 
