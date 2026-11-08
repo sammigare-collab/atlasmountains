@@ -33,7 +33,7 @@ public final class AtlasMountainsMod implements ModInitializer {
     }
 
     /** Whether the mixed "Atlas Mountains" preset lays its mountains as chains (true) or as vanilla's mountain footprint with parallel ranges (false). */
-    public static final boolean MIXED_USES_CHAINS = false;
+    public static final boolean MIXED_USES_CHAINS = true;
 
     /** The cache that generates the mixed "Atlas Mountains" preset. */
     public static RegionCache cache() { return cache(MIXED_USES_CHAINS); }
@@ -102,13 +102,10 @@ public final class AtlasMountainsMod implements ModInitializer {
             if (!(world.getChunkManager().getChunkGenerator().getBiomeSource() instanceof AtlasBiomeSource)) return;
             RegionCache mixed = cache();
             var chains = mixed.chainLayout();
-            if (chains != null) {
-                chains.setErosion(StretchedErosionFunction::erosion);
-                LOGGER.info("mountain chains now follow the overworld erosion");
-            } else {
-                mixed.mountainMask().setErosion(StretchedErosionFunction::erosion);
-                LOGGER.info("mountain zones are the overworld's mountain footprint (erosion below {}, stretched {}x)", s.erosionMountainBelow, s.erosionStretch);
-            }
+            if (chains != null) chains.setErosion(StretchedErosionFunction::erosion);
+            mixed.mountainMask().setErosion(StretchedErosionFunction::erosion);
+            LOGGER.info("mountain zones are the overworld's mountain footprint (erosion below {}, stretched {}x), filled with {}",
+                    s.erosionMountainBelow, s.erosionStretch, chains != null ? "chains" : "parallel ranges");
         });
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {

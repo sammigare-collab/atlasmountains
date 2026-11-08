@@ -57,14 +57,14 @@ caves stop at 150, treeline 100 (no trees in the mountain biomes above it), dime
     vanilla's peak threshold (`erosionMountainBelow` -0.375, fading over `erosionMaskBand`). The erosion
     noise is sampled stretched `erosionStretch` (2x) along the range direction (`stretched_erosion`
     density function), so every erosion province, and with it the mountain footprint and its hilly
-    surroundings, is elongated 2:1. Inside a zone the ranges are the parallel layout (`RangeLayout`)
-    running along the stretch: spines in pairs, 70% of pairs pulled back to back (col between them,
-    gap 460), wide gaps of 1060 between pairs, and only 40% of those wide gaps are flat valleys with
-    lakes (`valley`); vanilla hills fill the others and run under the outer flanks (inner mask), so
-    the foot of a range grows out of real terrain and the surface and biome hand over to vanilla's
-    (`on_our_slope`). Relief fades with the mask at the zone edge and at the coast.
-    `ChainLayout` (free-standing forking chains gated by erosion) is kept behind
-    `AtlasMountainsMod.MIXED_USES_CHAINS` / `MIXED_CHAINS` in the builder, off by default.
+    surroundings, is elongated 2:1. Inside the footprint the mountains are *chains* (`ChainLayout`):
+    curved centrelines 2.5 to 5.5 km long with 1 to 4 spines (mostly 2 to 3), gaps between spines
+    usually tight (ranges back to back in a col) and sometimes wide (flat valley with lakes), forks at
+    35 to 65 degrees, one dominant summit per chain, taller summits at forks, outer spines lower.
+    Chains are laid everywhere as candidates and the footprint mask decides where they show. Vanilla
+    terrain is removed only between a chain's spines (inner mask); under the outer flanks it carries on,
+    and the surface rules and biome hand over to vanilla's at the foot (`on_our_slope`).
+    `MIXED_USES_CHAINS` / `MIXED_CHAINS` switch the footprint to straight parallel ranges instead.
   - *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Climate noises are slowed
     to Large Biomes scale (temperature, vegetation and erosion 4x vanilla); the ridge noise is left
     alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring erosion at -0.1.

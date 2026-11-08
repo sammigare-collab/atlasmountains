@@ -49,11 +49,13 @@ public final class MountainMask {
      */
     public double zone(double x, double z, double[] scratch) {
         double lz = layout.zone(x, z);
-        if (!Double.isNaN(lz)) return lz;
         if (erosion != null) {
+            // vanilla's mountain footprint; with a chain layout the chains are what shows inside it
             double e = erosionAt(x, z);
-            return smoothstep((s.erosionMountainBelow - e) / s.erosionMaskBand + 0.5);
+            double footprint = smoothstep((s.erosionMountainBelow - e) / s.erosionMaskBand + 0.5);
+            return Double.isNaN(lz) ? footprint : lz * footprint;
         }
+        if (!Double.isNaN(lz)) return lz;
         ((RangeLayout) layout).toFrame(x, z, scratch);
         double u = scratch[0] / s.maskWavelengthAcross, v = scratch[1] / s.maskWavelengthAlong;
         double sum = 0, amp = 1, norm = 0;
