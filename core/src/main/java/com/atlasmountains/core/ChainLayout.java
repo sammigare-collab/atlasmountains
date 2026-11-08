@@ -30,7 +30,9 @@ public final class ChainLayout implements SpineLayout {
 
         /** Lateral curve of the centreline at v, 0 at the origin so children attach exactly. */
         double curve(double v, MountainSettings s) {
-            return (Hash.value1(curveSeed, v / s.chainCurveWavelength) - Hash.value1(curveSeed, 0)) * s.chainCurveAmplitude;
+            double w = s.chainCurveWavelength, a = s.chainCurveAmplitude;
+            return (Hash.value1(curveSeed, v / w) - Hash.value1(curveSeed, 0)) * a
+                 + (Hash.value1(curveSeed + 1, v / (w / 3) + 0.37) - Hash.value1(curveSeed + 1, 0.37)) * (a / 3);
         }
 
         /** World point at v along the centreline. */
@@ -140,16 +142,43 @@ public final class ChainLayout implements SpineLayout {
         root.dx = Math.cos(angle); root.dz = Math.sin(angle);
         root.nx = -root.dz; root.nz = root.dx;
         root.length = s.chainLengthMin + Hash.unit(Hash.hash(h, 6)) * (s.chainLengthMax - s.chainLengthMin);
-        double ru = Hash.unit(Hash.hash(h, 7));
-        root.ranges = s.chainRangesMin + (int) Math.floor(ru * ru * (s.chainRangesMax - s.chainRangesMin + 1));   // skewed: wide chains are rarer
-        root.ranges = Math.min(root.ranges, s.chainRangesMax);
+        root.ranges = pickRanges(Hash.unit(Hash.hash(h, 7)));
         root.curveSeed = Hash.hash(h, 8);
+        root.length = Math.max(root.length, s.chainMinAspect * 2 * root.zoneHalf(s));   // wide chains must be long: chains, not blobs
         out.add(root);
         branch(root, s.chainBranchChance, 1, out);
         Chain[] arr = out.toArray(new Chain[0]);
         for (Chain c : arr) for (int k = 0; k < c.ranges; k++) bySpine.put(c.spineId(k), c);
         return arr;
     }
+
+    /** Spines per chain from the chainRangesWeights table (1, 2, 3, 4 spines). */
+    private int pickRanges(double u) {
+        double[] w = s.chainRangesWeights;
+        double total = 0;
+        for (double v : w) total += v;
+        double acc = 0;
+        for (int i = 0; i < w.length; i++) {
+            acc += w[i] / total;
+            if (u < acc) return Math.max(s.chainRangesMin, Math.min(s.chainRangesMax, i + 1));
+        }
+        return s.chainRangesMax;
+    }
+
+    /**
+     * Inner mask 0..1: 1 between the spines of a chain (the flat valley floor with lakes stays
+     * ours there), fading to 0 just outside the outermost spine, so the foot of an outer flank
+     * grows out of vanilla terrain instead of a flat plain.
+     */
+    public double inner(double x, double z) {
+        RangeLayout.Sample sc = innerScratch.get();
+        sample(x, z, sc);
+        // between two spines: distance + distance2 == their gap; outside the outer spine it grows by twice the overshoot
+        double outside = 0.5 * (sc.distance + sc.distance2 - s.spineGapWideMax);
+        return smoothstep(1 - outside / s.innerFade);
+    }
+
+    private final ThreadLocal<RangeLayout.Sample> innerScratch = ThreadLocal.withInitial(RangeLayout.Sample::new);
 
     private void branch(Chain parent, double chance, int depth, List<Chain> out) {
         long h = Hash.hash(parent.id, 77, depth);
@@ -169,6 +198,7 @@ public final class ChainLayout implements SpineLayout {
         c.length = parent.length * (s.chainBranchLengthMin + Hash.unit(Hash.hash(h, 6)) * (s.chainBranchLengthMax - s.chainBranchLengthMin));
         c.ranges = Math.max(1, 1 + (int) Math.floor(Hash.unit(Hash.hash(h, 7)) * parent.ranges));
         c.curveSeed = Hash.hash(h, 8);
+        c.length = Math.max(c.length, s.chainMinAspect * 2 * c.zoneHalf(s));
         c.startBoost = s.junctionBoost;
         parent.forks.add(t);
         out.add(c);
@@ -177,14 +207,27 @@ public final class ChainLayout implements SpineLayout {
 
     private final Map<Long, Chain[]> neighbourhoods = new ConcurrentHashMap<>();
 
-    /** All chains whose cells are within reach of (x, z): the 5x5 cells around it (a chain and its children stay within two cells). */
+    /**
+     * All chains that can reach (x, z). A root chain starts anywhere in its cell and runs up to
+     * chainLengthMax; a child up to 0.8 of that from part-way along, a grandchild 0.64: about
+     * 2.5 lengths plus a cell. With chainLengthMax at most 1.2 cells that is under 4 cells, so
+     * the 9x9 block of cells is searched. (Searching too few cells cut chains off along a
+     * straight cell line as a vertical wall.) Only chains whose bounding reach touches the cell
+     * are kept, so the per-sample loop stays short.
+     */
     private Chain[] near(double x, double z) {
         long cx = (long) Math.floor(x / s.chainCellSize), cz = (long) Math.floor(z / s.chainCellSize);
         return neighbourhoods.computeIfAbsent((cx << 32) ^ (cz & 0xffffffffL), key -> {
             List<Chain> all = new ArrayList<>();
-            for (long i = cx - 2; i <= cx + 2; i++)
-                for (long k = cz - 2; k <= cz + 2; k++)
-                    for (Chain c : cell(i, k)) all.add(c);
+            double size = s.chainCellSize;
+            double x0 = cx * size, z0 = cz * size, x1 = x0 + size, z1 = z0 + size;
+            for (long i = cx - 4; i <= cx + 4; i++)
+                for (long k = cz - 4; k <= cz + 4; k++)
+                    for (Chain c : cell(i, k)) {
+                        double reach = c.length + c.zoneHalf(s) + s.chainEdgeWidth + 2 * s.halfWidth();
+                        double nx = Math.max(x0, Math.min(x1, c.ox)), nz = Math.max(z0, Math.min(z1, c.oz));
+                        if (Math.hypot(c.ox - nx, c.oz - nz) <= reach) all.add(c);
+                    }
             return all.toArray(new Chain[0]);
         });
     }

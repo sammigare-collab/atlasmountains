@@ -68,6 +68,7 @@ def cache2d(f): return {'type': 'minecraft:cache_2d', 'argument': f}
 TERRAIN = cache2d({'type': f'{NS}:terrain_height', 'chains': False})                 # "everywhere" preset: parallel spines
 TERRAIN_FAST = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'chains': False})   # analytic model, no erosion; for biome depth only
 MASK = cache2d({'type': f'{NS}:mountain_mask'})
+INNER = cache2d({'type': f'{NS}:mountain_mask', 'kind': 'inner'})   # 1 only between a chain's spines
 SC = f'{NS}:overworld/sloped_cheese'
 SC_MASKED = f'{NS}:overworld/sloped_cheese_masked'      # relief faded by the mask (mixed world)
 TERRAIN_MASKED = cache2d({'type': f'{NS}:terrain_height', 'mask_relief': True, 'chains': True})     # mixed preset: chains
@@ -86,15 +87,18 @@ def lerp(mask, vanilla, ours):
         return ours
     return add(mul(add(1.0, mul(-1.0, mask)), vanilla), mul(mask, ours))
 
-def union(mask, vanilla, ours):
-    """Terrain blend: max(mask * ours, (1 - mask) * vanilla). Solid wherever either side is
+def union(mask, vanilla, ours, inner=None):
+    """Terrain blend: max(mask * ours, (1 - inner) * vanilla). Solid wherever either side is
     solid, so a range (whose relief is already faded by the mask) always sits on top of
-    vanilla ground instead of hovering over a hollow. mul short-circuits when its first
-    argument is 0, so outside the zones our terrain (and its region erosion) is never
-    evaluated, and inside them vanilla is not."""
+    vanilla ground instead of hovering over a hollow. Vanilla is removed only by the inner
+    mask (between a chain's spines, where the flat valley floor and its lakes live); under the
+    outer flanks it carries on, so the foot of a range grows out of real hills. mul
+    short-circuits when its first argument is 0, so outside the zones our terrain (and its
+    region erosion) is never evaluated."""
     if mask == 1.0:
         return ours
-    return dmax(mul(mask, ours), mul(add(1.0, mul(-1.0, mask)), vanilla))
+    if inner is None: inner = mask
+    return dmax(mul(mask, ours), mul(add(1.0, mul(-1.0, inner)), vanilla))
 
 def y_gate(expr, else_value):
     """expr below CAVE_TOP, else_value at and above it."""
@@ -220,7 +224,7 @@ surface_layer = {'type': 'minecraft:stone_depth', 'offset': 0, 'surface_type': '
 above_water = {'type': 'minecraft:water', 'offset': 0, 'surface_depth_multiplier': 0, 'add_stone_depth': False}
 snow = {'type': 'minecraft:y_above', 'anchor': {'absolute': SNOW_LINE}, 'surface_depth_multiplier': SNOW_JITTER_MULT, 'add_stone_depth': False}
 def steep(chains): return {'type': f'{NS}:slope_above', 'degrees': ROCK_SLOPE_DEG, 'chains': chains}
-in_mountains = {'type': f'{NS}:in_mountains', 'threshold': 0.5}
+in_mountains = {'type': f'{NS}:on_our_slope', 'above_floor': 6.0}   # valley floors and our flanks; not the foot where vanilla shows
 
 rock = seq(   # warm rock palette: a simple noise-selected mix of three vanilla blocks
     cond(noise_between(-10.0, -0.25), block('minecraft:tuff')),
@@ -313,8 +317,9 @@ def build_variant(settings_name, preset_name, mixed):
     if mixed:
         vanilla_depth, vanilla_initial, v_final = repoint(vanilla_depth), repoint(vanilla_initial), repoint(copy.deepcopy(vanilla_final))
     r['depth'] = lerp(mask, vanilla_depth, depth)
-    r['initial_density_without_jaggedness'] = union(mask, vanilla_initial, sc)
-    r['final_density'] = union(mask, v_final, make_our_final(sc))
+    inner = INNER if mixed else 1.0
+    r['initial_density_without_jaggedness'] = union(mask, vanilla_initial, sc, inner)
+    r['final_density'] = union(mask, v_final, make_our_final(sc), inner)
     sr = copy.deepcopy(vanilla_sr)
     if mixed:
         sr['sequence'][1] = cond({'type': 'minecraft:above_preliminary_surface'},

@@ -79,6 +79,40 @@ public final class RegionCache {
         return v;
     }
 
+    private final ThreadLocal<ColumnCache> innerColumnCache = ThreadLocal.withInitial(ColumnCache::new);
+
+    /**
+     * Inner mask 0..1: the zone mask, further limited to the ground between a chain's spines
+     * (valley floors). 0 under the outer flanks, where vanilla terrain carries on beneath ours.
+     * Always equals the zone mask for the parallel layout.
+     */
+    public double innerMask(double x, double z) {
+        ChainLayout chains = chainLayout();
+        if (chains == null) return mask(x, z);
+        int bx = (int) Math.floor(x), bz = (int) Math.floor(z);
+        long key = ((long) bx << 32) ^ (bz & 0xffffffffL);
+        ColumnCache c = innerColumnCache.get();
+        int i = (int) (Hash.mix(key) & ((1 << COLUMN_CACHE_BITS) - 1));
+        if (c.keys[i] == key) return c.values[i];
+        double m = mask(bx, bz);
+        double v = m <= 0 ? 0 : m * chains.inner(bx, bz);
+        c.keys[i] = key;
+        c.values[i] = v;
+        return v;
+    }
+
+    /**
+     * True where this column is "ours": on the valley floor between spines (inner mask), or on
+     * our flank (the masked analytic height stands above the valley floor by more than
+     * {@code aboveFloor} blocks). Used by the surface rules and the biome source so the foot of
+     * an outer flank hands over to vanilla's surface and biome.
+     */
+    public boolean onOurSlope(double x, double z, double aboveFloor, RangeLayout.Sample scratch) {
+        if (innerMask(x, z) >= 0.5) return true;
+        if (mask(x, z) <= 0) return false;
+        return maskedBaseHeight(x, z, scratch) >= s.valleyFloorHeight + aboveFloor;
+    }
+
     /**
      * Height with the relief scaled by the mountain mask, so at a zone edge the range tails off
      * into hills instead of standing as a cliff against vanilla terrain. Equals height() inside a zone.

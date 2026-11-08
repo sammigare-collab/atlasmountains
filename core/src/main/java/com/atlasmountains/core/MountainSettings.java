@@ -128,7 +128,7 @@ public final class MountainSettings {
 
     // ---- Mountain chains (chainLayout = true) ------------------------------------
     /** Cell size of the chain lattice, blocks. One chain per cell at most; sets how far apart chains are. */
-    public double chainCellSize = 6000;
+    public double chainCellSize = 5000;
     /** Probability that a cell has a chain (before the erosion gate). */
     public double chainChance = 0.9;
     /**
@@ -140,13 +140,18 @@ public final class MountainSettings {
     public double chainErosionBand = 0.4;
     /** Chain length, blocks, uniform between these two. */
     public double chainLengthMin = 2500;
-    public double chainLengthMax = 6000;
+    public double chainLengthMax = 5500;
+    /** A chain is at least this many times longer than its zone is wide, so multi-range chains are long massifs rather than blobs. */
+    public double chainMinAspect = 3.5;
     /** Lateral curve of the chain centreline: amplitude and wavelength, blocks. */
     public double chainCurveAmplitude = 700;
     public double chainCurveWavelength = 3500;
-    /** Spines (ranges) per chain, uniform between these two. */
+    /** Spines (ranges) per chain: bounds, and the relative weights of 1, 2, 3 and 4 spines. */
     public int chainRangesMin = 1;
     public int chainRangesMax = 4;
+    public double[] chainRangesWeights = {30, 38, 24, 8};
+    /** Width of the inner-mask fade outside the outermost spine, blocks (see ChainLayout.inner). */
+    public double innerFade = 120;
     /**
      * Gap between neighbouring spines in a chain, blocks. A tight gap (less than two range half-widths,
      * about 650) makes the ranges meet back to back in a col; a wide gap leaves a flat valley with lakes.
@@ -156,9 +161,9 @@ public final class MountainSettings {
     public double spineGapWideMin = 760;
     public double spineGapWideMax = 900;
     /** Fraction of gaps that are wide (the flat valleys). */
-    public double spineGapWideChance = 0.3;
+    public double spineGapWideChance = 0.35;
     /** Probability that a chain forks once; a child forks again with 0.6 of this, up to chainMaxBranchDepth. */
-    public double chainBranchChance = 0.55;
+    public double chainBranchChance = 0.7;
     public int chainMaxBranchDepth = 2;
     /** Angle between a child chain and its parent, degrees, uniform between these two. */
     public double chainBranchAngleMin = 35;

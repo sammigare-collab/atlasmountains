@@ -253,7 +253,8 @@
             "argument2": {
               "type": "minecraft:cache_2d",
               "argument": {
-                "type": "atlasmountains:mountain_mask"
+                "type": "atlasmountains:mountain_mask",
+                "kind": "inner"
               }
             }
           }
@@ -441,7 +442,8 @@
             "argument2": {
               "type": "minecraft:cache_2d",
               "argument": {
-                "type": "atlasmountains:mountain_mask"
+                "type": "atlasmountains:mountain_mask",
+                "kind": "inner"
               }
             }
           }
@@ -686,8 +688,8 @@
             {
               "type": "minecraft:condition",
               "if_true": {
-                "type": "atlasmountains:in_mountains",
-                "threshold": 0.5
+                "type": "atlasmountains:on_our_slope",
+                "above_floor": 6.0
               },
               "then_run": {
                 "type": "minecraft:sequence",

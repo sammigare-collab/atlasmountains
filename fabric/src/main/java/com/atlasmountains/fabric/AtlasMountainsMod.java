@@ -81,6 +81,7 @@ public final class AtlasMountainsMod implements ModInitializer {
     public void onInitialize() {
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, id("terrain_height"), TerrainHeightFunction.CODEC_HOLDER.codec());
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, id("mountain_mask"), MountainMaskFunction.CODEC_HOLDER.codec());
+        Registry.register(Registries.MATERIAL_CONDITION, id("on_our_slope"), OnOurSlopeCondition.CODEC_HOLDER.codec());
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, id("continents"), ContinentsFunction.CODEC_HOLDER.codec());
         Registry.register(Registries.MATERIAL_CONDITION, id("slope_above"), SlopeAboveCondition.CODEC_HOLDER.codec());
         Registry.register(Registries.MATERIAL_CONDITION, id("in_mountains"), InMountainsCondition.CODEC_HOLDER.codec());

@@ -32,6 +32,7 @@ public final class AtlasBiomeSource extends BiomeSource {
             Codec.DOUBLE.optionalFieldOf("mask_threshold", 0.5).forGetter(b -> b.maskThreshold)
     ).apply(i, AtlasBiomeSource::new));
 
+    private static final ThreadLocal<com.atlasmountains.core.RangeLayout.Sample> SCRATCH = ThreadLocal.withInitial(com.atlasmountains.core.RangeLayout.Sample::new);
     private final BiomeSource vanilla;
     private final RegistryEntry<Biome> cold, temperate, warm, coldHigh, temperateHigh, warmHigh;
     private final int treelineY;
@@ -66,7 +67,8 @@ public final class AtlasBiomeSource extends BiomeSource {
     @Override
     public RegistryEntry<Biome> getBiome(int x, int y, int z, MultiNoiseUtil.MultiNoiseSampler noise) {
         int bx = x << 2, bz = z << 2;   // biome coordinates are 4-block quarts
-        if (AtlasMountainsMod.cache().mask(bx, bz) < maskThreshold) {
+        var cache = AtlasMountainsMod.cache();
+        if (cache.mask(bx, bz) < maskThreshold || !cache.onOurSlope(bx, bz, 6.0, SCRATCH.get())) {
             return vanilla.getBiome(x, y, z, noise);
         }
         double t = noise.temperature().sample(new DensityFunction.UnblendedNoisePos(bx, y << 2, bz));
