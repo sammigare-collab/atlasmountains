@@ -196,7 +196,7 @@ public final class ChainLayout implements SpineLayout {
         root.curveSeed = Hash.hash(h, 8);
         root.length = Math.max(root.length, s.chainMinAspect * 2 * root.zoneHalf(s));   // wide chains must be long: chains, not blobs
         root.vStart = 0; root.vEnd = root.length;
-        if (!trim(root, false)) return new Chain[0];
+        if (!trim(root, 0)) return new Chain[0];
         out.add(root);
         branch(root, s.chainBranchChance, 1, out);
         Chain[] arr = out.toArray(new Chain[0]);
@@ -252,7 +252,7 @@ public final class ChainLayout implements SpineLayout {
         c.curveSeed = Hash.hash(h, 8);
         c.length = Math.max(c.length, s.chainMinAspect * 2 * c.zoneHalf(s));
         c.vStart = 0; c.vEnd = c.length;
-        if (!trim(c, true)) return;
+        if (!trim(c, depth)) return;
         c.startBoost = s.junctionBoost;
         parent.forks.add(t);
         out.add(c);
@@ -266,7 +266,8 @@ public final class ChainLayout implements SpineLayout {
      * where it meets its parent. Wide chains that come out short lose spines rather than
      * becoming blobs. Returns false if nothing worth keeping is left. No footprint: unchanged.
      */
-    private boolean trim(Chain c, boolean child) {
+    private boolean trim(Chain c, int depth) {
+        boolean child = depth > 0;
         java.util.function.DoubleBinaryOperator er = erosion;
         if (er == null || !s.chainTrimToFootprint) return true;
         double[] p = new double[2];
@@ -289,7 +290,7 @@ public final class ChainLayout implements SpineLayout {
         if (bestA < 0) return false;
         double vs = Math.max(0, (bestA - 0.5) * s.chainTrimStep), ve = Math.min(c.length, (bestB + 0.5) * s.chainTrimStep);
         if (child) vs = 0;
-        if (ve - vs < s.chainTrimMinLength) return false;
+        if (ve - vs < (depth >= 2 ? s.chainTrimMinGrandchildLength : s.chainTrimMinLength)) return false;
         c.vStart = vs; c.vEnd = ve;
         while (c.ranges > 1 && ve - vs < s.chainTrimMinAspect * 2 * c.zoneHalf(s)) c.ranges--;
         return true;
@@ -401,6 +402,26 @@ public final class ChainLayout implements SpineLayout {
     private static double smoothstep(double t) {
         t = Math.max(0, Math.min(1, t));
         return t * t * (3 - 2 * t);
+    }
+
+    /** For diagnostics: one line per chain whose zone reaches within radius blocks of (x, z). */
+    public java.util.List<String> describe(double x, double z, double radius) {
+        java.util.List<String> out = new ArrayList<>();
+        for (Chain c : near(x, z)) {
+            double rx = x - c.ox, rz = z - c.oz;
+            double v = Math.max(c.vStart, Math.min(c.vEnd, rx * c.dx + rz * c.dz));
+            double lateral = rx * c.nx + rz * c.nz - c.curve(v, s);
+            double over = (rx * c.dx + rz * c.dz) - v;
+            double d = Math.hypot(Math.max(0, Math.abs(lateral) - c.zoneHalf(s)), over);
+            if (d > radius) continue;
+            double[] a = new double[2], b = new double[2];
+            c.point(c.vStart, s, a); c.point(c.vEnd, s, b);
+            StringBuilder sp = new StringBuilder();
+            for (int k = 0; k < c.ranges; k++) sp.append(String.format(java.util.Locale.UK, " [u%+.0f v%.0f..%.0f]", c.spineU(k, v, s), c.spineStart(k, s), c.spineEnd(k, s)));
+            out.add(String.format(java.util.Locale.UK, "chain %08x %s: (%.0f,%.0f)->(%.0f,%.0f) len %.0f of %.0f, %d spines, %d forks, zoneHalf %.0f, your v %.0f lateral %+.0f; spines%s",
+                (int) c.id, c.startBoost > 0 ? "child" : "root", a[0], a[1], b[0], b[1], c.vEnd - c.vStart, c.length, c.ranges, c.forks.size(), c.zoneHalf(s), v, lateral, sp));
+        }
+        return out;
     }
 
     /** For diagnostics: number of chains generated so far. */

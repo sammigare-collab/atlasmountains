@@ -52,6 +52,15 @@ public final class InfoCommand {
                     src.sendFeedback(() -> Text.literal(line2), false);
                     return 1;
                 }))
+                .then(CommandManager.literal("chains").executes(ctx -> {
+                    ServerCommandSource src = ctx.getSource();
+                    Vec3d p = src.getPosition();
+                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getWorld());
+                    var cl = cache.chainLayout();
+                    if (cl == null) { src.sendFeedback(() -> Text.literal("no chain layout"), false); return 1; }
+                    for (String line : cl.describe(p.x, p.z, 800)) src.sendFeedback(() -> Text.literal(line), false);
+                    return 1;
+                }))
                 .then(CommandManager.literal("scan").executes(ctx -> {
                     // 8 km square around the player, 200 blocks per character: # mountains, + edge, . vanilla land, ~ sea
                     ServerCommandSource src = ctx.getSource();
