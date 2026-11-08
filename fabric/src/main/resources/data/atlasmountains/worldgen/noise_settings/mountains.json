@@ -13,7 +13,7 @@
   "legacy_random_source": false,
   "noise": {
     "min_y": -64,
-    "height": 1024,
+    "height": 576,
     "size_horizontal": 1,
     "size_vertical": 2
   },
@@ -36,7 +36,10 @@
             "type": "minecraft:mul",
             "argument1": -1.0,
             "argument2": {
-              "type": "atlasmountains:mountain_mask"
+              "type": "minecraft:cache_2d",
+              "argument": {
+                "type": "atlasmountains:mountain_mask"
+              }
             }
           }
         },
@@ -45,7 +48,10 @@
       "argument2": {
         "type": "minecraft:mul",
         "argument1": {
-          "type": "atlasmountains:mountain_mask"
+          "type": "minecraft:cache_2d",
+          "argument": {
+            "type": "atlasmountains:mountain_mask"
+          }
         },
         "argument2": "atlasmountains:overworld/depth_masked"
       }
@@ -56,7 +62,10 @@
       "argument1": {
         "type": "minecraft:mul",
         "argument1": {
-          "type": "atlasmountains:mountain_mask"
+          "type": "minecraft:cache_2d",
+          "argument": {
+            "type": "atlasmountains:mountain_mask"
+          }
         },
         "argument2": {
           "type": "minecraft:min",
@@ -107,9 +116,9 @@
                                 "argument1": {
                                   "type": "minecraft:y_clamped_gradient",
                                   "from_value": 1.0,
-                                  "from_y": 900,
+                                  "from_y": 452,
                                   "to_value": 0.0,
-                                  "to_y": 940
+                                  "to_y": 492
                                 },
                                 "argument2": {
                                   "type": "minecraft:add",
@@ -242,7 +251,10 @@
             "type": "minecraft:mul",
             "argument1": -1.0,
             "argument2": {
-              "type": "atlasmountains:mountain_mask"
+              "type": "minecraft:cache_2d",
+              "argument": {
+                "type": "atlasmountains:mountain_mask"
+              }
             }
           }
         },
@@ -285,9 +297,9 @@
                               "argument1": {
                                 "type": "minecraft:y_clamped_gradient",
                                 "from_value": 1.0,
-                                "from_y": 900,
+                                "from_y": 452,
                                 "to_value": 0.0,
-                                "to_y": 940
+                                "to_y": 492
                               },
                               "argument2": {
                                 "type": "minecraft:add",
@@ -411,7 +423,10 @@
       "argument1": {
         "type": "minecraft:mul",
         "argument1": {
-          "type": "atlasmountains:mountain_mask"
+          "type": "minecraft:cache_2d",
+          "argument": {
+            "type": "atlasmountains:mountain_mask"
+          }
         },
         "argument2": "atlasmountains:overworld/sloped_cheese_masked"
       },
@@ -424,7 +439,10 @@
             "type": "minecraft:mul",
             "argument1": -1.0,
             "argument2": {
-              "type": "atlasmountains:mountain_mask"
+              "type": "minecraft:cache_2d",
+              "argument": {
+                "type": "atlasmountains:mountain_mask"
+              }
             }
           }
         },
@@ -451,9 +469,9 @@
                   "argument1": {
                     "type": "minecraft:y_clamped_gradient",
                     "from_value": 1.0,
-                    "from_y": 900,
+                    "from_y": 452,
                     "to_value": 0.0,
-                    "to_y": 940
+                    "to_y": 492
                   },
                   "argument2": {
                     "type": "minecraft:add",

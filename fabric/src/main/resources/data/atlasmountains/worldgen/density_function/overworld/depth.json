@@ -4,9 +4,12 @@
   "argument2": {
     "type": "minecraft:add",
     "argument1": {
-      "type": "atlasmountains:terrain_height",
-      "eroded": false,
-      "chains": false
+      "type": "minecraft:cache_2d",
+      "argument": {
+        "type": "atlasmountains:terrain_height",
+        "eroded": false,
+        "chains": false
+      }
     },
     "argument2": {
       "type": "minecraft:mul",

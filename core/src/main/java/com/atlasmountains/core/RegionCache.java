@@ -219,9 +219,19 @@ public final class RegionCache {
                 wsum += w;
             }
         }
+        // start eroding the regions the player is heading for before they reach the overlap
+        double margin = prefetchMargin;
+        double lx = x - rx * size, lz = z - rz * size;
+        if (lx < margin) prefetch(rx - 1, rz);
+        if (lx > size - margin) prefetch(rx + 1, rz);
+        if (lz < margin) prefetch(rx, rz - 1);
+        if (lz > size - margin) prefetch(rx, rz + 1);
         if (wsum == 0) return region(rx, rz).sample(x, z);
         return sum / wsum;
     }
+
+    /** Neighbouring regions start computing when the sampled position is within this many blocks of the edge. */
+    public double prefetchMargin = 700;
 
     private double fineNoise(double x, double z) {
         double f = 1.0 / upsampleNoiseWavelength;

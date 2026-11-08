@@ -13,6 +13,10 @@
           "cold": "atlasmountains:cold",
           "temperate": "atlasmountains:temperate",
           "warm": "atlasmountains:warm",
+          "cold_high": "atlasmountains:cold_high",
+          "temperate_high": "atlasmountains:temperate_high",
+          "warm_high": "atlasmountains:warm_high",
+          "treeline_y": 100,
           "cold_below": -0.2,
           "warm_above": 0.25,
           "mask_threshold": 0.5
