@@ -10,7 +10,7 @@ parameter below is a re-run, not a hand edit. The height parameters must match t
 in MountainSettings (valley floor, rock line, summit height).
 
 Two world presets are produced:
-  atlasmountains:atlasmountains  "Atlas Mountains"              vanilla world, our ranges in the mountain zones
+  atlasmountains:atlasmountains  "Atlas Mountains"              Voronoi plate continents, our ranges in the mountain zones, vanilla elsewhere
   atlasmountains:all             "Atlas Mountains (everywhere)" the whole world is mountain country (testing)
 """
 import json, os, copy
@@ -35,12 +35,14 @@ DENSITY_PER_BLOCK = 0.15   # sloped_cheese = (terrain_height - y) * this; vanill
 VANILLA_EROSION_FLOOR = -0.1   # vanilla erosion is never lower than this, so vanilla makes no peaks of its own
 VANILLA_TOP = 320          # vanilla's own build height; its 3D noise is skipped above this (see gate_interpolated)
 
-CLIMATE = {   # firstOctave: vanilla verified from the data files -> target
-    'temperature': -13,      # vanilla -10, eight times slower
-    'vegetation': -9,        # vanilla -8 (the brief's table said -10; the file says -8), twice vanilla
-    'continentalness': -10,  # vanilla -9, twice vanilla
-    'erosion': -10,          # vanilla -9, twice vanilla
+CLIMATE = {   # firstOctave: vanilla verified from the data files -> target. Each step of -1 doubles the wavelength.
+    'temperature': -14,      # vanilla -10, sixteen times slower: a climate band is many kilometres
+    'vegetation': -12,       # vanilla -8, sixteen times slower
+    'continentalness': -10,  # vanilla -9, twice vanilla; only the "everywhere" preset still uses this noise (the mixed preset uses the plates)
+    'erosion': -12,          # vanilla -9, eight times slower: flat or hilly provinces kilometres across
 }
+# Biome size: with these octaves a vanilla biome spans kilometres. The ridge (weirdness) noise is
+# left at vanilla so rivers keep their vanilla spacing and shape.
 
 def load(rel):
     with open(os.path.join(VAN, rel)) as f:
@@ -137,10 +139,28 @@ write(f'{NS}/worldgen/density_function/overworld/depth.json',
       mul(1.0 / 128, add(TERRAIN_FAST, mul(-1.0, 'minecraft:y'))))
 write(f'{NS}/worldgen/density_function/overworld/depth_masked.json',
       mul(1.0 / 128, add(TERRAIN_FAST_MASKED, mul(-1.0, 'minecraft:y'))))
-for name in ('continents', 'erosion'):
-    d = load(f'worldgen/density_function/overworld/{name}.json')
-    d = rename(rename(d, 'minecraft:continentalness', f'{NS}:continentalness'), 'minecraft:erosion', f'{NS}:erosion')
-    write(f'{NS}/worldgen/density_function/overworld/{name}.json', d)
+# Plate continentalness, once per column. The vanilla terrain splines (offset, factor, jaggedness)
+# read "minecraft:overworld/continents" and "minecraft:overworld/erosion" BY NAME, not the router
+# entries, so the mixed preset ships its own copies of those splines below pointing at these two.
+PLATES = f'{NS}:overworld/continents'
+write(f'{NS}/worldgen/density_function/overworld/continents.json',
+      {'type': 'minecraft:flat_cache', 'argument': {'type': f'{NS}:plate_continents'}})
+erosion_df = rename(load('worldgen/density_function/overworld/erosion.json'), 'minecraft:erosion', f'{NS}:erosion')
+write(f'{NS}/worldgen/density_function/overworld/erosion.json', erosion_df)
+EROSION_FLOORED = f'{NS}:overworld/erosion_floored'
+write(f'{NS}/worldgen/density_function/overworld/erosion_floored.json', dmax(VANILLA_EROSION_FLOOR, f'{NS}:overworld/erosion'))
+
+# Vanilla's terrain-shape functions, re-pointed at the plates and the floored erosion. Names are
+# prefixed "vanilla_" because our own sloped_cheese/depth live beside them.
+VANILLA_SHAPE = ['offset', 'depth', 'factor', 'jaggedness', 'sloped_cheese']
+def repoint(obj):
+    obj = rename(obj, 'minecraft:overworld/continents', PLATES)
+    obj = rename(obj, 'minecraft:overworld/erosion', EROSION_FLOORED)
+    for n in VANILLA_SHAPE:
+        obj = rename(obj, f'minecraft:overworld/{n}', f'{NS}:overworld/vanilla_{n}')
+    return obj
+for n in VANILLA_SHAPE:
+    write(f'{NS}/worldgen/density_function/overworld/vanilla_{n}.json', repoint(load(f'worldgen/density_function/overworld/{n}.json')))
 
 NOODLE = f'{NS}:overworld/caves/noodle'
 noodle = load('worldgen/density_function/overworld/caves/noodle.json')
@@ -266,8 +286,10 @@ def build_variant(settings_name, preset_name, mixed):
     r['vegetation'] = rename(r['vegetation'], 'minecraft:vegetation', f'{NS}:vegetation')
     continents = rename(load('worldgen/density_function/overworld/continents.json'), 'minecraft:continentalness', f'{NS}:continentalness')
     if mixed:
-        r['continents'] = f'{NS}:overworld/continents'
-        r['erosion'] = dmax(VANILLA_EROSION_FLOOR, f'{NS}:overworld/erosion')   # vanilla never makes its own peaks
+        # Voronoi plate continents replace vanilla's continentalness; erosion floored so vanilla never makes its own peaks.
+        # Biomes (router) and terrain (the vanilla_* shape copies) now read the same two functions.
+        r['continents'] = PLATES
+        r['erosion'] = EROSION_FLOORED
     else:
         # clamp's "input" accepts an inline function only (DensityFunction.CODEC, not FUNCTION_CODEC)
         r['continents'] = {'type': 'minecraft:clamp', 'input': continents, 'min': -0.1, 'max': 1.0}  # never ocean/beach
@@ -275,11 +297,14 @@ def build_variant(settings_name, preset_name, mixed):
     sc = SC_MASKED if mixed else SC
     depth = f'{NS}:overworld/depth_masked' if mixed else f'{NS}:overworld/depth'
     vanilla_depth = copy.deepcopy(vanilla_ns['noise_router']['depth'])
-    r['depth'] = lerp(mask, vanilla_depth, depth)
     vanilla_initial = copy.deepcopy(vanilla_ns['noise_router']['initial_density_without_jaggedness'])
     fix_top(vanilla_initial)
+    v_final = vanilla_final
+    if mixed:
+        vanilla_depth, vanilla_initial, v_final = repoint(vanilla_depth), repoint(vanilla_initial), repoint(copy.deepcopy(vanilla_final))
+    r['depth'] = lerp(mask, vanilla_depth, depth)
     r['initial_density_without_jaggedness'] = union(mask, vanilla_initial, sc)
-    r['final_density'] = union(mask, vanilla_final, make_our_final(sc))
+    r['final_density'] = union(mask, v_final, make_our_final(sc))
     sr = copy.deepcopy(vanilla_sr)
     if mixed:
         sr['sequence'][1] = cond({'type': 'minecraft:above_preliminary_surface'},

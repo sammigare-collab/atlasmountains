@@ -31,6 +31,7 @@ public final class RegionCache {
     private final Map<Long, CompletableFuture<RegionHeightmap>> regions = new ConcurrentHashMap<>();
     private final ExecutorService executor;
     private final long noiseSeed;
+    private final PlateContinents continents;
     private final MountainMask mask;
     private final ThreadLocal<double[]> maskScratch = ThreadLocal.withInitial(() -> new double[2]);
     public Consumer<String> log = msg -> {};
@@ -46,7 +47,8 @@ public final class RegionCache {
         this.pipeline = new RegionPipeline(settings, seed);
         this.diskDir = diskDir;
         this.noiseSeed = Hash.hash(seed, 909);
-        this.mask = new MountainMask(settings, pipeline.generator().layout(), seed);
+        this.continents = new PlateContinents(settings, seed);
+        this.mask = new MountainMask(settings, pipeline.generator().layout(), continents, seed);
         int threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
         this.executor = Executors.newFixedThreadPool(threads, r -> {
             Thread t = new Thread(r, "atlasmountains-erosion");
@@ -58,6 +60,7 @@ public final class RegionCache {
     public MountainSettings settings() { return s; }
     public long seed() { return seed; }
     public MountainMask mountainMask() { return mask; }
+    public PlateContinents continents() { return continents; }
 
     private final ThreadLocal<ColumnCache> maskColumnCache = ThreadLocal.withInitial(ColumnCache::new);
 
