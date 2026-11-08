@@ -223,7 +223,7 @@ public final class ChainLayout implements SpineLayout {
     private void branch(Chain parent, double chance, int depth, List<Chain> out) {
         long h = Hash.hash(parent.id, 77, depth);
         if (Hash.unit(Hash.hash(h, 1)) >= chance) return;
-        double t = parent.vStart + (parent.vEnd - parent.vStart) * (0.3 + 0.4 * Hash.unit(Hash.hash(h, 2)));
+        double t = parent.vStart + (parent.vEnd - parent.vStart) * (0.2 + 0.65 * Hash.unit(Hash.hash(h, 2)));
         double side = Hash.unit(Hash.hash(h, 3)) < 0.5 ? -1 : 1;
         double turn = Math.toRadians(s.chainBranchAngleMin + Hash.unit(Hash.hash(h, 4)) * (s.chainBranchAngleMax - s.chainBranchAngleMin));
         double parentAngle = Math.atan2(parent.dz, parent.dx);
@@ -244,7 +244,7 @@ public final class ChainLayout implements SpineLayout {
         c.startBoost = s.junctionBoost;
         parent.forks.add(t);
         out.add(c);
-        if (depth < s.chainMaxBranchDepth) branch(c, chance * 0.6, depth + 1, out);
+        if (depth < s.chainMaxBranchDepth) branch(c, chance * 0.7, depth + 1, out);
     }
 
     /**

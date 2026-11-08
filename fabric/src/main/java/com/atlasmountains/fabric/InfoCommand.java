@@ -169,7 +169,7 @@ public final class InfoCommand {
                                     double shade = 0.25 + 0.75 * Math.max(0, (-dx * lx + ly - dz * lz) / len);
                                     float hh = h[j * n + i];
                                     int r, g, b;
-                                    if (hh <= seaLevel) { r = 40; g = 80; b = 170; }
+                                    if (hh < seaLevel) { r = 40; g = 80; b = 170; }
                                     else {
                                         double t = Math.max(0, Math.min(1, (hh - seaLevel) / 560.0));
                                         r = (int) (90 + 160 * t); g = (int) (140 + 110 * t); b = (int) (60 + 190 * t);

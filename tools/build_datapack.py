@@ -172,8 +172,19 @@ def repoint(obj):
     for n in VANILLA_SHAPE:
         obj = rename(obj, f'minecraft:overworld/{n}', f'{NS}:overworld/vanilla_{n}')
     return obj
+# The erosion noise runs 4x larger than vanilla's (Large Biomes scale), so its flattest, lowest
+# class comes in kilometre-wide patches that sit at y 62-64 and pool everywhere. Vanilla's offset
+# is lifted by LOWLAND_LIFT (in offset units, 128 blocks each) from the coast band inland so those
+# flats stand a few blocks clear of sea level; the shore and the sea are untouched.
+LOWLAND_LIFT = 0.03
+LOWLAND_RAMP = {'type': 'minecraft:spline', 'spline': {'coordinate': PLATES, 'points': [
+    {'location': -0.05, 'value': 0.0, 'derivative': 0.0},
+    {'location': 0.25, 'value': LOWLAND_LIFT, 'derivative': 0.0}]}}
 for n in VANILLA_SHAPE:
-    write(f'{NS}/worldgen/density_function/overworld/vanilla_{n}.json', repoint(load(f'worldgen/density_function/overworld/{n}.json')))
+    body = repoint(load(f'worldgen/density_function/overworld/{n}.json'))
+    if n == 'offset':
+        body = add(body, LOWLAND_RAMP)
+    write(f'{NS}/worldgen/density_function/overworld/vanilla_{n}.json', body)
 
 NOODLE = f'{NS}:overworld/caves/noodle'
 noodle = load('worldgen/density_function/overworld/caves/noodle.json')
