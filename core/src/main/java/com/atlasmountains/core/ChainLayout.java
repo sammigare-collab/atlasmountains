@@ -40,19 +40,43 @@ public final class ChainLayout implements SpineLayout {
             out[1] = oz + dz * v + nz * c;
         }
 
+        /**
+         * Gap between spine k-1 and spine k (k >= 1). Usually tight, so neighbouring ranges meet
+         * back to back in a col above the valley floor; sometimes wide, which leaves the flat
+         * forested valley with lakes between them.
+         */
+        double gap(int k, MountainSettings s) {
+            long h = Hash.hash(id, 404, k);
+            boolean wide = Hash.unit(Hash.hash(h, 1)) < s.spineGapWideChance;
+            double u = Hash.unit(Hash.hash(h, 2));
+            return wide ? s.spineGapWideMin + u * (s.spineGapWideMax - s.spineGapWideMin)
+                        : s.spineGapTightMin + u * (s.spineGapTightMax - s.spineGapTightMin);
+        }
+
+        /** Lateral base offset of spine k: spines are stacked from gaps and centred on the chain line. */
+        double spineBase(int k, MountainSettings s) {
+            double total = 0, pos = 0;
+            for (int i = 1; i < ranges; i++) total += gap(i, s);
+            for (int i = 1; i <= k; i++) pos += gap(i, s);
+            return pos - total * 0.5;
+        }
+
         /** Lateral offset of spine k (0..ranges-1) at v. */
         double spineU(int k, double v, MountainSettings s) {
-            double base = (k - (ranges - 1) * 0.5) * s.rangeSpacing;
-            double jitter = Hash.signed(Hash.hash(id, 202, k)) * s.rangeSpacingJitter;
             double curve = Hash.value1(Hash.hash(id, 303, k), v / s.spineCurveWavelength) * s.spineCurveAmplitude;
-            return base + jitter + curve;
+            return spineBase(k, s) + curve;
         }
 
         int spineId(int k) { return (int) Hash.mix(Hash.hash(id, 909, k)); }
 
+        int spineIndex(int spineId) {
+            for (int k = 0; k < ranges; k++) if (spineId(k) == spineId) return k;
+            return 0;
+        }
+
         /** Half-width of the zone capsule: outer spine plus the range half-width plus a margin. */
         double zoneHalf(MountainSettings s) {
-            return (ranges - 1) * 0.5 * s.rangeSpacing + s.rangeSpacingJitter + s.spineCurveAmplitude + s.halfWidth() + s.chainZoneMargin;
+            return Math.abs(spineBase(ranges - 1, s)) + s.spineCurveAmplitude + s.halfWidth() + s.chainZoneMargin;
         }
     }
 
@@ -94,6 +118,10 @@ public final class ChainLayout implements SpineLayout {
         long h = Hash.hash(seed, cx, cz);
         double ox = (cx + Hash.unit(Hash.hash(h, 3))) * s.chainCellSize;
         double oz = (cz + Hash.unit(Hash.hash(h, 4))) * s.chainCellSize;
+        if (cx == 0 && cz == 0) {   // the spawn chain starts 600 to 2400 blocks from the origin, well inside the spawn island
+            ox = (0.1 + 0.3 * Hash.unit(Hash.hash(h, 3))) * s.chainCellSize;
+            oz = (0.1 + 0.3 * Hash.unit(Hash.hash(h, 4))) * s.chainCellSize;
+        }
         double chance = s.chainChance;
         java.util.function.DoubleBinaryOperator er = erosion;
         if (cx == 0 && cz == 0) chance = 1;          // spawn always has a chain in reach
@@ -192,14 +220,27 @@ public final class ChainLayout implements SpineLayout {
         out.along2 = best[3];
     }
 
+    /**
+     * Summit height factor: the chain's own overall scale, times a cross-chain profile (outer
+     * spines are foothills, the middle spine is full height), times the larger of the fork boost
+     * and the chain's one dominant summit (on the middle spine, well above its neighbours).
+     */
     @Override
     public double summitScale(int range, double along) {
         Chain c = bySpine.get(range);
         if (c == null) return 1.0;
+        int k = c.spineIndex(range);
+        double centre = (c.ranges - 1) * 0.5;
+        double profile = centre == 0 ? 1.0 : 1 - s.foothillDrop * Math.abs(k - centre) / centre;
+        double chainScale = s.chainHeightScaleMin + Hash.unit(Hash.hash(c.id, 505)) * (s.chainHeightScaleMax - s.chainHeightScaleMin);
         double boost = 0;
         if (c.startBoost > 0) boost = Math.max(boost, c.startBoost * smoothstep(1 - along / s.junctionBoostLength));
         for (double t : c.forks) boost = Math.max(boost, s.junctionBoost * smoothstep(1 - Math.abs(along - t) / s.junctionBoostLength));
-        return 1 + boost;
+        if (Math.abs(k - centre) < 0.51) {   // the middle spine (or the two middle ones of an even chain)
+            double vd = c.length * (0.2 + 0.6 * Hash.unit(Hash.hash(c.id, 606)));
+            boost = Math.max(boost, s.dominantSummitBoost * smoothstep(1 - Math.abs(along - vd) / s.dominantSummitLength));
+        }
+        return chainScale * profile * (1 + boost);
     }
 
     @Override

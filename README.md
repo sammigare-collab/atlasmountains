@@ -15,7 +15,7 @@ the "Atlas Mountains" world type; the normal world type is untouched.
 
 ## Build
 
-    gradlew build          # jar in fabric/build/libs/atlasmountains-0.1.0.jar
+    gradlew build          # jar in fabric/build/libs/atlasmountains-0.2.0.jar
     gradlew :core:test     # core unit tests
 
 Versions (verified 2026-11-07): Loom 1.10.5, Loader 0.20.1, Yarn 1.21.1+build.3, Fabric API 0.116.17+1.21.1.
@@ -53,8 +53,12 @@ valley floor 80, rock line 340, summit 600, sea level 79, snow line 540, caves s
     so beaches and the mountain coast fade are a fixed number of blocks. `PlateContinents` (Voronoi
     plates) is the alternative model (`noiseContinents=false`).
   - *Mountain chains* (`ChainLayout`, `MountainSettings.chain*`): each chain is a curved centreline of its
-    own direction, 5 to 11 km long, carrying 1 to 3 parallel spines of the usual design; about half fork
-    once or twice at 35 to 65 degrees, and summits near a fork are up to 18% taller. Chains are only
+    own direction, 2.5 to 6 km long, carrying 1 to 4 spines of the usual design. Gaps between spines are
+    usually tight (360 to 520 blocks), so neighbouring ranges meet back to back in a col; about 30% are
+    wide (760 to 900) and leave the flat forested valley with lakes. About half the chains fork once or
+    twice at 35 to 65 degrees. Heights vary: each chain has its own scale (0.85 to 1.2), outer spines are
+    30% lower than the middle one (foothills), one dominant summit per chain stands 30% above its
+    neighbours, and summits near a fork are up to 18% taller. Chains are only
     placed where the world's erosion noise is low (`chainErosionBelow`), so they cluster into the hilly
     provinces of the biome layer and leave the plains alone; the cell containing spawn always has one.
     The mask is the capsule around a chain's spines, fading over `chainEdgeWidth` at the sides and ends
