@@ -139,14 +139,24 @@ public final class MountainSettings {
     public double chainErosionBelow = -0.15;
     public double chainErosionBand = 0.4;
     /** Chain length, blocks, uniform between these two. */
-    public double chainLengthMin = 5000;
-    public double chainLengthMax = 11000;
+    public double chainLengthMin = 2500;
+    public double chainLengthMax = 6000;
     /** Lateral curve of the chain centreline: amplitude and wavelength, blocks. */
-    public double chainCurveAmplitude = 450;
-    public double chainCurveWavelength = 5000;
+    public double chainCurveAmplitude = 700;
+    public double chainCurveWavelength = 3500;
     /** Spines (ranges) per chain, uniform between these two. */
     public int chainRangesMin = 1;
-    public int chainRangesMax = 3;
+    public int chainRangesMax = 4;
+    /**
+     * Gap between neighbouring spines in a chain, blocks. A tight gap (less than two range half-widths,
+     * about 650) makes the ranges meet back to back in a col; a wide gap leaves a flat valley with lakes.
+     */
+    public double spineGapTightMin = 360;
+    public double spineGapTightMax = 520;
+    public double spineGapWideMin = 760;
+    public double spineGapWideMax = 900;
+    /** Fraction of gaps that are wide (the flat valleys). */
+    public double spineGapWideChance = 0.3;
     /** Probability that a chain forks once; a child forks again with 0.6 of this, up to chainMaxBranchDepth. */
     public double chainBranchChance = 0.55;
     public int chainMaxBranchDepth = 2;
@@ -156,6 +166,14 @@ public final class MountainSettings {
     /** Child length as a fraction of the parent's, uniform between these two. */
     public double chainBranchLengthMin = 0.45;
     public double chainBranchLengthMax = 0.8;
+    /** Each chain's summits are scaled by a factor uniform between these two (whole chains differ in height). */
+    public double chainHeightScaleMin = 0.85;
+    public double chainHeightScaleMax = 1.2;
+    /** Outer spines of a chain are this fraction lower than the middle one (foothills building up to the main range). */
+    public double foothillDrop = 0.3;
+    /** One summit per chain, on the middle spine, is up to this fraction taller than its neighbours, over +/- dominantSummitLength blocks. */
+    public double dominantSummitBoost = 0.3;
+    public double dominantSummitLength = 150;
     /** Summits within junctionBoostLength (blocks, along the spine) of a fork are up to this fraction taller. */
     public double junctionBoost = 0.18;
     public double junctionBoostLength = 450;
