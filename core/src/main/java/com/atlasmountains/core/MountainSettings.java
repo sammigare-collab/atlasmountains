@@ -169,14 +169,14 @@ public final class MountainSettings {
     /** Fraction of gaps that are wide (the flat valleys). */
     public double spineGapWideChance = 0.35;
     /** Probability that a chain forks once; a child forks again with 0.6 of this, up to chainMaxBranchDepth. */
-    public double chainBranchChance = 0.7;
-    public int chainMaxBranchDepth = 2;
+    public double chainBranchChance = 0.85;
+    public int chainMaxBranchDepth = 3;
     /** Angle between a child chain and its parent, degrees, uniform between these two. */
-    public double chainBranchAngleMin = 35;
-    public double chainBranchAngleMax = 65;
+    public double chainBranchAngleMin = 30;
+    public double chainBranchAngleMax = 75;
     /** Child length as a fraction of the parent's, uniform between these two. */
-    public double chainBranchLengthMin = 0.45;
-    public double chainBranchLengthMax = 0.8;
+    public double chainBranchLengthMin = 0.5;
+    public double chainBranchLengthMax = 0.9;
     /** Each chain's summits are scaled by a factor uniform between these two (whole chains differ in height). */
     public double chainHeightScaleMin = 0.85;
     public double chainHeightScaleMax = 1.2;
@@ -198,7 +198,7 @@ public final class MountainSettings {
      * converge and diverge instead of running parallel; each spine also wanders on its own with a
      * second, shorter wave (spineWiggleAmplitude / spineWiggleWavelength) on top of spineCurve*.
      */
-    public double spineGapVariation = 0.35;
+    public double spineGapVariation = 0.45;
     public double spineGapWavelength = 1800;
     public double spineWiggleAmplitude = 90;
     public double spineWiggleWavelength = 450;
@@ -219,7 +219,7 @@ public final class MountainSettings {
 
     // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
     /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
-    public double erosionMountainBelow = -0.375;
+    public double erosionMountainBelow = -0.32;
     public double erosionMaskBand = 0.2;
     /**
      * The footprint edge is domain-warped: the erosion is read at a point displaced by up to
