@@ -30,9 +30,14 @@ public final class RangeLayout implements SpineLayout {
     public RangeLayout(MountainSettings settings, long seed) {
         this.s = settings;
         this.seed = seed;
-        double angle = Hash.unit(Hash.hash(seed, 101)) * Math.PI; // 0..180 degrees
+        double angle = angle(seed);
         this.cos = Math.cos(angle);
         this.sin = Math.sin(angle);
+    }
+
+    /** The direction the ranges run, radians from +x, 0..180 degrees; the stretched erosion uses the same one. */
+    public static double angle(long seed) {
+        return Hash.unit(Hash.hash(seed, 101)) * Math.PI;
     }
 
     /** World (x, z) to the range frame: result[0] = u across the ranges, result[1] = v along them. */
@@ -44,9 +49,34 @@ public final class RangeLayout implements SpineLayout {
     /** Direction the ranges run, as a unit vector in world (x, z). */
     public double[] alongDirection() { return new double[] {-sin, cos}; }
 
-    /** Per-spine constant offset. */
+    /**
+     * Per-spine constant offset. Spines come in pairs (2j, 2j+1): a "tight" pair is pulled
+     * together by pairPull so the two ranges meet back to back in a col; otherwise the pair
+     * keeps the mean spacing. The gap between pairs widens by the same amount, and only some
+     * of those wide gaps carry the flat valley floor (see {@link #valley}).
+     */
     private double offset(int k) {
-        return Hash.signed(Hash.hash(seed, 202, k)) * s.rangeSpacingJitter;
+        double jitter = Hash.signed(Hash.hash(seed, 202, k)) * s.rangeSpacingJitter;
+        int pair = Math.floorDiv(k, 2);
+        boolean tight = Hash.unit(Hash.hash(seed, 212, pair)) < s.pairTightChance;
+        if (!tight) return jitter;
+        return jitter + (Math.floorMod(k, 2) == 0 ? s.pairPull : -s.pairPull);
+    }
+
+    /**
+     * 1 where the gap this position lies in is a valley (flat floor and lakes are ours there),
+     * 0 where vanilla terrain fills the gap instead. Decided per gap by a coin, so the little
+     * valleys are occasional. Gaps inside a tight pair are never valleys (the flanks meet).
+     */
+    public double valley(double x, double z) {
+        double u = x * cos + z * sin, v = -x * sin + z * cos;
+        int k = (int) Math.floor(u / s.rangeSpacing);            // spine k is the one at or below u
+        while (spineU(k, v) > u) k--;
+        while (spineU(k + 1, v) <= u) k++;
+        int pair = Math.floorDiv(k, 2);
+        boolean insidePair = Math.floorMod(k, 2) == 0;             // gap between 2j and 2j+1
+        if (insidePair && Hash.unit(Hash.hash(seed, 212, pair)) < s.pairTightChance) return 0;
+        return Hash.unit(Hash.hash(seed, 223, k)) < s.valleyChance ? 1 : 0;
     }
 
     /** Gentle curve of spine k at position v along it, and its derivative du/dv. */

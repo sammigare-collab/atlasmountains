@@ -71,8 +71,9 @@ MASK = cache2d({'type': f'{NS}:mountain_mask'})
 INNER = cache2d({'type': f'{NS}:mountain_mask', 'kind': 'inner'})   # 1 only between a chain's spines
 SC = f'{NS}:overworld/sloped_cheese'
 SC_MASKED = f'{NS}:overworld/sloped_cheese_masked'      # relief faded by the mask (mixed world)
-TERRAIN_MASKED = cache2d({'type': f'{NS}:terrain_height', 'mask_relief': True, 'chains': True})     # mixed preset: chains
-TERRAIN_FAST_MASKED = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'chains': True})
+MIXED_CHAINS = False       # must match AtlasMountainsMod.MIXED_USES_CHAINS: False = vanilla's mountain footprint with parallel ranges
+TERRAIN_MASKED = cache2d({'type': f'{NS}:terrain_height', 'mask_relief': True, 'chains': MIXED_CHAINS})
+TERRAIN_FAST_MASKED = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'chains': MIXED_CHAINS})
 
 def mul(a, b): return {'type': 'minecraft:mul', 'argument1': a, 'argument2': b}
 def add(a, b): return {'type': 'minecraft:add', 'argument1': a, 'argument2': b}
@@ -155,8 +156,10 @@ write(f'{NS}/worldgen/density_function/overworld/depth_masked.json',
 PLATES = f'{NS}:overworld/continents'
 write(f'{NS}/worldgen/density_function/overworld/continents.json',
       {'type': 'minecraft:flat_cache', 'argument': {'type': f'{NS}:continents'}})
-erosion_df = rename(load('worldgen/density_function/overworld/erosion.json'), 'minecraft:erosion', f'{NS}:erosion')
-write(f'{NS}/worldgen/density_function/overworld/erosion.json', erosion_df)
+# The mod's erosion noise, sampled stretched along the range direction (see StretchedErosionFunction);
+# biomes, vanilla terrain shape and the mountain footprint all read this one function.
+write(f'{NS}/worldgen/density_function/overworld/erosion.json',
+      {'type': 'minecraft:flat_cache', 'argument': {'type': f'{NS}:stretched_erosion'}})
 EROSION_FLOORED = f'{NS}:overworld/erosion_floored'
 write(f'{NS}/worldgen/density_function/overworld/erosion_floored.json', dmax(VANILLA_EROSION_FLOOR, f'{NS}:overworld/erosion'))
 
@@ -323,7 +326,7 @@ def build_variant(settings_name, preset_name, mixed):
     sr = copy.deepcopy(vanilla_sr)
     if mixed:
         sr['sequence'][1] = cond({'type': 'minecraft:above_preliminary_surface'},
-                                 seq(cond(in_mountains, mountain_rules(True)), vanilla_surface['then_run']))
+                                 seq(cond(in_mountains, mountain_rules(MIXED_CHAINS)), vanilla_surface['then_run']))
     else:
         sr['sequence'][1] = cond({'type': 'minecraft:above_preliminary_surface'}, mountain_rules(False))
     ns['surface_rule'] = sr

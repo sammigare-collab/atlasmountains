@@ -28,6 +28,12 @@ public final class MountainSettings {
     public double rangeSpacing = 760;
     /** Random offset applied to each spine, +/- this, so spacing varies. */
     public double rangeSpacingJitter = 60;
+    /** Fraction of spine pairs that are pulled together back to back (parallel layout). */
+    public double pairTightChance = 0.7;
+    /** How far each spine of a tight pair moves towards the other, blocks. With rangeSpacing 760 and pull 150 the gap inside the pair is 460 and between pairs 1060. */
+    public double pairPull = 150;
+    /** Fraction of the remaining (wide) gaps that are flat valleys with lakes; the rest are filled by vanilla terrain. */
+    public double valleyChance = 0.4;
     /** Amplitude of the gentle curve of each spine. */
     public double spineCurveAmplitude = 72;
     /** Wavelength of that curve along the spine. */
@@ -187,7 +193,14 @@ public final class MountainSettings {
     /** Width of the mask fade at the chain sides and ends, blocks (relief tapers to vanilla over it). */
     public double chainEdgeWidth = 500;
 
-    // ---- Mountain mask: stretched zone noise (chainLayout = false, mixed world) ------
+    // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
+    /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
+    public double erosionMountainBelow = -0.375;
+    public double erosionMaskBand = 0.12;
+    /** The erosion noise is stretched by this ratio along the range direction, so mountain provinces are elongated. */
+    public double erosionStretch = 2.0;
+
+    // ---- Mountain mask: stretched zone noise (fallback when no erosion field is supplied) ------
     /** Wavelength of the mask noise along the range direction, blocks. Zones are long this way. */
     public double maskWavelengthAlong = 6000;
     /** Wavelength across the range direction, blocks. Zones are narrow this way. */

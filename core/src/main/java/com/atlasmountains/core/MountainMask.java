@@ -16,6 +16,18 @@ public final class MountainMask {
     private final long seed;
     /** False makes every position count as inland (the "everywhere" preset and the heightmap diagnostics). */
     public volatile boolean fadeAtCoast = true;
+    /**
+     * (x, z) -> the world's erosion on vanilla's scale, supplied by the mod. When set (and the
+     * layout has no zones of its own) the zones are vanilla's own mountain footprint: erosion
+     * below {@link MountainSettings#erosionMountainBelow}, fading over erosionMaskBand.
+     */
+    private volatile java.util.function.DoubleBinaryOperator erosion;
+
+    public void setErosion(java.util.function.DoubleBinaryOperator erosion) {
+        this.erosion = erosion;
+        for (Cache c : erosionCaches) java.util.Arrays.fill(c.keys, Long.MIN_VALUE);
+    }
+    public boolean hasErosion() { return erosion != null; }
 
     public MountainMask(MountainSettings settings, SpineLayout layout, Continents continents, long seed) {
         this.s = settings;
@@ -31,10 +43,17 @@ public final class MountainMask {
         return t * t * (3 - 2 * t);
     }
 
-    /** The zones alone, 0..1, no inland ramp: the layout's chains if it has them, else the stretched zone noise. */
+    /**
+     * The zones alone, 0..1, no inland ramp: the layout's chains if it has them; else vanilla's
+     * mountain footprint from the erosion field if the mod supplied one; else the stretched zone noise.
+     */
     public double zone(double x, double z, double[] scratch) {
         double lz = layout.zone(x, z);
         if (!Double.isNaN(lz)) return lz;
+        if (erosion != null) {
+            double e = erosionAt(x, z);
+            return smoothstep((s.erosionMountainBelow - e) / s.erosionMaskBand + 0.5);
+        }
         ((RangeLayout) layout).toFrame(x, z, scratch);
         double u = scratch[0] / s.maskWavelengthAcross, v = scratch[1] / s.maskWavelengthAlong;
         double sum = 0, amp = 1, norm = 0;
@@ -70,6 +89,29 @@ public final class MountainMask {
         Cache() { java.util.Arrays.fill(keys, Long.MIN_VALUE); }
     }
     private final ThreadLocal<Cache> cache = ThreadLocal.withInitial(Cache::new);
+    private final java.util.List<Cache> erosionCaches = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+    private final ThreadLocal<Cache> erosionCache = ThreadLocal.withInitial(() -> { Cache c = new Cache(); erosionCaches.add(c); return c; });
+
+    private double erosionGrid(int gx, int gz) {
+        long key = ((long) gx << 32) ^ (gz & 0xffffffffL);
+        Cache cc = erosionCache.get();
+        int i = (int) (Hash.mix(key) & ((1 << CACHE_BITS) - 1));
+        if (cc.keys[i] == key) return cc.values[i];
+        double v = erosion.applyAsDouble(gx * (double) GRID, gz * (double) GRID);
+        cc.keys[i] = key;
+        cc.values[i] = v;
+        return v;
+    }
+
+    /** Erosion at a block position, bilinear from a 32-block grid (the erosion noise varies over hundreds of blocks). */
+    public double erosionAt(double x, double z) {
+        double fx = x / GRID, fz = z / GRID;
+        int gx = (int) Math.floor(fx), gz = (int) Math.floor(fz);
+        double tx = fx - gx, tz = fz - gz;
+        double a = erosionGrid(gx, gz), b = erosionGrid(gx + 1, gz);
+        double d = erosionGrid(gx, gz + 1), e = erosionGrid(gx + 1, gz + 1);
+        return (a + (b - a) * tx) * (1 - tz) + (d + (e - d) * tx) * tz;
+    }
 
     private double gridValue(int gx, int gz) {
         long key = ((long) gx << 32) ^ (gz & 0xffffffffL);

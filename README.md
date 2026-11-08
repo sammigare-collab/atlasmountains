@@ -53,21 +53,18 @@ caves stop at 150, treeline 100 (no trees in the mountain biomes above it), dime
     on land. Mapped onto vanilla's continentalness scale by gradient-normalised distance to the shore,
     so beaches and the mountain coast fade are a fixed number of blocks. `PlateContinents` (Voronoi
     plates) is the alternative model (`noiseContinents=false`).
-  - *Mountain chains* (`ChainLayout`, `MountainSettings.chain*`): each chain is a curved centreline of its
-    own direction, 2.5 to 6 km long, carrying 1 to 4 spines of the usual design. Gaps between spines are
-    usually tight (360 to 520 blocks), so neighbouring ranges meet back to back in a col; about 30% are
-    wide (760 to 900) and leave the flat forested valley with lakes. About half the chains fork once or
-    twice at 35 to 65 degrees. Heights vary: each chain has its own scale (0.85 to 1.2), outer spines are
-    30% lower than the middle one (foothills), one dominant summit per chain stands 30% above its
-    neighbours, and summits near a fork are up to 18% taller. Chains are only
-    placed where the world's erosion noise is low (`chainErosionBelow`), so they cluster into the hilly
-    provinces of the biome layer and leave the plains alone; the cell containing spawn always has one.
-    The mask is the capsule around a chain's spines, fading over `chainEdgeWidth` at the sides and ends
-    (the relief is scaled by the mask) and at the coast. A chain is at least `chainMinAspect` times longer
-    than it is wide. Vanilla terrain is removed only by the *inner* mask (between a chain's spines, where
-    the flat valley floor and lakes live); under the outer flanks vanilla carries on and our flank is
-    unioned over it, so the foot of a range grows out of real hills, and the surface rules and biome
-    (`on_our_slope`) hand over to vanilla's where our terrain is within 6 blocks of the floor.
+  - *Mountain zones* = vanilla's own mountain footprint: where the world's erosion noise is below
+    vanilla's peak threshold (`erosionMountainBelow` -0.375, fading over `erosionMaskBand`). The erosion
+    noise is sampled stretched `erosionStretch` (2x) along the range direction (`stretched_erosion`
+    density function), so every erosion province, and with it the mountain footprint and its hilly
+    surroundings, is elongated 2:1. Inside a zone the ranges are the parallel layout (`RangeLayout`)
+    running along the stretch: spines in pairs, 70% of pairs pulled back to back (col between them,
+    gap 460), wide gaps of 1060 between pairs, and only 40% of those wide gaps are flat valleys with
+    lakes (`valley`); vanilla hills fill the others and run under the outer flanks (inner mask), so
+    the foot of a range grows out of real terrain and the surface and biome hand over to vanilla's
+    (`on_our_slope`). Relief fades with the mask at the zone edge and at the coast.
+    `ChainLayout` (free-standing forking chains gated by erosion) is kept behind
+    `AtlasMountainsMod.MIXED_USES_CHAINS` / `MIXED_CHAINS` in the builder, off by default.
   - *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Climate noises are slowed
     to Large Biomes scale (temperature, vegetation and erosion 4x vanilla); the ridge noise is left
     alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring erosion at -0.1.
