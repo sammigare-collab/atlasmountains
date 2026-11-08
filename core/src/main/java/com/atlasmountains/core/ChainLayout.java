@@ -23,6 +23,8 @@ public final class ChainLayout implements SpineLayout {
     private static final class Chain {
         long id;
         double ox, oz, dx, dz, nx, nz, length;
+        /** The chain occupies v in [vStart, vEnd] along its centreline (trimmed to the footprint). */
+        double vStart, vEnd;
         int ranges;
         long curveSeed;
         double startBoost;             // child chains: a fork sits at along = 0
@@ -63,10 +65,46 @@ public final class ChainLayout implements SpineLayout {
             return pos - total * 0.5;
         }
 
-        /** Lateral offset of spine k (0..ranges-1) at v. */
+        /** Gap between spine k-1 and spine k at v: the base gap swelling and shrinking along the chain. */
+        double gapAt(int k, double v, MountainSettings s) {
+            double n = Hash.value1(Hash.hash(id, 505, k), v / s.spineGapWavelength) * 2 - 1;
+            return gap(k, s) * (1 + s.spineGapVariation * n);
+        }
+
+        /** Each spine's own wander about its stacked position at v. */
+        double wiggle(int k, double v, MountainSettings s) {
+            return (Hash.value1(Hash.hash(id, 303, k), v / s.spineCurveWavelength) - 0.5) * 2 * s.spineCurveAmplitude
+                 + (Hash.value1(Hash.hash(id, 313, k), v / s.spineWiggleWavelength) - 0.5) * 2 * s.spineWiggleAmplitude;
+        }
+
+        /**
+         * Lateral offset of spine k (0..ranges-1) at v. Spines are stacked from gaps that vary
+         * along the chain and each wanders on its own, so neighbouring ranges converge, diverge
+         * and run back to back in places instead of lying parallel; they never come closer than
+         * 200 blocks, so two ranges don't collapse into one.
+         */
         double spineU(int k, double v, MountainSettings s) {
-            double curve = Hash.value1(Hash.hash(id, 303, k), v / s.spineCurveWavelength) * s.spineCurveAmplitude;
-            return spineBase(k, s) + curve;
+            double total = 0;
+            for (int i = 1; i < ranges; i++) total += gapAt(i, v, s);
+            double pos = -total * 0.5, u = pos + wiggle(0, v, s);
+            for (int i = 1; i <= k; i++) {
+                pos += gapAt(i, v, s);
+                u = Math.max(u + 200, pos + wiggle(i, v, s));
+            }
+            return u;
+        }
+
+        boolean isMiddle(int k) { return Math.abs(k - (ranges - 1) * 0.5) < 0.51; }
+
+        /** Where spine k starts along the chain: the middle spine runs the full length, outer ones are pulled in. */
+        double spineStart(int k, MountainSettings s) {
+            if (isMiddle(k)) return vStart;
+            return vStart + (vEnd - vStart) * s.spineStaggerMax * Hash.unit(Hash.hash(id, 707, k));
+        }
+
+        double spineEnd(int k, MountainSettings s) {
+            if (isMiddle(k)) return vEnd;
+            return vEnd - (vEnd - vStart) * s.spineStaggerMax * Hash.unit(Hash.hash(id, 717, k));
         }
 
         int spineId(int k) { return (int) Hash.mix(Hash.hash(id, 909, k)); }
@@ -78,7 +116,7 @@ public final class ChainLayout implements SpineLayout {
 
         /** Half-width of the zone capsule: outer spine plus the range half-width plus a margin. */
         double zoneHalf(MountainSettings s) {
-            return Math.abs(spineBase(ranges - 1, s)) + s.spineCurveAmplitude + s.halfWidth() + s.chainZoneMargin;
+            return Math.abs(spineBase(ranges - 1, s)) * (1 + s.spineGapVariation) + s.spineCurveAmplitude + s.spineWiggleAmplitude + s.halfWidth() + s.chainZoneMargin;
         }
     }
 
@@ -145,6 +183,8 @@ public final class ChainLayout implements SpineLayout {
         root.ranges = pickRanges(Hash.unit(Hash.hash(h, 7)));
         root.curveSeed = Hash.hash(h, 8);
         root.length = Math.max(root.length, s.chainMinAspect * 2 * root.zoneHalf(s));   // wide chains must be long: chains, not blobs
+        root.vStart = 0; root.vEnd = root.length;
+        if (!trim(root, false)) return new Chain[0];
         out.add(root);
         branch(root, s.chainBranchChance, 1, out);
         Chain[] arr = out.toArray(new Chain[0]);
@@ -183,7 +223,7 @@ public final class ChainLayout implements SpineLayout {
     private void branch(Chain parent, double chance, int depth, List<Chain> out) {
         long h = Hash.hash(parent.id, 77, depth);
         if (Hash.unit(Hash.hash(h, 1)) >= chance) return;
-        double t = parent.length * (0.3 + 0.4 * Hash.unit(Hash.hash(h, 2)));
+        double t = parent.vStart + (parent.vEnd - parent.vStart) * (0.3 + 0.4 * Hash.unit(Hash.hash(h, 2)));
         double side = Hash.unit(Hash.hash(h, 3)) < 0.5 ? -1 : 1;
         double turn = Math.toRadians(s.chainBranchAngleMin + Hash.unit(Hash.hash(h, 4)) * (s.chainBranchAngleMax - s.chainBranchAngleMin));
         double parentAngle = Math.atan2(parent.dz, parent.dx);
@@ -199,10 +239,48 @@ public final class ChainLayout implements SpineLayout {
         c.ranges = Math.max(1, 1 + (int) Math.floor(Hash.unit(Hash.hash(h, 7)) * parent.ranges));
         c.curveSeed = Hash.hash(h, 8);
         c.length = Math.max(c.length, s.chainMinAspect * 2 * c.zoneHalf(s));
+        c.vStart = 0; c.vEnd = c.length;
+        if (!trim(c, true)) return;
         c.startBoost = s.junctionBoost;
         parent.forks.add(t);
         out.add(c);
         if (depth < s.chainMaxBranchDepth) branch(c, chance * 0.6, depth + 1, out);
+    }
+
+    /**
+     * Trims a chain to the stretch of its centreline inside vanilla's mountain footprint
+     * (erosion below erosionMountainBelow), so it ends with its own tapered ends inside the
+     * mountain biome rather than being sliced by the biome edge. A child must keep its start,
+     * where it meets its parent. Wide chains that come out short lose spines rather than
+     * becoming blobs. Returns false if nothing worth keeping is left. No footprint: unchanged.
+     */
+    private boolean trim(Chain c, boolean child) {
+        java.util.function.DoubleBinaryOperator er = erosion;
+        if (er == null || !s.chainTrimToFootprint) return true;
+        double[] p = new double[2];
+        int n = (int) Math.floor(c.length / s.chainTrimStep) + 1;
+        boolean[] in = new boolean[n + 1];
+        for (int i = 0; i <= n; i++) {
+            double v = Math.min(c.length, i * s.chainTrimStep);
+            c.point(v, s, p);
+            in[i] = er.applyAsDouble(p[0], p[1]) < s.erosionMountainBelow;
+        }
+        int bestA = -1, bestB = -1, a = -1;
+        for (int i = 0; i <= n + 1; i++) {
+            boolean inside = i <= n && in[i];
+            if (inside && a < 0) a = i;
+            if (!inside && a >= 0) {
+                if (child ? a == 0 : (bestA < 0 || i - a > bestB - bestA)) { bestA = a; bestB = i - 1; }
+                a = -1;
+            }
+        }
+        if (bestA < 0) return false;
+        double vs = Math.max(0, (bestA - 0.5) * s.chainTrimStep), ve = Math.min(c.length, (bestB + 0.5) * s.chainTrimStep);
+        if (child) vs = 0;
+        if (ve - vs < s.chainTrimMinLength) return false;
+        c.vStart = vs; c.vEnd = ve;
+        while (c.ranges > 1 && ve - vs < s.chainMinAspect * 2 * c.zoneHalf(s)) c.ranges--;
+        return true;
     }
 
     private final Map<Long, Chain[]> neighbourhoods = new ConcurrentHashMap<>();
@@ -224,7 +302,7 @@ public final class ChainLayout implements SpineLayout {
             for (long i = cx - 4; i <= cx + 4; i++)
                 for (long k = cz - 4; k <= cz + 4; k++)
                     for (Chain c : cell(i, k)) {
-                        double reach = c.length + c.zoneHalf(s) + s.chainEdgeWidth + 2 * s.halfWidth();
+                        double reach = c.vEnd + c.zoneHalf(s) + s.chainEdgeWidth + 2 * s.halfWidth();
                         double nx = Math.max(x0, Math.min(x1, c.ox)), nz = Math.max(z0, Math.min(z1, c.oz));
                         if (Math.hypot(c.ox - nx, c.oz - nz) <= reach) all.add(c);
                     }
@@ -241,11 +319,11 @@ public final class ChainLayout implements SpineLayout {
         for (Chain c : near(x, z)) {
             double rx = x - c.ox, rz = z - c.oz;
             double v = rx * c.dx + rz * c.dz;
-            double vc = Math.max(0, Math.min(c.length, v));
-            double over = v - vc;                                   // beyond an end
-            double lateral = rx * c.nx + rz * c.nz - c.curve(vc, s);
+            double lat0 = rx * c.nx + rz * c.nz;
             for (int k = 0; k < c.ranges; k++) {
-                double du = lateral - c.spineU(k, vc, s);
+                double vc = Math.max(c.spineStart(k, s), Math.min(c.spineEnd(k, s), v));
+                double over = v - vc;                               // beyond this spine's end
+                double du = lat0 - c.curve(vc, s) - c.spineU(k, vc, s);
                 double d = Math.sqrt(du * du + over * over);
                 if (d < best[0]) {
                     best[1] = best[0]; best[3] = best[2]; bestId[1] = bestId[0];
@@ -280,7 +358,7 @@ public final class ChainLayout implements SpineLayout {
         if (c.startBoost > 0) boost = Math.max(boost, c.startBoost * smoothstep(1 - along / s.junctionBoostLength));
         for (double t : c.forks) boost = Math.max(boost, s.junctionBoost * smoothstep(1 - Math.abs(along - t) / s.junctionBoostLength));
         if (Math.abs(k - centre) < 0.51) {   // the middle spine (or the two middle ones of an even chain)
-            double vd = c.length * (0.2 + 0.6 * Hash.unit(Hash.hash(c.id, 606)));
+            double vd = c.vStart + (c.vEnd - c.vStart) * (0.2 + 0.6 * Hash.unit(Hash.hash(c.id, 606)));
             boost = Math.max(boost, s.dominantSummitBoost * smoothstep(1 - Math.abs(along - vd) / s.dominantSummitLength));
         }
         return chainScale * profile * (1 + boost);
@@ -292,13 +370,14 @@ public final class ChainLayout implements SpineLayout {
         for (Chain c : near(x, z)) {
             double rx = x - c.ox, rz = z - c.oz;
             double v = rx * c.dx + rz * c.dz;
-            double vc = Math.max(0, Math.min(c.length, v));
+            double vc = Math.max(c.vStart, Math.min(c.vEnd, v));
             double lateral = rx * c.nx + rz * c.nz - c.curve(vc, s);
             // capsule with round ends: distance to the centreline segment shortened by the
-            // half-width at each end, minus the half-width. The spines run the full length, so
-            // the ranges taper away over the last half-width of the chain.
+            // half-width at each end, minus the half-width. The middle spine runs the full
+            // length, so the ranges taper away over the last half-width of the chain.
             double half = c.zoneHalf(s);
-            double v2 = Math.max(Math.min(half, c.length * 0.5), Math.min(c.length - half, v));
+            double len = c.vEnd - c.vStart;
+            double v2 = Math.max(c.vStart + Math.min(half, len * 0.5), Math.min(c.vEnd - half, v));
             double dv = v - v2;
             double dOut = Math.max(0, Math.sqrt(dv * dv + lateral * lateral) - half);
             double zm = smoothstep(1 - dOut / s.chainEdgeWidth);

@@ -192,11 +192,42 @@ public final class MountainSettings {
     public double chainZoneMargin = 0;
     /** Width of the mask fade at the chain sides and ends, blocks (relief tapers to vanilla over it). */
     public double chainEdgeWidth = 500;
+    /**
+     * Disorganising the spines of a chain. Each gap between neighbouring spines swells and shrinks
+     * along the chain by up to this fraction (wavelength spineGapWavelength blocks), so the ranges
+     * converge and diverge instead of running parallel; each spine also wanders on its own with a
+     * second, shorter wave (spineWiggleAmplitude / spineWiggleWavelength) on top of spineCurve*.
+     */
+    public double spineGapVariation = 0.35;
+    public double spineGapWavelength = 1800;
+    public double spineWiggleAmplitude = 90;
+    public double spineWiggleWavelength = 450;
+    /**
+     * Outer spines start and stop part-way along the chain: each end of an outer spine is pulled in
+     * by up to this fraction of the chain length (the middle spine always runs the full length).
+     */
+    public double spineStaggerMax = 0.3;
+    /**
+     * With the footprint installed, a chain is trimmed to the stretch of its centreline that lies
+     * inside vanilla's mountain footprint, sampled every chainTrimStep blocks, so chains end with
+     * their own tapered ends inside the mountain biome instead of being sliced by its edge. Chains
+     * shorter than chainTrimMinLength after trimming are dropped.
+     */
+    public boolean chainTrimToFootprint = true;
+    public double chainTrimStep = 100;
+    public double chainTrimMinLength = 900;
 
     // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
     /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
     public double erosionMountainBelow = -0.375;
-    public double erosionMaskBand = 0.12;
+    public double erosionMaskBand = 0.2;
+    /**
+     * The footprint edge is domain-warped: the erosion is read at a point displaced by up to
+     * footprintWarpAmplitude blocks with noise of wavelength footprintWarpWavelength, so the
+     * biome edge wanders instead of following one smooth contour.
+     */
+    public double footprintWarpAmplitude = 90;
+    public double footprintWarpWavelength = 420;
     /** The erosion noise is stretched by this ratio along the range direction, so mountain provinces are elongated. */
     public double erosionStretch = 2.0;
 
