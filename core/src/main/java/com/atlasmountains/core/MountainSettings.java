@@ -224,8 +224,10 @@ public final class MountainSettings {
     public boolean chainTrimToFootprint = true;
     public double chainTrimStep = 100;
     public double chainTrimMinLength = 900;
+    /** A fork of a fork (depth 2 and deeper) left shorter than this by trimming is dropped: short stubs at a junction read as odd connectors. */
+    public double chainTrimMinGrandchildLength = 1800;
     /** After trimming a chain keeps its spines as long as it is still at least this many times longer than its zone is wide. */
-    public double chainTrimMinAspect = 1.2;
+    public double chainTrimMinAspect = 1.0;
 
     // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
     /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
