@@ -5,9 +5,6 @@ import com.atlasmountains.core.RegionCache;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerWorldEvents;
-import net.minecraft.world.World;
-import net.minecraft.world.gen.densityfunction.DensityFunction;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
@@ -48,18 +45,10 @@ public final class AtlasMountainsMod implements ModInitializer {
     public void onInitialize() {
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, id("terrain_height"), TerrainHeightFunction.CODEC_HOLDER.codec());
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, id("mountain_mask"), MountainMaskFunction.CODEC_HOLDER.codec());
+        Registry.register(Registries.DENSITY_FUNCTION_TYPE, id("plate_continents"), PlateContinentsFunction.CODEC_HOLDER.codec());
         Registry.register(Registries.MATERIAL_CONDITION, id("slope_above"), SlopeAboveCondition.CODEC_HOLDER.codec());
         Registry.register(Registries.MATERIAL_CONDITION, id("in_mountains"), InMountainsCondition.CODEC_HOLDER.codec());
         Registry.register(Registries.BIOME_SOURCE, id("mask"), AtlasBiomeSource.CODEC);
-
-        // Once the overworld exists, let the mask read vanilla's continentalness so zones fade out at the coast.
-        ServerWorldEvents.LOAD.register((server, world) -> {
-            if (world.getRegistryKey() != World.OVERWORLD) return;
-            DensityFunction continents = world.getChunkManager().getNoiseConfig().getNoiseRouter().continents();
-            cache().mountainMask().continentalness = (x, z) ->
-                    continents.sample(new DensityFunction.UnblendedNoisePos((int) Math.floor(x), 0, (int) Math.floor(z)));
-            LOGGER.info("mountain mask now follows the overworld continentalness");
-        });
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             long seed = server.getSaveProperties().getGeneratorOptions().getSeed();

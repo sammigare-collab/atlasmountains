@@ -2,6 +2,7 @@ package com.atlasmountains.fabric;
 
 import com.atlasmountains.core.MountainSettings;
 import com.atlasmountains.core.RegionCache;
+import com.atlasmountains.core.diag.ContinentMap;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.server.world.ServerWorld;
@@ -14,6 +15,9 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Locale;
 
 /** /atlasmountains info: region id, cached or not, heightmap value and slope at the player. */
@@ -30,7 +34,12 @@ public final class InfoCommand {
                     int rx = (int) Math.floor(p.x / s.regionSizeBlocks);
                     int rz = (int) Math.floor(p.z / s.regionSizeBlocks);
                     boolean cached = cache.isCached(rx, rz);
-                    String line1 = String.format(Locale.UK, "region %d,%d  cached: %s  seed %d", rx, rz, cached ? "yes" : "no", cache.seed());
+                    double cont = cache.continents().continentalness(p.x, p.z);
+                    double coast = cache.continents().signedDistance(p.x, p.z);
+                    String line1 = String.format(Locale.UK, "region %d,%d  cached: %s  seed %d  continentalness %.2f (%s, coast %.0f blocks %s)  mask %.2f",
+                            rx, rz, cached ? "yes" : "no", cache.seed(), cont,
+                            cont < -0.455 ? "deep ocean" : cont < -0.19 ? "ocean" : cont < -0.11 ? "coast" : cont < 0.03 ? "near inland" : cont < 0.3 ? "mid inland" : "far inland",
+                            Math.abs(coast), coast >= 0 ? "inland" : "offshore", cache.mask(p.x, p.z));
                     String line2;
                     if (cached) {
                         double h = cache.baseHeight(p.x, p.z);
@@ -45,17 +54,18 @@ public final class InfoCommand {
                     return 1;
                 }))
                 .then(CommandManager.literal("scan").executes(ctx -> {
-                    // 8 km square around the player, 200 blocks per character: # mountains, + edge, . vanilla
+                    // 8 km square around the player, 200 blocks per character: # mountains, + edge, . vanilla land, ~ sea
                     ServerCommandSource src = ctx.getSource();
                     Vec3d p = src.getPosition();
                     RegionCache cache = AtlasMountainsMod.cache();
                     int step = 200, half = 4000;
-                    StringBuilder all = new StringBuilder("mountain mask scan, " + step + " blocks per character, north at top, you are at the centre\n");
+                    StringBuilder all = new StringBuilder("mountain mask scan, " + step + " blocks per character, north at top, you are at the centre (# mountains, + edge, . land, ~ sea)\n");
                     for (int z = -half; z <= half; z += step) {
                         StringBuilder row = new StringBuilder(String.format(Locale.UK, "z%+6d ", (int) p.z + z));
                         for (int x = -half; x <= half; x += step) {
                             double m = cache.mask((int) p.x + x, (int) p.z + z);
-                            row.append(m >= 0.5 ? '#' : m > 0 ? '+' : '.');
+                            boolean sea = cache.mountainMask().continentalnessAt((int) p.x + x, (int) p.z + z) < -0.19;
+                            row.append(m >= 0.5 ? '#' : m > 0 ? '+' : sea ? '~' : '.');
                         }
                         all.append(row).append('\n');
                     }
@@ -63,6 +73,26 @@ public final class InfoCommand {
                     src.sendFeedback(() -> Text.literal("mask scan written to the log (latest.log)"), false);
                     return 1;
                 }))
+                .then(CommandManager.literal("continents")
+                        .then(CommandManager.argument("spanKm", IntegerArgumentType.integer(10, 400)).executes(ctx -> {
+                    // Plate continents + mountain zones around the player, 1 pixel per (span / 1000) blocks,
+                    // written to <world>/atlasmountains/continents_<x>_<z>_<span>km.png. Mask and plates only, no terrain, so it is quick.
+                    ServerCommandSource src = ctx.getSource();
+                    int spanKm = IntegerArgumentType.getInteger(ctx, "spanKm");
+                    Vec3d p = src.getPosition();
+                    RegionCache cache = AtlasMountainsMod.cache();
+                    Path dir = src.getServer().getSavePath(WorldSavePath.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                    File out = dir.resolve(String.format(Locale.UK, "continents_%d_%d_%dkm.png", (int) p.x, (int) p.z, spanKm)).toFile();
+                    try {
+                        ContinentMap.render(cache.settings(), cache.continents(), cache.mountainMask(), cache.seed(),
+                                spanKm * 1000, spanKm, (int) p.x, (int) p.z, out);
+                    } catch (IOException e) {
+                        src.sendError(Text.literal("could not write the map: " + e.getMessage()));
+                        return 0;
+                    }
+                    src.sendFeedback(() -> Text.literal("continent map written to " + out.getPath()), false);
+                    return 1;
+                })))
                 .then(CommandManager.literal("heightmap")
                         .then(CommandManager.argument("sizeBlocks", IntegerArgumentType.integer(256, 16384))
                         .then(CommandManager.argument("stepBlocks", IntegerArgumentType.integer(1, 64)).executes(ctx -> {

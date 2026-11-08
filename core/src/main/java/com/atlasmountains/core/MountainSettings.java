@@ -130,10 +130,52 @@ public final class MountainSettings {
     public double maskThreshold = 0.16;
     /** Width of the zone edge in noise units; the terrain blends from vanilla to ours over it. */
     public double maskEdgeWidth = 0.16;
-    /** Vanilla continentalness at and below which mountains are fully faded out (coast is -0.19..-0.11). */
+    /** Continentalness at and below which mountains are fully faded out (coast is -0.19..-0.11; -0.15 is the shoreline). */
     public double maskInlandStart = -0.15;
-    /** Vanilla continentalness at and above which mountains are fully on. */
+    /** Continentalness at and above which mountains are fully on (0.05 is {@link #nearInlandDistance} blocks inland). */
     public double maskInlandFull = 0.05;
+
+    // ---- Plate continents (mixed world; replaces vanilla continentalness) -----------
+    /** Lattice spacing of the Voronoi plates, blocks. A continent is a cluster of a few plates. */
+    public double plateSizeBlocks = 10000;
+    /**
+     * Fraction of plates that are land. Adjacent land plates merge into one continent, so this
+     * sets continent size: at 0.4 a continent is typically 3 to 8 plates and ringed by sea;
+     * above about 0.55 the land joins up into one world-spanning mass. The origin plate is always land.
+     */
+    public double plateLandFraction = 0.32;
+    /** The coast is pulled this far inside the land plates, blocks (widens the sea between continents). */
+    public double coastInset = 1200;
+    /** Cell-centre jitter as a fraction of the lattice spacing (0 = square grid, 1 = anywhere in the cell). */
+    public double plateJitter = 0.8;
+    /** Domain-warp amplitude, blocks: how far plate edges bend away from straight lines. */
+    public double plateWarpAmplitude = 2400;
+    /** Wavelength of that warp, blocks. */
+    public double plateWarpWavelength = 9000;
+    /** Second, medium-scale warp: breaks the remaining straight edges into lobes and inlets. Amplitude, blocks. */
+    public double plateWarp2Amplitude = 1000;
+    /** Wavelength of the medium warp, blocks. */
+    public double plateWarp2Wavelength = 2600;
+    /** Each plate is stretched along a random direction by a ratio between 1 and this, so continents are elongated. */
+    public double plateStretchMax = 2.2;
+    /** Amplitude of the kilometre-scale coast shape noise, blocks: bays, peninsulas, offshore islets. */
+    public double coastShapeAmplitude = 900;
+    /** Wavelength of the coast shape noise, blocks. */
+    public double coastShapeWavelength = 4500;
+    /** Amplitude of the small coastal noise added to the coast distance, blocks (bays and headlands). */
+    public double coastNoiseAmplitude = 160;
+    /** Wavelength of the coastal noise, blocks. */
+    public double coastNoiseWavelength = 900;
+    /** Half-width of the coast band, blocks: continentalness runs -0.25..-0.05 over +/- this around the shoreline. */
+    public double coastHalfWidth = 100;
+    /** Blocks inland at which continentalness reaches 0.05 (near inland ends, mountains fully on). */
+    public double nearInlandDistance = 600;
+    /** Blocks inland at which continentalness reaches 0.45 (far inland). */
+    public double farInlandDistance = 2500;
+    /** Blocks offshore at which continentalness reaches -0.5 (ocean). */
+    public double oceanDistance = 700;
+    /** Blocks offshore at which continentalness reaches -1.0 (deep ocean). */
+    public double deepOceanDistance = 3000;
 
     // ---- Derived helpers ---------------------------------------------------------
     public double relief() { return summitHeight - valleyFloorHeight; }

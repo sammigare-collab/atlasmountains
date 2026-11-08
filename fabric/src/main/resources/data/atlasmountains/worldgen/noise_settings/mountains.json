@@ -40,7 +40,7 @@
             }
           }
         },
-        "argument2": "minecraft:overworld/depth"
+        "argument2": "atlasmountains:overworld/vanilla_depth"
       },
       "argument2": {
         "type": "minecraft:mul",
@@ -50,11 +50,7 @@
         "argument2": "atlasmountains:overworld/depth_masked"
       }
     },
-    "erosion": {
-      "type": "minecraft:max",
-      "argument1": -0.1,
-      "argument2": "atlasmountains:overworld/erosion"
-    },
+    "erosion": "atlasmountains:overworld/erosion_floored",
     "final_density": {
       "type": "minecraft:max",
       "argument1": {
@@ -298,12 +294,12 @@
                                 "argument1": 0.078125,
                                 "argument2": {
                                   "type": "minecraft:range_choice",
-                                  "input": "minecraft:overworld/sloped_cheese",
+                                  "input": "atlasmountains:overworld/vanilla_sloped_cheese",
                                   "max_exclusive": 1.5625,
                                   "min_inclusive": -1000000.0,
                                   "when_in_range": {
                                     "type": "minecraft:min",
-                                    "argument1": "minecraft:overworld/sloped_cheese",
+                                    "argument1": "atlasmountains:overworld/vanilla_sloped_cheese",
                                     "argument2": {
                                       "type": "minecraft:mul",
                                       "argument1": 5.0,
@@ -356,7 +352,7 @@
                                                 "argument2": {
                                                   "type": "minecraft:mul",
                                                   "argument1": -0.64,
-                                                  "argument2": "minecraft:overworld/sloped_cheese"
+                                                  "argument2": "atlasmountains:overworld/vanilla_sloped_cheese"
                                                 }
                                               },
                                               "max": 0.5,
@@ -474,10 +470,10 @@
                             "type": "minecraft:quarter_negative",
                             "argument": {
                               "type": "minecraft:mul",
-                              "argument1": "minecraft:overworld/depth",
+                              "argument1": "atlasmountains:overworld/vanilla_depth",
                               "argument2": {
                                 "type": "minecraft:cache_2d",
-                                "argument": "minecraft:overworld/factor"
+                                "argument": "atlasmountains:overworld/vanilla_factor"
                               }
                             }
                           }
