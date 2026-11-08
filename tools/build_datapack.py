@@ -30,19 +30,20 @@ SNOW_JITTER_MULT = 3       # surface_depth_multiplier on the y_above condition (
 ROCK_SLOPE_DEG = 35        # steeper than this = stone
 CAVE_TOP = 150             # no density-function cave carving at or above this y (mountain zones)
 DIM_MIN_Y = -64
-DIM_HEIGHT = 1024          # build limit 960
+DIM_HEIGHT = 576           # build limit 512; the tallest summits are about y 420
 DENSITY_PER_BLOCK = 0.15   # sloped_cheese = (terrain_height - y) * this; vanilla caves expect ~1.56 ten blocks down
 VANILLA_EROSION_FLOOR = -0.1   # vanilla erosion is never lower than this, so vanilla makes no peaks of its own
 VANILLA_TOP = 320          # vanilla's own build height; its 3D noise is skipped above this (see gate_interpolated)
 
 CLIMATE = {   # firstOctave: vanilla verified from the data files -> target. Each step of -1 doubles the wavelength.
-    'temperature': -14,      # vanilla -10, sixteen times slower: a climate band is many kilometres
-    'vegetation': -12,       # vanilla -8, sixteen times slower
-    'continentalness': -10,  # vanilla -9, twice vanilla; only the "everywhere" preset still uses this noise (the mixed preset uses the plates)
-    'erosion': -12,          # vanilla -9, eight times slower: flat or hilly provinces kilometres across
+    'temperature': -12,      # vanilla -10, four times slower (Large Biomes scale)
+    'vegetation': -10,       # vanilla -8, four times slower
+    'continentalness': -10,  # vanilla -9, twice vanilla; only the "everywhere" preset still uses this noise (the mixed preset uses the mod's continents)
+    'erosion': -11,          # vanilla -9, four times slower: flat or hilly provinces; also gates where mountain chains go
 }
-# Biome size: with these octaves a vanilla biome spans kilometres. The ridge (weirdness) noise is
-# left at vanilla so rivers keep their vanilla spacing and shape.
+# Biome size: Large Biomes scale (vanilla is two steps smaller on every noise). The ridge
+# (weirdness) noise is left at vanilla so rivers keep their vanilla spacing and shape.
+TREELINE = 100             # no trees in the mountain biomes above this y (lower third of the grass flank only)
 
 def load(rel):
     with open(os.path.join(VAN, rel)) as f:
@@ -59,13 +60,18 @@ def write(rel, obj):
 def rename(obj, old, new):
     return json.loads(json.dumps(obj).replace(f'"{old}"', f'"{new}"'))
 
-TERRAIN = {'type': f'{NS}:terrain_height', 'chains': False}                 # "everywhere" preset: parallel spines
-TERRAIN_FAST = {'type': f'{NS}:terrain_height', 'eroded': False, 'chains': False}   # analytic model, no erosion; for biome depth only
-MASK = {'type': f'{NS}:mountain_mask'}
+# Our 2D functions are wrapped in cache_2d: the chunk filler walks each column top to bottom, so
+# the eroded height and the mask are then computed once per column instead of once per block
+# (576 times per column without it). flat_cache would be cheaper still but samples at 4-block
+# resolution, which would terrace the surface.
+def cache2d(f): return {'type': 'minecraft:cache_2d', 'argument': f}
+TERRAIN = cache2d({'type': f'{NS}:terrain_height', 'chains': False})                 # "everywhere" preset: parallel spines
+TERRAIN_FAST = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'chains': False})   # analytic model, no erosion; for biome depth only
+MASK = cache2d({'type': f'{NS}:mountain_mask'})
 SC = f'{NS}:overworld/sloped_cheese'
 SC_MASKED = f'{NS}:overworld/sloped_cheese_masked'      # relief faded by the mask (mixed world)
-TERRAIN_MASKED = {'type': f'{NS}:terrain_height', 'mask_relief': True, 'chains': True}     # mixed preset: chains
-TERRAIN_FAST_MASKED = {'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'chains': True}
+TERRAIN_MASKED = cache2d({'type': f'{NS}:terrain_height', 'mask_relief': True, 'chains': True})     # mixed preset: chains
+TERRAIN_FAST_MASKED = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'chains': True})
 
 def mul(a, b): return {'type': 'minecraft:mul', 'argument1': a, 'argument2': b}
 def add(a, b): return {'type': 'minecraft:add', 'argument1': a, 'argument2': b}
@@ -264,6 +270,10 @@ for ours_id, (template, trange) in BIOMES.items():
     feats[9] = VEGETATION          # vegetal decoration
     feats[10] = []                 # no freeze_top_layer; snow comes from the surface rule
     write(f'{NS}/worldgen/biome/{ours_id}.json', b)
+    # treeless twin for above the treeline (biomes are 3D, so the biome source can switch by height)
+    high = copy.deepcopy(b)
+    high['features'][9] = VEGETATION[1:]
+    write(f'{NS}/worldgen/biome/{ours_id}_high.json', high)
     entries.append({'biome': f'{NS}:{ours_id}', 'parameters': {
         'temperature': trange, 'humidity': [-1.0, 1.0], 'continentalness': [-1.0, 1.0],
         'erosion': [-1.0, 1.0], 'weirdness': [-1.0, 1.0], 'depth': [-1.0, 1.0], 'offset': 0.0}})
@@ -319,6 +329,8 @@ def build_variant(settings_name, preset_name, mixed):
         biome_source = {'type': f'{NS}:mask',
                         'vanilla': {'type': 'minecraft:multi_noise', 'preset': 'minecraft:overworld'},
                         'cold': f'{NS}:cold', 'temperate': f'{NS}:temperate', 'warm': f'{NS}:warm',
+                        'cold_high': f'{NS}:cold_high', 'temperate_high': f'{NS}:temperate_high', 'warm_high': f'{NS}:warm_high',
+                        'treeline_y': TREELINE,
                         'cold_below': BIOMES['cold'][1][1], 'warm_above': BIOMES['warm'][1][0], 'mask_threshold': 0.5}
     else:
         biome_source = {'type': 'minecraft:multi_noise', 'biomes': entries}

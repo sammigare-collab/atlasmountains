@@ -41,7 +41,8 @@ few seconds while it is eroded (then cached under `<world>/atlasmountains/`).
 at your position.
 
 Height parameters that live in JSON (`tools/build_datapack.py`) must match `MountainSettings`:
-valley floor 80, rock line 340, summit 600, sea level 79, snow line 540, caves stop at 300.
+valley floor 64, rock line 168, summit 272 (chains scale this up to about 420), sea level 63, snow line 238,
+caves stop at 150, treeline 100 (no trees in the mountain biomes above it), dimension -64..512.
 
 ## World presets
 
@@ -64,12 +65,13 @@ valley floor 80, rock line 340, summit 600, sea level 79, snow line 540, caves s
     The mask is the capsule around a chain's spines, fading over `chainEdgeWidth` at the sides and ends
     (the relief is scaled by the mask) and at the coast.
   - *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Climate noises are slowed
-    (temperature 16x, vegetation 16x, erosion 8x) so biomes span kilometres; the ridge noise is left
+    to Large Biomes scale (temperature, vegetation and erosion 4x vanilla); the ridge noise is left
     alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring erosion at -0.1.
     Note: vanilla's terrain splines read `minecraft:overworld/continents` and `/erosion` by name, so
     the preset ships repointed copies (`vanilla_*` density functions) that read the mod's continents and
     the floored erosion; the router entries alone only affect biomes.
-  Inside a chain: our ranges, valleys and lakes at vanilla sea level; our three biomes and surface rules.
+  Inside a chain: our ranges, valleys and lakes at vanilla sea level; our three biomes and surface rules,
+  with treeless twins (`*_high`) above the treeline (y 100) so only the lower flanks are wooded.
   Terrain, biomes and surface all read the same `atlasmountains:mountain_mask`.
 - **Atlas Mountains (everywhere)** (`atlasmountains:all`): the whole world is mountain country with the
   parallel-spine layout (`RangeLayout`); for testing the mountain design. Separate terrain cache
@@ -100,7 +102,11 @@ jungles and forests on the flanks; nothing outside the preset is changed.
   noise, continentalness/beach/ocean/deep-ocean bands verified at probed positions, chunks generated
   over a chain and read back from the region files (summits to y 281, snow/rock/grass surface);
   the everywhere preset loads with the parallel layout and gives the same spawn height as before.
-- Region generation (chains) about 3 s per 2048x2048 region on a 2-core machine.
+- Region generation (chains) about 3 s per 2048x2048 region on a 2-core machine; neighbouring regions
+  are prefetched when a sample comes within 700 blocks of a region edge.
+- Performance (2-core dev server, 256 chunks): vanilla 43 s, this preset 55 s on ordinary land and 65 s
+  over a chain. The terrain and mask functions are wrapped in `cache_2d` (once per column); the dimension
+  is 576 tall (was 1024), which is most of the remaining difference.
 - Not tested: the client; the look of a fork and its taller summit from the ground; long play.
 
 ## Known limitations
