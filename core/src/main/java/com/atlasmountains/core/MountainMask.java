@@ -51,7 +51,11 @@ public final class MountainMask {
         double lz = layout.zone(x, z);
         if (erosion != null) {
             // vanilla's mountain footprint; with a chain layout the chains are what shows inside it
-            double e = erosionAt(x, z);
+            // domain-warped so the biome edge wanders rather than following one smooth contour
+            double w = s.footprintWarpWavelength, a = s.footprintWarpAmplitude;
+            double wx = x + (Hash.value2(Hash.hash(seed, 71), x / w, z / w) - 0.5) * 2 * a;
+            double wz = z + (Hash.value2(Hash.hash(seed, 72), x / w + 0.5, z / w) - 0.5) * 2 * a;
+            double e = erosionAt(wx, wz);
             double footprint = smoothstep((s.erosionMountainBelow - e) / s.erosionMaskBand + 0.5);
             return Double.isNaN(lz) ? footprint : lz * footprint;
         }
