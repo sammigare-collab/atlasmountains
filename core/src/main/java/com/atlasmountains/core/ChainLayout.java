@@ -44,17 +44,10 @@ public final class ChainLayout implements SpineLayout {
             out[1] = oz + dz * v + nz * c;
         }
 
-        /**
-         * Gap between spine k-1 and spine k (k >= 1). Usually tight, so neighbouring ranges meet
-         * back to back in a col above the valley floor; sometimes wide, which leaves the flat
-         * forested valley with lakes between them.
-         */
+        /** Base (tight) gap between spine k-1 and spine k (k >= 1): the ranges meet back to back in a col. */
         double gap(int k, MountainSettings s) {
-            long h = Hash.hash(id, 404, k);
-            boolean wide = Hash.unit(Hash.hash(h, 1)) < s.spineGapWideChance;
-            double u = Hash.unit(Hash.hash(h, 2));
-            return wide ? s.spineGapWideMin + u * (s.spineGapWideMax - s.spineGapWideMin)
-                        : s.spineGapTightMin + u * (s.spineGapTightMax - s.spineGapTightMin);
+            double u = Hash.unit(Hash.hash(Hash.hash(id, 404, k), 2));
+            return s.spineGapTightMin + u * (s.spineGapTightMax - s.spineGapTightMin);
         }
 
         /** Lateral base offset of spine k: spines are stacked from gaps and centred on the chain line. */
@@ -65,10 +58,28 @@ public final class ChainLayout implements SpineLayout {
             return pos - total * 0.5;
         }
 
-        /** Gap between spine k-1 and spine k at v: the base gap swelling and shrinking along the chain. */
+        /**
+         * Gap between spine k-1 and spine k at v: the tight gap swelling and shrinking a little
+         * along the chain, plus enclosed valley pockets where it opens to a wide gap and closes
+         * again (see MountainSettings.valleyPocket*).
+         */
         double gapAt(int k, double v, MountainSettings s) {
             double n = Hash.value1(Hash.hash(id, 505, k), v / s.spineGapWavelength) * 2 - 1;
-            return gap(k, s) * (1 + s.spineGapVariation * n);
+            double tight = gap(k, s);
+            double g = tight * (1 + s.spineGapVariation * n);
+            long cell = (long) Math.floor(v / s.valleyPocketSpacing);
+            for (long c = cell - 1; c <= cell + 1; c++) {
+                long h = Hash.hash(id, 606, k, c);
+                if (Hash.unit(Hash.hash(h, 1)) >= s.spineGapWideChance) continue;
+                double centre = (c + Hash.unit(Hash.hash(h, 2))) * s.valleyPocketSpacing;
+                double half = s.valleyPocketHalfMin + Hash.unit(Hash.hash(h, 3)) * (s.valleyPocketHalfMax - s.valleyPocketHalfMin);
+                double t = (v - centre) / half;
+                if (Math.abs(t) >= 1) continue;
+                double bell = (1 - t * t) * (1 - t * t);
+                double wide = s.spineGapWideMin + Hash.unit(Hash.hash(h, 4)) * (s.spineGapWideMax - s.spineGapWideMin);
+                g += (wide - tight) * bell;
+            }
+            return g;
         }
 
         /** Each spine's own wander about its stacked position at v. */
@@ -116,7 +127,8 @@ public final class ChainLayout implements SpineLayout {
 
         /** Half-width of the zone capsule: outer spine plus the range half-width plus a margin. */
         double zoneHalf(MountainSettings s) {
-            return Math.abs(spineBase(ranges - 1, s)) * (1 + s.spineGapVariation) + s.spineCurveAmplitude + s.spineWiggleAmplitude + s.halfWidth() + s.chainZoneMargin;
+            return Math.abs(spineBase(ranges - 1, s)) * (1 + s.spineGapVariation) + 0.5 * (s.spineGapWideMax - s.spineGapTightMin)
+                 + s.spineCurveAmplitude + s.spineWiggleAmplitude + s.halfWidth() + s.chainZoneMargin;
         }
     }
 
@@ -279,7 +291,7 @@ public final class ChainLayout implements SpineLayout {
         if (child) vs = 0;
         if (ve - vs < s.chainTrimMinLength) return false;
         c.vStart = vs; c.vEnd = ve;
-        while (c.ranges > 1 && ve - vs < s.chainMinAspect * 2 * c.zoneHalf(s)) c.ranges--;
+        while (c.ranges > 1 && ve - vs < s.chainTrimMinAspect * 2 * c.zoneHalf(s)) c.ranges--;
         return true;
     }
 
