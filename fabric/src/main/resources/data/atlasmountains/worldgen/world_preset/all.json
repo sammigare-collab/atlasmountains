@@ -1,0 +1,127 @@
+{
+  "dimensions": {
+    "minecraft:overworld": {
+      "type": "atlasmountains:mountains",
+      "generator": {
+        "type": "minecraft:noise",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "biomes": [
+            {
+              "biome": "atlasmountains:cold",
+              "parameters": {
+                "temperature": [
+                  -1.0,
+                  -0.2
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "atlasmountains:temperate",
+              "parameters": {
+                "temperature": [
+                  -0.2,
+                  0.25
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            },
+            {
+              "biome": "atlasmountains:warm",
+              "parameters": {
+                "temperature": [
+                  0.25,
+                  1.0
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "continentalness": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0
+              }
+            }
+          ]
+        },
+        "settings": "atlasmountains:mountains_all"
+      }
+    },
+    "minecraft:the_end": {
+      "type": "minecraft:the_end",
+      "generator": {
+        "type": "minecraft:noise",
+        "biome_source": {
+          "type": "minecraft:the_end"
+        },
+        "settings": "minecraft:end"
+      }
+    },
+    "minecraft:the_nether": {
+      "type": "minecraft:the_nether",
+      "generator": {
+        "type": "minecraft:noise",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "preset": "minecraft:nether"
+        },
+        "settings": "minecraft:nether"
+      }
+    }
+  }
+}
