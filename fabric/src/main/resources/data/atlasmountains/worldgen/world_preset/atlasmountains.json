@@ -1,0 +1,45 @@
+{
+  "dimensions": {
+    "minecraft:overworld": {
+      "type": "atlasmountains:mountains",
+      "generator": {
+        "type": "minecraft:noise",
+        "biome_source": {
+          "type": "atlasmountains:mask",
+          "vanilla": {
+            "type": "minecraft:multi_noise",
+            "preset": "minecraft:overworld"
+          },
+          "cold": "atlasmountains:cold",
+          "temperate": "atlasmountains:temperate",
+          "warm": "atlasmountains:warm",
+          "cold_below": -0.2,
+          "warm_above": 0.25,
+          "mask_threshold": 0.5
+        },
+        "settings": "atlasmountains:mountains"
+      }
+    },
+    "minecraft:the_end": {
+      "type": "minecraft:the_end",
+      "generator": {
+        "type": "minecraft:noise",
+        "biome_source": {
+          "type": "minecraft:the_end"
+        },
+        "settings": "minecraft:end"
+      }
+    },
+    "minecraft:the_nether": {
+      "type": "minecraft:the_nether",
+      "generator": {
+        "type": "minecraft:noise",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "preset": "minecraft:nether"
+        },
+        "settings": "minecraft:nether"
+      }
+    }
+  }
+}

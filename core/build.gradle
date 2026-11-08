@@ -1,0 +1,38 @@
+plugins {
+    id 'java-library'
+    id 'application'
+}
+
+group = 'com.atlasmountains'
+version = '0.1.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+application {
+    mainClass = 'com.atlasmountains.core.diag.Diagnostics'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Convenience: gradlew :core:diag -Pseed=1 -Prx=0 -Prz=0
+tasks.register('diag', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.atlasmountains.core.diag.Diagnostics'
+    args = [project.findProperty('seed') ?: '1', project.findProperty('rx') ?: '0', project.findProperty('rz') ?: '0']
+}

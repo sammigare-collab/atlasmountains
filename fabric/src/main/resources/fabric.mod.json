@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "atlasmountains",
+  "version": "${version}",
+  "name": "Atlas Mountains",
+  "description": "Horn-peak ridge terrain: linear ranges with rows of pyramid summits, eroded faces and flat lake valleys. Only active in the Atlas Mountains world type.",
+  "authors": ["Sammi"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.atlasmountains.fabric.AtlasMountainsMod"]
+  },
+  "accessWidener": "atlasmountains.accesswidener",
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.1",
+    "java": ">=21"
+  }
+}
