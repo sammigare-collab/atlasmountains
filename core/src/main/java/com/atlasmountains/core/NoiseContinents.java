@@ -12,10 +12,12 @@ public final class NoiseContinents implements Continents {
     private final MountainSettings s;
     private final long[] octaveSeeds;
     private final double norm;
+    private final long domeSeed;
 
     public NoiseContinents(MountainSettings settings, long seed) {
         this.s = settings;
         long base = Hash.hash(seed, 4040);
+        domeSeed = Hash.hash(base, 99);
         octaveSeeds = new long[s.continentOctaves];
         double n = 0, amp = 1;
         for (int o = 0; o < s.continentOctaves; o++) {
@@ -45,9 +47,23 @@ public final class NoiseContinents implements Continents {
         return n;
     }
 
-    /** Noise above the land threshold: positive on land, negative at sea. */
+    /**
+     * Noise above the land threshold: positive on land, negative at sea. Within
+     * continentSpawnGuaranteedRadius of the origin the value is at least a dome that is land
+     * everywhere inside, so spawn is always on an island even when the noise there is deep
+     * ocean; the additive spawn boost in {@link #noise} shapes it beyond that.
+     */
     public double landValue(double x, double z) {
-        return noise(x, z) - s.continentLandThreshold;
+        double v = noise(x, z) - s.continentLandThreshold;
+        // the dome's radius varies with direction (two octaves of noise), so the guaranteed island is a blob, not a disc
+        double warp = 1 + 0.45 * (Hash.value2(domeSeed, x / 2800 + 7.1, z / 2800 - 3.3)
+                                + 0.5 * Hash.value2(domeSeed + 1, x / 1200 - 2.9, z / 1200 + 5.7));
+        double r = Math.sqrt(x * x + z * z) / (s.continentSpawnGuaranteedRadius * Math.max(0.35, warp));
+        if (r < 1) {
+            double dome = s.continentSpawnGuaranteedValue * (1 - r * r);
+            if (dome > v) v = dome;
+        }
+        return v;
     }
 
     /**

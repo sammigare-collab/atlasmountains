@@ -211,7 +211,10 @@ public final class MountainSettings {
     public double continentLandThreshold = 0.18;
     /** Spawn island: the noise is raised by this at the origin, fading out over continentSpawnRadius blocks. */
     public double continentSpawnBoost = 0.4;
-    public double continentSpawnRadius = 9000;
+    public double continentSpawnRadius = 12000;
+    /** Land is guaranteed within this radius of the origin (a dome of at least this noise value above the threshold at the centre). */
+    public double continentSpawnGuaranteedRadius = 5000;
+    public double continentSpawnGuaranteedValue = 0.25;
 
     // ---- Plate continents (noiseContinents = false). The distance ramp fields at the end apply to both models. ----
     /** Lattice spacing of the Voronoi plates, blocks. A continent is a cluster of a few plates. */
