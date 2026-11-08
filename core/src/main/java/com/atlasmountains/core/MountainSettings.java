@@ -134,15 +134,15 @@ public final class MountainSettings {
 
     // ---- Mountain chains (chainLayout = true) ------------------------------------
     /** Cell size of the chain lattice, blocks. One chain per cell at most; sets how far apart chains are. */
-    public double chainCellSize = 5000;
+    public double chainCellSize = 4500;
     /** Probability that a cell has a chain (before the erosion gate). */
-    public double chainChance = 0.9;
+    public double chainChance = 0.95;
     /**
      * Biome-layer gate: a chain is placed with full chainChance where the world's erosion noise at
      * its origin is below this minus half chainErosionBand, with no chance above this plus half the
      * band. Vanilla: erosion below about -0.375 is its mountain range, -0.375..0.05 hills, above that flat.
      */
-    public double chainErosionBelow = -0.15;
+    public double chainErosionBelow = 2.0;      // gate off: the mountain footprint mask decides where chains show
     public double chainErosionBand = 0.4;
     /** Chain length, blocks, uniform between these two. */
     public double chainLengthMin = 2500;

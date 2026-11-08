@@ -8,7 +8,7 @@
       "argument": {
         "type": "atlasmountains:terrain_height",
         "mask_relief": true,
-        "chains": false
+        "chains": true
       }
     },
     "argument2": {

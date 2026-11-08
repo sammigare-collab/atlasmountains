@@ -71,7 +71,7 @@ MASK = cache2d({'type': f'{NS}:mountain_mask'})
 INNER = cache2d({'type': f'{NS}:mountain_mask', 'kind': 'inner'})   # 1 only between a chain's spines
 SC = f'{NS}:overworld/sloped_cheese'
 SC_MASKED = f'{NS}:overworld/sloped_cheese_masked'      # relief faded by the mask (mixed world)
-MIXED_CHAINS = False       # must match AtlasMountainsMod.MIXED_USES_CHAINS: False = vanilla's mountain footprint with parallel ranges
+MIXED_CHAINS = True        # must match AtlasMountainsMod.MIXED_USES_CHAINS: chains inside vanilla's mountain footprint
 TERRAIN_MASKED = cache2d({'type': f'{NS}:terrain_height', 'mask_relief': True, 'chains': MIXED_CHAINS})
 TERRAIN_FAST_MASKED = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'chains': MIXED_CHAINS})
 
