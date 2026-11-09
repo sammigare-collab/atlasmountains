@@ -29,7 +29,11 @@ public final class AtlasBiomeSource extends BiomeSource {
             Codec.INT.optionalFieldOf("treeline_y", 100000).forGetter(b -> b.treelineY),
             Codec.DOUBLE.optionalFieldOf("cold_below", -0.2).forGetter(b -> b.coldBelow),
             Codec.DOUBLE.optionalFieldOf("warm_above", 0.25).forGetter(b -> b.warmAbove),
-            Codec.DOUBLE.optionalFieldOf("mask_threshold", 0.5).forGetter(b -> b.maskThreshold)
+            Codec.DOUBLE.optionalFieldOf("mask_threshold", 0.5).forGetter(b -> b.maskThreshold),
+            Codec.DOUBLE.optionalFieldOf("snow_line_base", 64.0).forGetter(b -> b.snowLineBase),
+            Codec.DOUBLE.optionalFieldOf("snow_line_scale", 300.0).forGetter(b -> b.snowLineScale),
+            Codec.DOUBLE.optionalFieldOf("snow_line_frozen", -0.2).forGetter(b -> b.snowLineFrozen),
+            Codec.DOUBLE.optionalFieldOf("snow_line_jitter", 25.0).forGetter(b -> b.snowLineJitter)
     ).apply(i, AtlasBiomeSource::new));
 
     private static final ThreadLocal<com.atlasmountains.core.RangeLayout.Sample> SCRATCH = ThreadLocal.withInitial(com.atlasmountains.core.RangeLayout.Sample::new);
@@ -37,11 +41,13 @@ public final class AtlasBiomeSource extends BiomeSource {
     private final RegistryEntry<Biome> cold, temperate, warm, coldHigh, temperateHigh, warmHigh;
     private final int treelineY;
     private final double coldBelow, warmAbove, maskThreshold;
+    private final double snowLineBase, snowLineScale, snowLineFrozen, snowLineJitter;
 
     public AtlasBiomeSource(BiomeSource vanilla, RegistryEntry<Biome> cold, RegistryEntry<Biome> temperate, RegistryEntry<Biome> warm,
                             java.util.Optional<RegistryEntry<Biome>> coldHigh, java.util.Optional<RegistryEntry<Biome>> temperateHigh,
                             java.util.Optional<RegistryEntry<Biome>> warmHigh, int treelineY,
-                            double coldBelow, double warmAbove, double maskThreshold) {
+                            double coldBelow, double warmAbove, double maskThreshold,
+                            double snowLineBase, double snowLineScale, double snowLineFrozen, double snowLineJitter) {
         this.vanilla = vanilla;
         this.cold = cold;
         this.temperate = temperate;
@@ -51,6 +57,8 @@ public final class AtlasBiomeSource extends BiomeSource {
         this.warmHigh = warmHigh.orElse(null);
         this.treelineY = treelineY;
         this.coldBelow = coldBelow;
+        this.snowLineBase = snowLineBase; this.snowLineScale = snowLineScale;
+        this.snowLineFrozen = snowLineFrozen; this.snowLineJitter = snowLineJitter;
         this.warmAbove = warmAbove;
         this.maskThreshold = maskThreshold;
     }
@@ -72,8 +80,15 @@ public final class AtlasBiomeSource extends BiomeSource {
             return vanilla.getBiome(x, y, z, noise);
         }
         double t = noise.temperature().sample(new DensityFunction.UnblendedNoisePos(bx, y << 2, bz));
-        boolean high = (y << 2) >= treelineY;   // above the treeline: the treeless twin
-        if (t < coldBelow) return high && coldHigh != null ? coldHigh : cold;
+        int by = y << 2;
+        boolean high = by >= treelineY;   // above the treeline: the treeless twin
+        // Snow line: the cold (snowy) biome starts at a height that rises with the temperature, so
+        // snow wraps the mountains as a ragged contour instead of a hard line across the valleys.
+        // Below snow_line_frozen it is at the floor (snow everywhere); at cold_below it sits
+        // (cold_below - frozen) * scale above the base. A small noise roughens the edge.
+        double jitter = (com.atlasmountains.core.Hash.value2(0x5A0DL, bx / 80.0, bz / 80.0) - 0.5) * 2 * snowLineJitter;
+        double snowY = snowLineBase + (t - snowLineFrozen) * snowLineScale + jitter;
+        if (by >= snowY) return high && coldHigh != null ? coldHigh : cold;
         if (t > warmAbove) return high && warmHigh != null ? warmHigh : warm;
         return high && temperateHigh != null ? temperateHigh : temperate;
     }

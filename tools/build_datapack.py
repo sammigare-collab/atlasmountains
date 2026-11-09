@@ -350,7 +350,9 @@ def build_variant(settings_name, preset_name, mixed):
                         'cold': f'{NS}:cold', 'temperate': f'{NS}:temperate', 'warm': f'{NS}:warm',
                         'cold_high': f'{NS}:cold_high', 'temperate_high': f'{NS}:temperate_high', 'warm_high': f'{NS}:warm_high',
                         'treeline_y': TREELINE,
-                        'cold_below': BIOMES['cold'][1][1], 'warm_above': BIOMES['warm'][1][0], 'mask_threshold': 0.5}
+                        'cold_below': BIOMES['cold'][1][1], 'warm_above': BIOMES['warm'][1][0], 'mask_threshold': 0.5,
+                        # snow line: y = base + (temperature - frozen) * scale (+/- jitter); snow everywhere below 'frozen'
+                        'snow_line_base': 64, 'snow_line_scale': 300, 'snow_line_frozen': -0.2, 'snow_line_jitter': 25}
     else:
         biome_source = {'type': 'minecraft:multi_noise', 'biomes': entries}
     wp['dimensions']['minecraft:overworld'] = {
