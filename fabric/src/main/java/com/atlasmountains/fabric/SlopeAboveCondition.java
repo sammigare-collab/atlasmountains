@@ -10,13 +10,14 @@ import net.minecraft.world.level.levelgen.material.condition.MaterialCondition;
 /**
  * Material condition "atlasmountains:slope_above": true where the terrain heightmap's slope at
  * the column is at least the given number of degrees. Vanilla's "steep" only triggers at about
- * 63 degrees, which is useless for 45-degree faces.
+ * 63 degrees, which is useless for 45-degree faces. {@code mixed} picks the preset's cache as in
+ * {@link TerrainHeightFunction}.
  */
-public record SlopeAboveCondition(float degrees, boolean chains) implements MaterialCondition {
+public record SlopeAboveCondition(float degrees, boolean mixed) implements MaterialCondition {
 
     public static final MapCodec<SlopeAboveCondition> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.FLOAT.fieldOf("degrees").forGetter(SlopeAboveCondition::degrees),
-            Codec.BOOL.optionalFieldOf("chains", true).forGetter(SlopeAboveCondition::chains)
+            Codec.BOOL.optionalFieldOf("mixed", true).forGetter(SlopeAboveCondition::mixed)
     ).apply(i, SlopeAboveCondition::new));
 
     @Override
@@ -24,6 +25,6 @@ public record SlopeAboveCondition(float degrees, boolean chains) implements Mate
 
     @Override
     public ConditionEvaluator compile(MaterialRuleContext context) {
-        return () -> AtlasMountainsMod.cache(chains).slopeDegrees(context.blockX(), context.blockZ()) >= degrees;
+        return () -> AtlasMountainsMod.cache(mixed).slopeDegrees(context.blockX(), context.blockZ()) >= degrees;
     }
 }

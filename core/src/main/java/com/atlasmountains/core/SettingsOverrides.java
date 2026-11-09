@@ -25,10 +25,16 @@ public final class SettingsOverrides {
             if (t == double.class) f.setDouble(s, Double.parseDouble(value));
             else if (t == int.class) f.setInt(s, Integer.parseInt(value));
             else if (t == boolean.class) f.setBoolean(s, Boolean.parseBoolean(value));
+            else if (t.isEnum()) f.set(s, enumValue(t, value));
             else throw new IllegalArgumentException("unsupported type for " + name);
         } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new IllegalArgumentException("unknown setting: " + name);
         }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Object enumValue(Class<?> type, String value) {
+        return Enum.valueOf((Class) type, value.toUpperCase(Locale.ROOT));
     }
 
     public static String describe(MountainSettings s) {

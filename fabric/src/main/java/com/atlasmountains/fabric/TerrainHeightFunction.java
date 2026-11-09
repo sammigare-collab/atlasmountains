@@ -19,21 +19,21 @@ import net.minecraft.world.level.levelgen.densityfunction.DensityFunction;
  * {@code mask_relief: true} scales the relief by the mountain mask (mixed world), so ranges fade
  * into hills at the zone edges rather than meeting vanilla terrain as a cliff.
  * <p>
- * {@code chains: true} (default) uses the mixed preset's cache; {@code false} the "everywhere" preset's.
+ * {@code mixed: true} (default) uses the mixed preset's cache; {@code false} the "everywhere" preset's.
  */
-public record TerrainHeightFunction(boolean eroded, boolean maskRelief, boolean chains) implements ColumnFunction {
+public record TerrainHeightFunction(boolean eroded, boolean maskRelief, boolean mixed) implements ColumnFunction {
 
     public static final MapCodec<TerrainHeightFunction> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.BOOL.optionalFieldOf("eroded", true).forGetter(TerrainHeightFunction::eroded),
             Codec.BOOL.optionalFieldOf("mask_relief", false).forGetter(TerrainHeightFunction::maskRelief),
-            Codec.BOOL.optionalFieldOf("chains", true).forGetter(TerrainHeightFunction::chains)
+            Codec.BOOL.optionalFieldOf("mixed", true).forGetter(TerrainHeightFunction::mixed)
     ).apply(i, TerrainHeightFunction::new));
 
     private static final ThreadLocal<RangeLayout.Sample> SCRATCH = ThreadLocal.withInitial(RangeLayout.Sample::new);
 
     @Override
     public double at(int x, int z) {
-        var cache = AtlasMountainsMod.cache(chains);
+        var cache = AtlasMountainsMod.cache(mixed);
         if (maskRelief) {
             return eroded ? cache.maskedHeight(x, z) : cache.maskedBaseHeight(x, z, SCRATCH.get());
         }
