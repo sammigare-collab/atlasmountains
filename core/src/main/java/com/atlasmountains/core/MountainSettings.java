@@ -22,6 +22,12 @@ public final class MountainSettings {
     /** Domain warp of the diagram, so the ridges curve: amplitude in blocks and wavelength. */
     public double fieldWarpAmplitude = 110;
     public double fieldWarpWavelength = 700;
+    /**
+     * Field layout mask: a cell is in the mountains when vanilla's footprint is on at its site, so
+     * the mountain edge follows whole cells and the last ridge stands at full height; the mask
+     * then runs one flank beyond the last ridge and fades over this many blocks into vanilla.
+     */
+    public double fieldEdgeFade = 120;
     /** Average summit relief multiplier in the field layout (1.2 = 20% taller than the design summit). */
     public double fieldHeightBoost = 1.2;
     /** Relief varies by this fraction either side of the boost, over fieldHeightWavelength blocks. */
@@ -258,7 +264,7 @@ public final class MountainSettings {
     public double footprintWarpAmplitude = 90;
     public double footprintWarpWavelength = 420;
     /** The erosion noise is stretched by this ratio along the range direction, so mountain provinces are elongated. */
-    public double erosionStretch = 2.0;
+    public double erosionStretch = 1.0;
 
     // ---- Mountain mask: stretched zone noise (fallback when no erosion field is supplied) ------
     /** Wavelength of the mask noise along the range direction, blocks. Zones are long this way. */
@@ -324,9 +330,9 @@ public final class MountainSettings {
     /** Half-width of the coast band, blocks: continentalness runs -0.25..-0.05 over +/- this around the shoreline. */
     public double coastHalfWidth = 100;
     /** Blocks inland at which continentalness reaches 0.05 (near inland ends, mountains fully on). */
-    public double nearInlandDistance = 600;
+    public double nearInlandDistance = 250;
     /** Blocks inland at which continentalness reaches 0.45 (far inland). */
-    public double farInlandDistance = 2500;
+    public double farInlandDistance = 1200;
     /** Blocks offshore at which continentalness reaches -0.5 (ocean). */
     public double oceanDistance = 700;
     /** Blocks offshore at which continentalness reaches -1.0 (deep ocean). */

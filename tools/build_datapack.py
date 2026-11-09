@@ -36,12 +36,12 @@ VANILLA_EROSION_FLOOR = -0.1   # vanilla erosion is never lower than this, so va
 VANILLA_TOP = 320          # vanilla's own build height; its 3D noise is skipped above this (see gate_interpolated)
 
 CLIMATE = {   # firstOctave: vanilla verified from the data files -> target. Each step of -1 doubles the wavelength.
-    'temperature': -12,      # vanilla -10, four times slower (Large Biomes scale)
-    'vegetation': -10,       # vanilla -8, four times slower
+    'temperature': -11,      # vanilla -10, twice vanilla
+    'vegetation': -9,        # vanilla -8, twice vanilla
     'continentalness': -10,  # vanilla -9, twice vanilla; only the "everywhere" preset still uses this noise (the mixed preset uses the mod's continents)
-    'erosion': -11,          # vanilla -9, four times slower: flat or hilly provinces; also gates where mountain chains go
+    'erosion': -10,          # vanilla -9, twice vanilla: flat or hilly provinces; also vanilla's mountain footprint, which ours fill
 }
-# Biome size: Large Biomes scale (vanilla is two steps smaller on every noise). The ridge
+# Biome size: twice vanilla on every noise (one octave slower). The ridge
 # (weirdness) noise is left at vanilla so rivers keep their vanilla spacing and shape.
 TREELINE = 100             # no trees in the mountain biomes above this y (lower third of the grass flank only)
 
@@ -176,10 +176,18 @@ def repoint(obj):
 # class comes in kilometre-wide patches that sit at y 62-64 and pool everywhere. Vanilla's offset
 # is lifted by LOWLAND_LIFT (in offset units, 128 blocks each) from the coast band inland so those
 # flats stand a few blocks clear of sea level; the shore and the sea are untouched.
-LOWLAND_LIFT = 0.03
-LOWLAND_RAMP = {'type': 'minecraft:spline', 'spline': {'coordinate': PLATES, 'points': [
-    {'location': -0.05, 'value': 0.0, 'derivative': 0.0},
-    {'location': 0.25, 'value': LOWLAND_LIFT, 'derivative': 0.0}]}}
+LOWLAND_LIFT = 0.03        # everywhere inland: about 4 blocks
+SWAMP_LIFT = 0.06          # extra in vanilla's flattest class (erosion above ~0.45), which otherwise sits under water for kilometres: about 8 blocks
+LOWLAND_RAMP = add(
+    {'type': 'minecraft:spline', 'spline': {'coordinate': PLATES, 'points': [
+        {'location': -0.05, 'value': 0.0, 'derivative': 0.0},
+        {'location': 0.25, 'value': LOWLAND_LIFT, 'derivative': 0.0}]}},
+    mul({'type': 'minecraft:spline', 'spline': {'coordinate': PLATES, 'points': [
+            {'location': -0.05, 'value': 0.0, 'derivative': 0.0},
+            {'location': 0.15, 'value': 1.0, 'derivative': 0.0}]}},
+        {'type': 'minecraft:spline', 'spline': {'coordinate': f'{NS}:overworld/erosion', 'points': [
+            {'location': 0.35, 'value': 0.0, 'derivative': 0.0},
+            {'location': 0.6, 'value': SWAMP_LIFT, 'derivative': 0.0}]}}))
 for n in VANILLA_SHAPE:
     body = repoint(load(f'worldgen/density_function/overworld/{n}.json'))
     if n == 'offset':

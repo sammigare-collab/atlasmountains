@@ -20,4 +20,10 @@ public interface SpineLayout {
      * with no notion of zones return NaN and the caller uses its own zone noise.
      */
     default double zone(double x, double z) { return Double.NaN; }
+
+    /** True when zone() already accounts for vanilla's mountain footprint, so the mask must not multiply it in again. */
+    default boolean zoneReplacesFootprint() { return false; }
+
+    /** Gives the layout the world's erosion field (x, z) -> erosion, for layouts that read vanilla's mountain footprint. */
+    default void setErosion(java.util.function.DoubleBinaryOperator erosion) {}
 }

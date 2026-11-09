@@ -18,6 +18,75 @@ public final class FieldLayout implements SpineLayout {
 
     private final MountainSettings s;
     private final long siteSeed, warpSeed, heightSeed;
+    private volatile java.util.function.DoubleBinaryOperator erosion;
+    private final java.util.Map<Long, Boolean> siteInside = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @Override
+    public void setErosion(java.util.function.DoubleBinaryOperator erosion) { this.erosion = erosion; siteInside.clear(); }
+
+    @Override
+    public boolean zoneReplacesFootprint() { return true; }
+
+    /** Whether the cell of this site is in the mountains: vanilla's footprint is on at the site. */
+    private boolean inside(long id, double sx, double sz) {
+        Boolean b = siteInside.get(id);
+        if (b == null) {
+            b = erosion.applyAsDouble(sx, sz) < s.erosionMountainBelow;
+            if (siteInside.size() > 200_000) siteInside.clear();
+            siteInside.put(id, b);
+        }
+        return b;
+    }
+
+    /**
+     * The mask: 1 across every cell whose site is in vanilla's footprint, and one flank's width
+     * beyond the ridge that bounds such a cell, then a fade of fieldEdgeFade blocks. NaN until the
+     * erosion field is installed.
+     */
+    @Override
+    public double zone(double x, double z) {
+        if (erosion == null) return Double.NaN;
+        Sites n = nearest(x, z);
+        if (inside(n.id1, n.x1, n.z1)) return 1;
+        double best = 0;
+        if (inside(n.id2, n.x2, n.z2)) best = Math.max(best, edgeMask(n.px, n.pz, n.d1, n.x1, n.z1, n.d2, n.x2, n.z2));
+        if (inside(n.id3, n.x3, n.z3)) best = Math.max(best, edgeMask(n.px, n.pz, n.d1, n.x1, n.z1, n.d3, n.x3, n.z3));
+        return best;
+    }
+
+    private double edgeMask(double px, double pz, double da, double ax, double az, double db, double bx, double bz) {
+        double len = Math.max(1e-9, Math.hypot(bx - ax, bz - az));
+        double dist = (db - da) / (2 * len);           // distance to the ridge between the two cells
+        double t = (s.halfWidth() + s.fieldEdgeFade - dist) / s.fieldEdgeFade;
+        t = Math.max(0, Math.min(1, t));
+        return t * t * (3 - 2 * t);
+    }
+
+    /** The warped sample point and its three nearest sites (squared distances). */
+    private static final class Sites {
+        double px, pz, d1 = Double.MAX_VALUE, d2 = Double.MAX_VALUE, d3 = Double.MAX_VALUE;
+        double x1, z1, x2, z2, x3, z3;
+        long id1, id2, id3;
+    }
+
+    private Sites nearest(double x, double z) {
+        Sites n = new Sites();
+        n.px = x + warp(1, x, z); n.pz = z + warp(2, x, z);
+        double c = s.fieldCellSize;
+        long cx = (long) Math.floor(n.px / c), cz = (long) Math.floor(n.pz / c);
+        for (long i = cx - 1; i <= cx + 1; i++) {
+            for (long j = cz - 1; j <= cz + 1; j++) {
+                long h = Hash.hash(siteSeed, i, j);
+                double sx = (i + 0.5 + (Hash.unit(Hash.hash(h, 1)) - 0.5) * s.fieldJitter) * c;
+                double sz = (j + 0.5 + (Hash.unit(Hash.hash(h, 2)) - 0.5) * s.fieldJitter) * c;
+                double d = (n.px - sx) * (n.px - sx) + (n.pz - sz) * (n.pz - sz);
+                if (d < n.d1) { n.d3 = n.d2; n.x3 = n.x2; n.z3 = n.z2; n.id3 = n.id2; n.d2 = n.d1; n.x2 = n.x1; n.z2 = n.z1; n.id2 = n.id1; n.d1 = d; n.x1 = sx; n.z1 = sz; n.id1 = h; }
+                else if (d < n.d2) { n.d3 = n.d2; n.x3 = n.x2; n.z3 = n.z2; n.id3 = n.id2; n.d2 = d; n.x2 = sx; n.z2 = sz; n.id2 = h; }
+                else if (d < n.d3) { n.d3 = d; n.x3 = sx; n.z3 = sz; n.id3 = h; }
+            }
+        }
+        return n;
+    }
 
     public FieldLayout(MountainSettings settings, long seed) {
         this.s = settings;
@@ -40,26 +109,9 @@ public final class FieldLayout implements SpineLayout {
 
     @Override
     public void sample(double x, double z, RangeLayout.Sample out) {
-        double px = x + warp(1, x, z), pz = z + warp(2, x, z);
-        double c = s.fieldCellSize;
-        long cx = (long) Math.floor(px / c), cz = (long) Math.floor(pz / c);
-        // three nearest sites
-        double d1 = Double.MAX_VALUE, d2 = Double.MAX_VALUE, d3 = Double.MAX_VALUE;
-        double x1 = 0, z1 = 0, x2 = 0, z2 = 0, x3 = 0, z3 = 0;
-        long id1 = 0, id2 = 0, id3 = 0;
-        for (long i = cx - 1; i <= cx + 1; i++) {
-            for (long j = cz - 1; j <= cz + 1; j++) {
-                long h = Hash.hash(siteSeed, i, j);
-                double sx = (i + 0.5 + (Hash.unit(Hash.hash(h, 1)) - 0.5) * s.fieldJitter) * c;
-                double sz = (j + 0.5 + (Hash.unit(Hash.hash(h, 2)) - 0.5) * s.fieldJitter) * c;
-                double d = (px - sx) * (px - sx) + (pz - sz) * (pz - sz);
-                if (d < d1) { d3 = d2; x3 = x2; z3 = z2; id3 = id2; d2 = d1; x2 = x1; z2 = z1; id2 = id1; d1 = d; x1 = sx; z1 = sz; id1 = h; }
-                else if (d < d2) { d3 = d2; x3 = x2; z3 = z2; id3 = id2; d2 = d; x2 = sx; z2 = sz; id2 = h; }
-                else if (d < d3) { d3 = d; x3 = sx; z3 = sz; id3 = h; }
-            }
-        }
-        edge(px, pz, d1, x1, z1, id1, d2, x2, z2, id2, out, false);
-        edge(px, pz, d1, x1, z1, id1, d3, x3, z3, id3, out, true);
+        Sites n = nearest(x, z);
+        edge(n.px, n.pz, n.d1, n.x1, n.z1, n.id1, n.d2, n.x2, n.z2, n.id2, out, false);
+        edge(n.px, n.pz, n.d1, n.x1, n.z1, n.id1, n.d3, n.x3, n.z3, n.id3, out, true);
         out.scale = heightScale(x, z);
     }
 

@@ -102,10 +102,10 @@ public final class AtlasMountainsMod implements ModInitializer {
             if (!(world.getChunkManager().getChunkGenerator().getBiomeSource() instanceof AtlasBiomeSource)) return;
             RegionCache mixed = cache();
             var chains = mixed.chainLayout();
-            if (chains != null) chains.setErosion(StretchedErosionFunction::erosion);
+            mixed.layout().setErosion(StretchedErosionFunction::erosion);
             mixed.mountainMask().setErosion(StretchedErosionFunction::erosion);
             LOGGER.info("mountain zones are the overworld's mountain footprint (erosion below {}, stretched {}x), filled with {}",
-                    s.erosionMountainBelow, s.erosionStretch, chains != null ? "chains" : "parallel ranges");
+                    s.erosionMountainBelow, s.erosionStretch, mixed.layout().getClass().getSimpleName());
         });
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
