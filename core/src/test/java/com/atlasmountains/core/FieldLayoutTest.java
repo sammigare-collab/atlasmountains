@@ -33,7 +33,7 @@ class FieldLayoutTest {
     void sampleIsDeterministic() {
         MountainSettings s = new MountainSettings();
         FieldLayout a = new FieldLayout(s, SEED), b = new FieldLayout(s, SEED);
-        RangeLayout.Sample sa = new RangeLayout.Sample(), sb = new RangeLayout.Sample();
+        RidgeSample sa = new RidgeSample(), sb = new RidgeSample();
         Random r = new Random(2);
         for (int i = 0; i < 2000; i++) {
             double x = (r.nextDouble() - 0.5) * 50_000, z = (r.nextDouble() - 0.5) * 50_000;
@@ -41,7 +41,7 @@ class FieldLayoutTest {
             b.sample(x, z, sb);
             assertEquals(sa.distance, sb.distance);
             assertEquals(sa.along, sb.along);
-            assertEquals(sa.range, sb.range);
+            assertEquals(sa.ridge, sb.ridge);
         }
     }
 
@@ -50,7 +50,7 @@ class FieldLayoutTest {
         // every column is within one cell of a ridge, so no point is further than a cell from one
         MountainSettings s = new MountainSettings();
         FieldLayout f = new FieldLayout(s, SEED);
-        RangeLayout.Sample sc = new RangeLayout.Sample();
+        RidgeSample sc = new RidgeSample();
         Random r = new Random(3);
         double max = 0;
         for (int i = 0; i < 20_000; i++) {
@@ -99,13 +99,12 @@ class FieldLayoutTest {
         MountainSettings s = new MountainSettings();
         FieldLayout f = new FieldLayout(s, SEED);
         f.setErosion((x, z) -> -1.0);
-        double[] scratch = new double[2];
-        MountainMask sea = new MountainMask(s, f, (x, z) -> -0.8, SEED);
-        MountainMask inland = new MountainMask(s, f, (x, z) -> 0.6, SEED);
+        MountainMask sea = new MountainMask(s, f, (x, z) -> -0.8);
+        MountainMask inland = new MountainMask(s, f, (x, z) -> 0.6);
         for (int i = 0; i < 50; i++) {
             double x = i * 1301.0, z = i * -877.0;
-            assertEquals(0.0, sea.mask(x, z, scratch));
-            assertEquals(f.zone(x, z), inland.mask(x, z, scratch));
+            assertEquals(0.0, sea.mask(x, z));
+            assertEquals(f.zone(x, z), inland.mask(x, z));
         }
     }
 }
