@@ -4,27 +4,27 @@ import com.atlasmountains.core.RangeLayout;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import net.minecraft.util.dynamic.CodecHolder;
-import net.minecraft.world.gen.surfacebuilder.MaterialRules;
+import net.minecraft.world.level.levelgen.material.MaterialRuleContext;
+import net.minecraft.world.level.levelgen.material.condition.ConditionEvaluator;
+import net.minecraft.world.level.levelgen.material.condition.MaterialCondition;
 
 /**
- * Surface-rule condition "atlasmountains:on_our_slope": true on a chain's valley floor (between
- * its spines) or where our terrain stands more than {@code above_floor} blocks over the valley
- * floor, i.e. on our flanks. False at the foot of an outer flank, where vanilla's surface takes over.
+ * Material condition "atlasmountains:on_our_slope": true on our valley floors and where our
+ * terrain stands more than {@code above_floor} blocks over the valley floor, i.e. on our flanks.
+ * False at the foot of an outer flank, where vanilla's surface takes over.
  */
-public record OnOurSlopeCondition(float aboveFloor) implements MaterialRules.MaterialCondition {
+public record OnOurSlopeCondition(float aboveFloor) implements MaterialCondition {
 
-    public static final MapCodec<OnOurSlopeCondition> MAP_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
+    public static final MapCodec<OnOurSlopeCondition> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.FLOAT.optionalFieldOf("above_floor", 6.0f).forGetter(OnOurSlopeCondition::aboveFloor)
     ).apply(i, OnOurSlopeCondition::new));
-    public static final CodecHolder<OnOurSlopeCondition> CODEC_HOLDER = CodecHolder.of(MAP_CODEC);
     private static final ThreadLocal<RangeLayout.Sample> SCRATCH = ThreadLocal.withInitial(RangeLayout.Sample::new);
 
     @Override
-    public CodecHolder<? extends MaterialRules.MaterialCondition> codec() { return CODEC_HOLDER; }
+    public MapCodec<? extends MaterialCondition> codec() { return CODEC; }
 
     @Override
-    public MaterialRules.BooleanSupplier apply(MaterialRules.MaterialRuleContext context) {
-        return () -> AtlasMountainsMod.cache().onOurSlope(context.blockX, context.blockZ, aboveFloor, SCRATCH.get());
+    public ConditionEvaluator compile(MaterialRuleContext context) {
+        return () -> AtlasMountainsMod.cache().onOurSlope(context.blockX(), context.blockZ(), aboveFloor, SCRATCH.get());
     }
 }

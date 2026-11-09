@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:find_top_surface",
+  "cell_height": 8,
+  "density": "atlasmountains:overworld/sloped_cheese",
+  "lower_bound": -64,
+  "upper_bound": {
+    "type": "minecraft:add",
+    "left": {
+      "type": "minecraft:cache",
+      "input": {
+        "type": "atlasmountains:terrain_height",
+        "chains": false
+      }
+    },
+    "right": 16.0
+  }
+}

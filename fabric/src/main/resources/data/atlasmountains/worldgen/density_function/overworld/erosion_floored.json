@@ -1,5 +1,5 @@
 {
   "type": "minecraft:max",
-  "argument1": -0.1,
-  "argument2": "atlasmountains:overworld/erosion"
+  "left": -0.1,
+  "right": "atlasmountains:overworld/erosion"
 }

@@ -1,6 +1,6 @@
 {
-  "type": "minecraft:flat_cache",
-  "argument": {
+  "type": "minecraft:cache",
+  "input": {
     "type": "atlasmountains:stretched_erosion"
   }
 }
