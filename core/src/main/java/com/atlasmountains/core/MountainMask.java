@@ -60,7 +60,9 @@ public final class MountainMask {
             return Double.isNaN(lz) ? footprint : lz * footprint;
         }
         if (!Double.isNaN(lz)) return lz;
-        ((RangeLayout) layout).toFrame(x, z, scratch);
+        // a footprint layout before the erosion field is installed (spawn search, structure placement): no mountains yet
+        if (!(layout instanceof RangeLayout rl)) return 0;
+        rl.toFrame(x, z, scratch);
         double u = scratch[0] / s.maskWavelengthAcross, v = scratch[1] / s.maskWavelengthAlong;
         double sum = 0, amp = 1, norm = 0;
         for (int o = 0; o < s.maskOctaves; o++) {

@@ -10,6 +10,10 @@ package com.atlasmountains.core;
 public final class RangeLayout implements SpineLayout {
 
     public static final class Sample {
+        /** Scratch array for layouts that batch per-chain work. */
+        public double[] scratch = new double[4];
+        /** Relief multiplier for the crest at this column (1 unless the layout sets it). */
+        public double scale = 1.0;
         /** Index of the nearest spine. */
         public int range;
         /** Distance to the nearest spine, in blocks, always >= 0. */

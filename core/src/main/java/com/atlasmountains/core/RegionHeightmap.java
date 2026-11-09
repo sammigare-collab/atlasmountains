@@ -11,6 +11,12 @@ public final class RegionHeightmap {
     public final int spacing;     // blocks per sample
     public final int originX, originZ;
     public final float[] height;
+    /**
+     * The un-eroded model height where the analytic base is at or below the valley floor (the
+     * floor zone), NaN elsewhere. Filled by the generator so the valley-fill pass needn't
+     * re-sample the layout; null if the map wasn't made by the generator.
+     */
+    public float[] floorModel;
 
     public RegionHeightmap(MountainSettings s, int regionX, int regionZ) {
         this.regionX = regionX;

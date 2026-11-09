@@ -58,6 +58,37 @@ public final class ChainLayout implements SpineLayout {
             return pos - total * 0.5;
         }
 
+        /** Per gap (index k-1): the tight gap, then triples {centre, half, widening} of its valley pockets. Built by finish(). */
+        double[] tightGap = new double[0];
+        double[][] pockets = new double[0][];
+        /** Per spine: start and end along the chain. Built by finish(). */
+        double[] spStart = new double[0], spEnd = new double[0];
+
+        /** Precomputes the per-gap pockets and per-spine extents; call after the chain's extents and spine count are final. */
+        void finish(MountainSettings s) {
+            tightGap = new double[ranges];
+            pockets = new double[ranges][];
+            for (int k = 1; k < ranges; k++) {
+                tightGap[k] = gap(k, s);
+                long c0 = (long) Math.floor((vStart - s.valleyPocketHalfMax) / s.valleyPocketSpacing);
+                long c1 = (long) Math.floor((vEnd + s.valleyPocketHalfMax) / s.valleyPocketSpacing);
+                ArrayList<double[]> list = new ArrayList<>();
+                for (long c = c0; c <= c1; c++) {
+                    long h = Hash.hash(id, 606, k, c);
+                    if (Hash.unit(Hash.hash(h, 1)) >= s.spineGapWideChance) continue;
+                    double centre = (c + Hash.unit(Hash.hash(h, 2))) * s.valleyPocketSpacing;
+                    double half = s.valleyPocketHalfMin + Hash.unit(Hash.hash(h, 3)) * (s.valleyPocketHalfMax - s.valleyPocketHalfMin);
+                    double wide = s.spineGapWideMin + Hash.unit(Hash.hash(h, 4)) * (s.spineGapWideMax - s.spineGapWideMin);
+                    list.add(new double[] {centre, half, wide - tightGap[k]});
+                }
+                double[] flat = new double[list.size() * 3];
+                for (int i = 0; i < list.size(); i++) System.arraycopy(list.get(i), 0, flat, i * 3, 3);
+                pockets[k] = flat;
+            }
+            spStart = new double[ranges]; spEnd = new double[ranges];
+            for (int k = 0; k < ranges; k++) { spStart[k] = spineStart(k, s); spEnd[k] = spineEnd(k, s); }
+        }
+
         /**
          * Gap between spine k-1 and spine k at v: the tight gap swelling and shrinking a little
          * along the chain, plus enclosed valley pockets where it opens to a wide gap and closes
@@ -65,19 +96,13 @@ public final class ChainLayout implements SpineLayout {
          */
         double gapAt(int k, double v, MountainSettings s) {
             double n = Hash.value1(Hash.hash(id, 505, k), v / s.spineGapWavelength) * 2 - 1;
-            double tight = gap(k, s);
-            double g = tight * (1 + s.spineGapVariation * n);
-            long cell = (long) Math.floor(v / s.valleyPocketSpacing);
-            for (long c = cell - 1; c <= cell + 1; c++) {
-                long h = Hash.hash(id, 606, k, c);
-                if (Hash.unit(Hash.hash(h, 1)) >= s.spineGapWideChance) continue;
-                double centre = (c + Hash.unit(Hash.hash(h, 2))) * s.valleyPocketSpacing;
-                double half = s.valleyPocketHalfMin + Hash.unit(Hash.hash(h, 3)) * (s.valleyPocketHalfMax - s.valleyPocketHalfMin);
-                double t = (v - centre) / half;
-                if (Math.abs(t) >= 1) continue;
+            double g = tightGap[k] * (1 + s.spineGapVariation * n);
+            double[] pk = pockets[k];
+            for (int i = 0; i < pk.length; i += 3) {
+                double t = (v - pk[i]) / pk[i + 1];
+                if (t <= -1 || t >= 1) continue;
                 double bell = (1 - t * t) * (1 - t * t);
-                double wide = s.spineGapWideMin + Hash.unit(Hash.hash(h, 4)) * (s.spineGapWideMax - s.spineGapWideMin);
-                g += (wide - tight) * bell;
+                g += pk[i + 2] * bell;
             }
             return g;
         }
@@ -95,14 +120,22 @@ public final class ChainLayout implements SpineLayout {
          * 200 blocks, so two ranges don't collapse into one.
          */
         double spineU(int k, double v, MountainSettings s) {
+            double[] us = new double[ranges];
+            spineUs(v, s, us);
+            return us[k];
+        }
+
+        /** Lateral offsets of every spine at v, in one pass (each gap evaluated once). */
+        void spineUs(double v, MountainSettings s, double[] out) {
             double total = 0;
-            for (int i = 1; i < ranges; i++) total += gapAt(i, v, s);
+            for (int i = 1; i < ranges; i++) { out[i] = gapAt(i, v, s); total += out[i]; }
             double pos = -total * 0.5, u = pos + wiggle(0, v, s);
-            for (int i = 1; i <= k; i++) {
-                pos += gapAt(i, v, s);
+            out[0] = u;
+            for (int i = 1; i < ranges; i++) {
+                pos += out[i];
                 u = Math.max(u + 200, pos + wiggle(i, v, s));
+                out[i] = u;
             }
-            return u;
         }
 
         boolean isMiddle(int k) { return Math.abs(k - (ranges - 1) * 0.5) < 0.51; }
@@ -197,6 +230,7 @@ public final class ChainLayout implements SpineLayout {
         root.length = Math.max(root.length, s.chainMinAspect * 2 * root.zoneHalf(s));   // wide chains must be long: chains, not blobs
         root.vStart = 0; root.vEnd = root.length;
         if (!trim(root, 0)) return new Chain[0];
+        root.finish(s);
         out.add(root);
         branch(root, s.chainBranchChance, 1, out);
         Chain[] arr = out.toArray(new Chain[0]);
@@ -253,6 +287,7 @@ public final class ChainLayout implements SpineLayout {
         c.length = Math.max(c.length, s.chainMinAspect * 2 * c.zoneHalf(s));
         c.vStart = 0; c.vEnd = c.length;
         if (!trim(c, depth)) return;
+        c.finish(s);
         c.startBoost = s.junctionBoost;
         parent.forks.add(t);
         out.add(c);
@@ -329,14 +364,24 @@ public final class ChainLayout implements SpineLayout {
     public void sample(double x, double z, RangeLayout.Sample out) {
         double[] best = {Double.MAX_VALUE, Double.MAX_VALUE, 0, 0};   // dist, dist2, along, along2
         int[] bestId = {0, 0};
+        double[] us = out.scratch;
         for (Chain c : near(x, z)) {
             double rx = x - c.ox, rz = z - c.oz;
             double v = rx * c.dx + rz * c.dz;
             double lat0 = rx * c.nx + rz * c.nz;
+            double vAll = Math.max(c.vStart, Math.min(c.vEnd, v));
+            // cheap lower bound on the distance to any spine of this chain: skip it if it can't beat the second best
+            double overAll = Math.abs(v - vAll);
+            double latBound = Math.max(0, Math.abs(lat0 - c.curve(vAll, s)) - c.zoneHalf(s) - 0.5 * (c.ranges - 1) * (s.spineGapWideMax - s.spineGapTightMin));
+            if (latBound * latBound + overAll * overAll >= best[1] * best[1]) continue;
+            if (us.length < c.ranges) { us = new double[Math.max(c.ranges, 4)]; out.scratch = us; }
+            c.spineUs(vAll, s, us);
+            double curveAll = c.curve(vAll, s);
             for (int k = 0; k < c.ranges; k++) {
-                double vc = Math.max(c.spineStart(k, s), Math.min(c.spineEnd(k, s), v));
+                double vc = Math.max(c.spStart[k], Math.min(c.spEnd[k], v));
                 double over = v - vc;                               // beyond this spine's end
-                double du = lat0 - c.curve(vc, s) - c.spineU(k, vc, s);
+                double u = vc == vAll ? us[k] : c.spineU(k, vc, s);
+                double du = lat0 - (vc == vAll ? curveAll : c.curve(vc, s)) - u;
                 double d = Math.sqrt(du * du + over * over);
                 if (d < best[0]) {
                     best[1] = best[0]; best[3] = best[2]; bestId[1] = bestId[0];
