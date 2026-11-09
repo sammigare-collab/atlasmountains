@@ -70,15 +70,12 @@ def cache2d(f): return {'type': 'minecraft:cache', 'input': f}   # 26.x: one gen
 TERRAIN = cache2d({'type': f'{NS}:terrain_height', 'mixed': False})                 # "everywhere" preset's cache
 TERRAIN_FAST = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mixed': False})   # analytic model, no erosion; for biome depth only
 MASK = cache2d({'type': f'{NS}:mountain_mask'})
-INNER = cache2d({'type': f'{NS}:mountain_mask', 'kind': 'inner'})   # inner mask; equals the mask for the field layout
 SC = f'{NS}:overworld/sloped_cheese'
-SC_MASKED = f'{NS}:overworld/sloped_cheese_masked'      # relief faded by the mask (mixed world)
-TERRAIN_MASKED = cache2d({'type': f'{NS}:terrain_height', 'mask_relief': True, 'mixed': True})
 TERRAIN_MIXED = cache2d({'type': f'{NS}:terrain_height', 'mixed': True})       # raw eroded height, no mask: the blend below applies the mask
 # Edge blend (mixed world). In the mask's fade band the surface is a true blend of heights,
 # h = vanilla_h + mask * (ours - vanilla_h), where vanilla_h is vanilla's jaggedness-free surface
 # found with find_top_surface. Vanilla's own 3D density is shifted down by VANILLA_SLOPE per block
-# of (vanilla_h - h) so its surface follows the blend, and is faded out by the inner mask; so a
+# of (vanilla_h - h) so its surface follows the blend, and is faded out by the mask; so a
 # vanilla hill inside a mountain cell ramps down to our valley floor across the band instead of
 # standing in it as a wall, and nothing is hollow. VANILLA_SLOPE is vanilla's final density per
 # block near the surface (about 0.1 to 0.2); erring high only pushes vanilla below the blend,
@@ -86,7 +83,7 @@ TERRAIN_MIXED = cache2d({'type': f'{NS}:terrain_height', 'mixed': True})       #
 VANILLA_SLOPE = 0.25
 EDGE_SINK = 12             # blocks our surface sits under the blend at mask 0
 EDGE_SINK_BAND = 0.15      # the sink fades in over this much of the mask at its outer edge
-EDGE_PUSH = 12             # blocks vanilla is pushed under the blend at inner mask 1
+EDGE_PUSH = 12             # blocks vanilla is pushed under the blend at mask 1
 PSL_SLOPE = 0.4            # the same for the jaggedness-free preliminary-surface density
 TERRAIN_FAST_MASKED = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'mixed': True})
 
@@ -104,18 +101,15 @@ def lerp(mask, vanilla, ours):
         return ours
     return add(mul(add(1.0, mul(-1.0, mask)), vanilla), mul(mask, ours))
 
-def union(mask, vanilla, ours, inner=None):
-    """Terrain blend: max(mask * ours, (1 - inner) * vanilla). Solid wherever either side is
+def union(mask, vanilla, ours):
+    """Terrain blend: max(mask * ours, (1 - mask) * vanilla). Solid wherever either side is
     solid, so a range (whose relief is already faded by the mask) always sits on top of
-    vanilla ground instead of hovering over a hollow. Vanilla is removed only by the inner
-    mask (between a chain's spines, where the flat valley floor and its lakes live); under the
-    outer flanks it carries on, so the foot of a range grows out of real hills. mul
-    short-circuits when its first argument is 0, so outside the zones our terrain (and its
-    region erosion) is never evaluated."""
+    vanilla ground instead of hovering over a hollow. mul short-circuits when its first
+    argument is 0, so outside the mountains our terrain (and its region erosion) is never
+    evaluated."""
     if mask == 1.0:
         return ours
-    if inner is None: inner = mask
-    return dmax(mul(mask, ours), mul(add(1.0, mul(-1.0, inner)), vanilla))
+    return dmax(mul(mask, ours), mul(add(1.0, mul(-1.0, mask)), vanilla))
 
 def y_gate(expr, else_value):
     """expr below CAVE_TOP, else_value at and above it."""
@@ -159,17 +153,15 @@ for name, octave in CLIMATE.items():
 # ---- density functions ---------------------------------------------------------------
 write(f'{NS}/worldgen/density_function/overworld/sloped_cheese.json',
       mul(DENSITY_PER_BLOCK, add(TERRAIN, mul(-1.0, 'minecraft:y'))))
-write(f'{NS}/worldgen/density_function/overworld/sloped_cheese_masked.json',
-      mul(DENSITY_PER_BLOCK, add(TERRAIN_MASKED, mul(-1.0, 'minecraft:y'))))
 # biome depth inside the zones: 0 at the terrain surface, +1 at 128 blocks down
 write(f'{NS}/worldgen/density_function/overworld/depth.json',
       mul(1.0 / 128, add(TERRAIN_FAST, mul(-1.0, 'minecraft:y'))))
 write(f'{NS}/worldgen/density_function/overworld/depth_masked.json',
       mul(1.0 / 128, add(TERRAIN_FAST_MASKED, mul(-1.0, 'minecraft:y'))))
-# Continentalness (noise continents by default, plates optional), once per column. The vanilla terrain splines (offset, factor, jaggedness)
+# Continentalness from the mod's noise continents, once per column. The vanilla terrain splines (offset, factor, jaggedness)
 # read "minecraft:overworld/continents" and "minecraft:overworld/erosion" BY NAME, not the router
 # entries, so the mixed preset ships its own copies of those splines below pointing at these two.
-PLATES = f'{NS}:overworld/continents'
+CONTINENTS = f'{NS}:overworld/continents'
 write(f'{NS}/worldgen/density_function/overworld/continents.json',
       cache2d({'type': f'{NS}:continents'}))
 # The mod's erosion noise, sampled stretched along the range direction (see StretchedErosionFunction);
@@ -179,11 +171,11 @@ write(f'{NS}/worldgen/density_function/overworld/erosion.json',
 EROSION_FLOORED = f'{NS}:overworld/erosion_floored'
 write(f'{NS}/worldgen/density_function/overworld/erosion_floored.json', dmax(VANILLA_EROSION_FLOOR, f'{NS}:overworld/erosion'))
 
-# Vanilla's terrain-shape functions, re-pointed at the plates and the floored erosion. Names are
+# Vanilla's terrain-shape functions, re-pointed at our continents and the floored erosion. Names are
 # prefixed "vanilla_" because our own sloped_cheese/depth live beside them.
 VANILLA_SHAPE = ['offset', 'depth', 'factor', 'jaggedness', 'sloped_cheese']
 def repoint(obj):
-    obj = rename(obj, 'minecraft:overworld/continents', PLATES)
+    obj = rename(obj, 'minecraft:overworld/continents', CONTINENTS)
     obj = rename(obj, 'minecraft:overworld/erosion', EROSION_FLOORED)
     for n in VANILLA_SHAPE:
         obj = rename(obj, f'minecraft:overworld/{n}', f'{NS}:overworld/vanilla_{n}')
@@ -195,10 +187,10 @@ def repoint(obj):
 LOWLAND_LIFT = 0.03        # everywhere inland: about 4 blocks
 SWAMP_LIFT = 0.06          # extra in vanilla's flattest class (erosion above ~0.45), which otherwise sits under water for kilometres: about 8 blocks
 LOWLAND_RAMP = add(
-    {'type': 'minecraft:spline', 'spline': {'coordinate': PLATES, 'points': [
+    {'type': 'minecraft:spline', 'spline': {'coordinate': CONTINENTS, 'points': [
         {'location': -0.05, 'value': 0.0, 'derivative': 0.0},
         {'location': 0.25, 'value': LOWLAND_LIFT, 'derivative': 0.0}]}},
-    mul({'type': 'minecraft:spline', 'spline': {'coordinate': PLATES, 'points': [
+    mul({'type': 'minecraft:spline', 'spline': {'coordinate': CONTINENTS, 'points': [
             {'location': -0.05, 'value': 0.0, 'derivative': 0.0},
             {'location': 0.15, 'value': 1.0, 'derivative': 0.0}]}},
         {'type': 'minecraft:spline', 'spline': {'coordinate': f'{NS}:overworld/erosion', 'points': [
@@ -257,10 +249,10 @@ def make_our_final(sc):
 # uses, so the surface rules and aquifers see our mountains.
 vanilla_psl = load('worldgen/density_function/overworld/preliminary_surface_level.json')
 assert vanilla_psl['type'] == 'minecraft:find_top_surface'
-def make_preliminary(mask, inner, sc, terrain_height, vanilla_density, vanilla_upper):
+def make_preliminary(mask, sc, terrain_height, vanilla_density, vanilla_upper):
     psl = copy.deepcopy(vanilla_psl)
     fix_top(psl)
-    psl['density'] = union(mask, vanilla_density, sc, inner)
+    psl['density'] = union(mask, vanilla_density, sc)
     psl['upper_bound'] = dmax(vanilla_upper, add(terrain_height, 16.0)) if mask != 1.0 else add(terrain_height, 16.0)
     return psl
 
@@ -351,7 +343,6 @@ write(f'{NS}/dimension_type/mountains.json', dt)
 # ---- noise settings + world preset, per variant ---------------------------------------------
 def build_variant(settings_name, preset_name, mixed):
     mask = MASK if mixed else 1.0
-    inner = INNER if mixed else 1.0
     ns = copy.deepcopy(vanilla_ns)
     ns['noise'] = {'min_y': DIM_MIN_Y, 'height': DIM_HEIGHT}
     ns['sea_level'] = SEA_LEVEL
@@ -363,13 +354,13 @@ def build_variant(settings_name, preset_name, mixed):
     if mixed:
         # Our continents replace vanilla's continentalness; erosion floored so vanilla never makes its own peaks.
         # Biomes (router) and terrain (the vanilla_* shape copies) read the same two functions.
-        r['continents'] = PLATES
+        r['continents'] = CONTINENTS
         r['erosion'] = EROSION_FLOORED
     else:
         r['continents'] = {'type': 'minecraft:clamp', 'input': continents, 'min': -0.1, 'max': 1.0}  # never ocean/beach
         r['erosion'] = f'{NS}:overworld/erosion'
-    sc = SC_MASKED if mixed else SC
-    terrain_height = TERRAIN_MASKED if mixed else TERRAIN
+    sc = SC                    # mixed: replaced by the blended sloped_cheese below
+    terrain_height = TERRAIN   # mixed: replaced by the blend height below
     depth = f'{NS}:overworld/depth_masked' if mixed else f'{NS}:overworld/depth'
     vanilla_depth = load('worldgen/density_function/overworld/depth.json')
     v_final = vanilla_final
@@ -393,7 +384,7 @@ def build_variant(settings_name, preset_name, mixed):
         # Our surface sits EDGE_SINK below the blend where the mask is 0 (so vanilla's real 3D surface,
         # which can differ from its jaggedness-free estimate by several blocks, is never undercut by
         # a plate at the estimate: that made a wall along the mask's outer contour). Vanilla is pushed
-        # EDGE_PUSH below the blend where the inner mask is 1, so it leaves no step at that contour.
+        # EDGE_PUSH below the blend where the mask is 1, so it leaves no step at that contour.
         # the sink only acts in the outermost EDGE_SINK_BAND of the mask (ours = the blend elsewhere,
         # so the band never dips under vanilla's own ground, let alone sea level)
         sink_t = {'type': 'minecraft:clamp', 'input': sub(1.0, mul(MASK, 1.0 / EDGE_SINK_BAND)), 'min': 0.0, 'max': 1.0}
@@ -402,7 +393,7 @@ def build_variant(settings_name, preset_name, mixed):
               mul(DENSITY_PER_BLOCK, sub(ours_h, 'minecraft:y')))
         sc = f'{NS}:{settings_name}/sloped_cheese'
         terrain_height = HB
-        drop = add(dmax(sub(HV, HB), 0.0), mul(INNER, EDGE_PUSH))   # never up: where ours is higher, ours simply wins
+        drop = add(dmax(sub(HV, HB), 0.0), mul(MASK, EDGE_PUSH))   # never up: where ours is higher, ours simply wins
         v_final = sub(v_final, mul(VANILLA_SLOPE, drop))
         psl_density = sub(psl_density, mul(PSL_SLOPE, drop))
     # the depth the router and the aquifers share
@@ -410,12 +401,12 @@ def build_variant(settings_name, preset_name, mixed):
     write(f'{NS}/worldgen/density_function/{settings_name}/depth.json', cache2d(d) if isinstance(d, str) else d)   # a file can't be a bare reference
     r['depth'] = f'{NS}:{settings_name}/depth'
     write(f'{NS}/worldgen/density_function/{settings_name}/preliminary_surface_level.json',
-          make_preliminary(mask, inner, sc, terrain_height, psl_density, psl_upper))
+          make_preliminary(mask, sc, terrain_height, psl_density, psl_upper))
     PSL = f'{NS}:{settings_name}/preliminary_surface_level'
     write(f'{NS}/worldgen/density_function/{settings_name}/chunk_surface_level.json',
           {'type': 'minecraft:interpolated', 'cell_size_xz': 16, 'cell_size_y': 1, 'input': PSL})
     r['chunk_surface_level'] = f'{NS}:{settings_name}/chunk_surface_level'
-    write(f'{NS}/worldgen/density_function/{settings_name}/final_density.json', union(mask, v_final, make_our_final(sc), inner))
+    write(f'{NS}/worldgen/density_function/{settings_name}/final_density.json', union(mask, v_final, make_our_final(sc)))
     r['final_density'] = f'{NS}:{settings_name}/final_density'
     # aquifers: same surface, and their exclusion reads erosion/depth by vanilla name
     aq = ns['aquifers']
@@ -424,7 +415,7 @@ def build_variant(settings_name, preset_name, mixed):
                              'minecraft:overworld/erosion', EROSION_FLOORED if mixed else f'{NS}:overworld/erosion')
     # spawn search reads these by name too
     ns['spawn_target'] = json.loads(json.dumps(ns['spawn_target'])
-                                    .replace('"minecraft:overworld/continents"', f'"{PLATES}"' if mixed else '"minecraft:overworld/continents"')
+                                    .replace('"minecraft:overworld/continents"', f'"{CONTINENTS}"' if mixed else '"minecraft:overworld/continents"')
                                     .replace('"minecraft:overworld/erosion"', f'"{EROSION_FLOORED}"' if mixed else f'"{NS}:overworld/erosion"'))
     # material rules: vanilla's overworld chain with our mountain surface in front of vanilla's surface
     rule = copy.deepcopy(vanilla_rule)

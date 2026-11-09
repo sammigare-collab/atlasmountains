@@ -190,8 +190,7 @@
         "right": {
           "type": "minecraft:cache",
           "input": {
-            "type": "atlasmountains:mountain_mask",
-            "kind": "inner"
+            "type": "atlasmountains:mountain_mask"
           }
         }
       }
@@ -359,8 +358,7 @@
             "left": {
               "type": "minecraft:cache",
               "input": {
-                "type": "atlasmountains:mountain_mask",
-                "kind": "inner"
+                "type": "atlasmountains:mountain_mask"
               }
             },
             "right": 12

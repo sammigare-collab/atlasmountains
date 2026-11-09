@@ -25,8 +25,8 @@ public final class AtlasMountainsMod implements ModInitializer {
 
     /**
      * The per-server terrain caches: [0] the "everywhere" preset, [1] the mixed "Atlas Mountains"
-     * preset. Both use the field layout; only the mixed one is gated by vanilla's mountain
-     * footprint. Null until a server has started.
+     * preset. Only the mixed one is gated by vanilla's mountain footprint. Null until a server
+     * has started.
      */
     private static volatile RegionCache[] caches;
     private static volatile long seed;
@@ -64,7 +64,7 @@ public final class AtlasMountainsMod implements ModInitializer {
                     RegionCache n = new RegionCache(s, seed, d);
                     n.log = msg -> LOGGER.info(msg);
                     cs[i] = n;
-                    LOGGER.info("terrain cache ready ({}, {} layout), seed {}, dir {}", mixed ? "mixed" : "everywhere", s.layout, seed, d);
+                    LOGGER.info("terrain cache ready ({}), seed {}, dir {}", mixed ? "mixed" : "everywhere", seed, d);
                 }
                 c = cs[i];
             }
@@ -91,7 +91,6 @@ public final class AtlasMountainsMod implements ModInitializer {
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("continents"), ContinentsFunction.CODEC);
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("stretched_erosion"), StretchedErosionFunction.CODEC);
         Registry.register(BuiltInRegistries.MATERIAL_CONDITION_TYPE, id("slope_above"), SlopeAboveCondition.CODEC);
-        Registry.register(BuiltInRegistries.MATERIAL_CONDITION_TYPE, id("in_mountains"), InMountainsCondition.CODEC);
         Registry.register(BuiltInRegistries.BIOME_SOURCE, id("mask"), AtlasBiomeSource.CODEC);
 
         // Once the overworld exists, hand the world's erosion noise to the mixed preset's layout:
@@ -106,9 +105,8 @@ public final class AtlasMountainsMod implements ModInitializer {
             RegionCache mixed = cache();
             final double k = s.footprintErosionScale;
             mixed.layout().setErosion((x, z) -> StretchedErosionFunction.erosion(x * k, z * k));
-            mixed.mountainMask().setErosion(StretchedErosionFunction::erosion);
-            LOGGER.info("mountain zones are the overworld's mountain footprint (erosion below {}, stretched {}x), filled with {}",
-                    s.erosionMountainBelow, s.erosionStretch, mixed.layout().getClass().getSimpleName());
+            LOGGER.info("mountain provinces are the overworld's mountain footprint (erosion below {}, read at {}x the biome frequency)",
+                    s.erosionMountainBelow, k);
         });
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {

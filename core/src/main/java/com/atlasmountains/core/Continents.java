@@ -7,8 +7,8 @@ public interface Continents {
 
     /**
      * Piecewise-linear map from signed distance to the shoreline (blocks, + inland) to vanilla's
-     * continentalness: deep ocean, ocean, coast band, near inland, far inland. Shared by both
-     * continent models so beaches and the mountain coast fade are the same width in each.
+     * continentalness: deep ocean, ocean, coast band, near inland, far inland, so beaches and the
+     * mountain coast fade are a fixed number of blocks wide.
      */
     static double fromDistance(MountainSettings s, double sd) {
         double[] d = {-s.deepOceanDistance, -s.oceanDistance, -s.coastHalfWidth, 0, s.coastHalfWidth, s.nearInlandDistance, s.farInlandDistance, 2.5 * s.farInlandDistance};
@@ -23,8 +23,7 @@ public interface Continents {
         return c[c.length - 1];
     }
 
-    /** The layout the settings ask for. */
     static Continents create(MountainSettings s, long seed) {
-        return s.noiseContinents ? new NoiseContinents(s, seed) : new PlateContinents(s, seed);
+        return new NoiseContinents(s, seed);
     }
 }

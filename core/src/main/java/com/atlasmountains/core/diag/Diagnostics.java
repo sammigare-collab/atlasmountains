@@ -1,8 +1,8 @@
 package com.atlasmountains.core.diag;
 
+import com.atlasmountains.core.RidgeSample;
 import com.atlasmountains.core.HeightmapGenerator;
 import com.atlasmountains.core.MountainSettings;
-import com.atlasmountains.core.RangeLayout;
 import com.atlasmountains.core.RegionHeightmap;
 import com.atlasmountains.core.RegionPipeline;
 import com.atlasmountains.core.SettingsOverrides;
@@ -160,7 +160,7 @@ public final class Diagnostics {
             }
         }
         // refine apex to block resolution around the best sample using the analytic model
-        RangeLayout.Sample sc = new RangeLayout.Sample();
+        RidgeSample sc = new RidgeSample();
         double ax = m.originX + bx * (double) m.spacing, az = m.originZ + bz * (double) m.spacing;
         double ah = best;
         double bestX = ax, bestZ = az;
@@ -171,8 +171,8 @@ public final class Diagnostics {
             }
         }
         ax = bestX; az = bestZ;
-        // across direction: perpendicular to the ranges (parallel layout), or along x for chains
-        double[] along = gen.layout() instanceof RangeLayout rl ? rl.alongDirection() : new double[] {0, 1};
+        // the cross-section runs along x (ridges in the field layout run every way)
+        double[] along = {0, 1};
         double cx = along[1], cz = -along[0];
         int half = 1200;
         try (PrintWriter w = new PrintWriter(file)) {
@@ -208,7 +208,7 @@ public final class Diagnostics {
         int n = sizeBlocks / blocksPerPixel;
         BufferedImage img = new BufferedImage(n, n, BufferedImage.TYPE_INT_RGB);
         com.atlasmountains.core.RegionCache cache = new com.atlasmountains.core.RegionCache(s, seed, null);
-        RangeLayout.Sample sc = new RangeLayout.Sample();
+        RidgeSample sc = new RidgeSample();
         for (int pz = 0; pz < n; pz++) {
             for (int px = 0; px < n; px++) {
                 double x = (px - n / 2.0) * blocksPerPixel, z = (pz - n / 2.0) * blocksPerPixel;

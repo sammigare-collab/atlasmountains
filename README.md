@@ -97,13 +97,16 @@ Continent and mask map:
 
     java -cp core/build/classes/java/main com.atlasmountains.core.diag.ContinentMap <seed> [span] [blocksPerPixel] [cx] [cz] [out.png] [name=value...]
 
-Both accept `name=value` overrides of any `MountainSettings` field, e.g. `dropletsPerRegion=60000`
-or `layout=parallel`. Outside the game there is no erosion noise, so the field layout draws ridges
-everywhere rather than only in mountain provinces.
+Both accept `name=value` overrides of any `MountainSettings` field, e.g. `dropletsPerRegion=60000`.
+Outside the game there is no erosion noise: the region tool draws ridges everywhere (like the
+"everywhere" preset) and the continent map shows continents but no mountain provinces.
 
 ## Known limitations
 
 - The mountain biomes are chosen by temperature only; humidity and erosion do not affect them.
 - The standalone tools cannot reproduce the in-game mountain provinces (no erosion noise).
-- `ChainLayout`, `RangeLayout` and `PlateContinents` are older experiments still in the tree;
-  no preset uses them.
+- In the "everywhere" preset the mask is 0 (there is no footprint), and the rock-on-steep-slope
+  rule scales the slope by the mask, so faces there stay grass rather than stone.
+
+Older layout experiments (mountain chains, parallel ranges, Voronoi plate continents) were removed
+from the tree; they are on the `archive/layout-experiments` branch.

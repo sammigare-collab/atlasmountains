@@ -38,8 +38,8 @@ public final class InfoCommand {
                     int rz = (int) Math.floor(p.z / s.regionSizeBlocks);
                     boolean cached = cache.isCached(rx, rz);
                     double cont = cache.continents().continentalness(p.x, p.z);
-                    String line1 = String.format(Locale.UK, "region %d,%d  cached: %s  seed %d  layout %s  continentalness %.2f (%s)  mask %.2f",
-                            rx, rz, cached ? "yes" : "no", cache.seed(), s.layout, cont,
+                    String line1 = String.format(Locale.UK, "region %d,%d  cached: %s  seed %d  continentalness %.2f (%s)  mask %.2f",
+                            rx, rz, cached ? "yes" : "no", cache.seed(), cont,
                             cont < -0.455 ? "deep ocean" : cont < -0.19 ? "ocean" : cont < -0.11 ? "coast" : cont < 0.03 ? "near inland" : cont < 0.3 ? "mid inland" : "far inland",
                             cache.mask(p.x, p.z));
                     String line2;
@@ -53,15 +53,6 @@ public final class InfoCommand {
                     }
                     src.sendSuccess(() -> Component.literal(line1), false);
                     src.sendSuccess(() -> Component.literal(line2), false);
-                    return 1;
-                }))
-                .then(Commands.literal("chains").executes(ctx -> {
-                    CommandSourceStack src = ctx.getSource();
-                    Vec3 p = src.getPosition();
-                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getLevel());
-                    var cl = cache.chainLayout();
-                    if (cl == null) { src.sendSuccess(() -> Component.literal("no chain layout"), false); return 1; }
-                    for (String line : cl.describe(p.x, p.z, 800)) src.sendSuccess(() -> Component.literal(line), false);
                     return 1;
                 }))
                 .then(Commands.literal("df")
@@ -106,8 +97,8 @@ public final class InfoCommand {
                 }))
                 .then(Commands.literal("continents")
                         .then(Commands.argument("spanKm", IntegerArgumentType.integer(10, 400)).executes(ctx -> {
-                    // Plate continents + mountain zones around the player, 1 pixel per (span / 1000) blocks,
-                    // written to <world>/atlasmountains/continents_<x>_<z>_<span>km.png. Mask and plates only, no terrain, so it is quick.
+                    // Continents + mountain mask around the player, 1 pixel per (span / 1000) blocks,
+                    // written to <world>/atlasmountains/continents_<x>_<z>_<span>km.png. Continents and mask only, no terrain, so it is quick.
                     CommandSourceStack src = ctx.getSource();
                     int spanKm = IntegerArgumentType.getInteger(ctx, "spanKm");
                     Vec3 p = src.getPosition();
