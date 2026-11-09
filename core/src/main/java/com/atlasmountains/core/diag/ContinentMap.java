@@ -2,10 +2,9 @@ package com.atlasmountains.core.diag;
 
 import com.atlasmountains.core.MountainMask;
 import com.atlasmountains.core.MountainSettings;
-import com.atlasmountains.core.ChainLayout;
+import com.atlasmountains.core.HeightmapGenerator;
 import com.atlasmountains.core.Continents;
 import com.atlasmountains.core.SpineLayout;
-import com.atlasmountains.core.RangeLayout;
 import com.atlasmountains.core.SettingsOverrides;
 
 import javax.imageio.ImageIO;
@@ -43,7 +42,7 @@ public final class ContinentMap {
         for (int i = 6; i < args.length; i++) SettingsOverrides.apply(s, args[i]);
 
         Continents plates = Continents.create(s, seed);
-        SpineLayout layout = s.chainLayout ? new ChainLayout(s, seed) : new RangeLayout(s, seed);
+        SpineLayout layout = HeightmapGenerator.createLayout(s, seed);
         MountainMask mask = new MountainMask(s, layout, plates, seed);
         String info = render(s, plates, mask, seed, span, bpp, cx, cz, new File(out));
         System.out.println(info);

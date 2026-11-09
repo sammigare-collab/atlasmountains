@@ -1,11 +1,10 @@
 package com.atlasmountains.core;
 
 /**
- * Where the range spines are. Two implementations: {@link RangeLayout} (parallel spines over
- * the whole world, one seed-chosen direction; the "everywhere" preset) and {@link ChainLayout}
- * (separate mountain chains, each with its own direction, that may branch; the mixed preset).
- * The crest and cross profiles only ever see a {@link RangeLayout.Sample}, so the mountain
- * design is the same whichever layout is used.
+ * Where the range spines are. Both presets use {@link FieldLayout} (a warped Voronoi ridge
+ * network). {@link ChainLayout} and {@link RangeLayout} are older experiments chosen through
+ * {@link MountainSettings#layout}. The crest and cross profiles only ever see a
+ * {@link RangeLayout.Sample}, so the mountain design is the same whichever layout is used.
  */
 public interface SpineLayout {
 

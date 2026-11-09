@@ -14,10 +14,17 @@ public final class HeightmapGenerator {
     private final CrossProfile cross;
     private final long detailSeed, lakeSeed;
 
-    /** Layout chosen by {@link MountainSettings#chainLayout}: chains, or parallel spines everywhere. */
+    /** With the layout chosen by {@link MountainSettings#layout}. */
     public HeightmapGenerator(MountainSettings settings, long seed) {
-        this(settings, seed, settings.fieldLayout ? new FieldLayout(settings, seed)
-                : settings.chainLayout ? new ChainLayout(settings, seed) : new RangeLayout(settings, seed));
+        this(settings, seed, createLayout(settings, seed));
+    }
+
+    public static SpineLayout createLayout(MountainSettings s, long seed) {
+        return switch (s.layout) {
+            case FIELD -> new FieldLayout(s, seed);
+            case CHAINS -> new ChainLayout(s, seed);
+            case PARALLEL -> new RangeLayout(s, seed);
+        };
     }
 
     public HeightmapGenerator(MountainSettings settings, long seed, SpineLayout layout) {

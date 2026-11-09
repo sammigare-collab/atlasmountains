@@ -90,8 +90,12 @@ public final class AtlasBiomeSource extends BiomeSource {
         // Snow line: the cold (snowy) biome starts at a height that rises with the temperature, so
         // snow wraps the mountains as a ragged contour instead of a hard line across the valleys.
         // Below snow_line_frozen it is at the floor (snow everywhere); at cold_below it sits
-        // (cold_below - frozen) * scale above the base. A small noise roughens the edge.
-        double jitter = (com.atlasmountains.core.Hash.value2(0x5A0DL, bx / 80.0, bz / 80.0) - 0.5) * 2 * snowLineJitter;
+        // (cold_below - frozen) * scale above the base. A noise roughens the edge.
+        // value2 is -1..1, so the jitter spans -3 to +1 times snow_line_jitter (on average one
+        // jitter below the base). These parameters are stored in each world's level.dat, so the
+        // formula is kept exactly as the worlds were created with it.
+        double n = com.atlasmountains.core.Hash.value2(0x5A0DL, bx / 80.0, bz / 80.0);
+        double jitter = (2 * n - 1) * snowLineJitter;
         double snowY = snowLineBase + (t - snowLineFrozen) * snowLineScale + jitter;
         if (by >= snowY) return high && coldHigh != null ? coldHigh : cold;
         if (t > warmAbove) return high && warmHigh != null ? warmHigh : warm;

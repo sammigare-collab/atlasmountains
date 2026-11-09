@@ -9,7 +9,7 @@
       "type": "minecraft:cache",
       "input": {
         "type": "atlasmountains:terrain_height",
-        "chains": false
+        "mixed": false
       }
     },
     "right": 16.0

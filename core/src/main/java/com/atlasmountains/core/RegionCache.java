@@ -61,7 +61,7 @@ public final class RegionCache {
     public long seed() { return seed; }
     public MountainMask mountainMask() { return mask; }
     public Continents continents() { return continents; }
-    /** The chain layout, or null when this cache uses parallel spines. */
+    /** The layout placing this cache's ranges. */
     public SpineLayout layout() { return pipeline.generator().layout(); }
 
     public ChainLayout chainLayout() { return pipeline.generator().layout() instanceof ChainLayout c ? c : null; }
