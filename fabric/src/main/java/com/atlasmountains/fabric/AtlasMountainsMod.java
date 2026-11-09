@@ -61,7 +61,7 @@ public final class AtlasMountainsMod implements ModInitializer {
                 if (cs[i] == null) {
                     MountainSettings s = new MountainSettings();
                     Path d = dir == null ? null : dir.resolve(mixed ? "mixed" : "everywhere");
-                    RegionCache n = new RegionCache(s, seed, d);
+                    RegionCache n = new RegionCache(s, seed, d, !mixed);
                     n.log = msg -> LOGGER.info(msg);
                     cs[i] = n;
                     LOGGER.info("terrain cache ready ({}), seed {}, dir {}", mixed ? "mixed" : "everywhere", seed, d);
