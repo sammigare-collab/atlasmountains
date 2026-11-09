@@ -1,6 +1,6 @@
 package com.atlasmountains.fabric;
 
-import com.atlasmountains.core.RangeLayout;
+import com.atlasmountains.core.RidgeSample;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -18,7 +18,7 @@ public record OnOurSlopeCondition(float aboveFloor) implements MaterialCondition
     public static final MapCodec<OnOurSlopeCondition> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.FLOAT.optionalFieldOf("above_floor", 6.0f).forGetter(OnOurSlopeCondition::aboveFloor)
     ).apply(i, OnOurSlopeCondition::new));
-    private static final ThreadLocal<RangeLayout.Sample> SCRATCH = ThreadLocal.withInitial(RangeLayout.Sample::new);
+    private static final ThreadLocal<RidgeSample> SCRATCH = ThreadLocal.withInitial(RidgeSample::new);
 
     @Override
     public MapCodec<? extends MaterialCondition> codec() { return CODEC; }

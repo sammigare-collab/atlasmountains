@@ -1,6 +1,6 @@
 package com.atlasmountains.fabric;
 
-import com.atlasmountains.core.RangeLayout;
+import com.atlasmountains.core.RidgeSample;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -29,7 +29,7 @@ public record TerrainHeightFunction(boolean eroded, boolean maskRelief, boolean 
             Codec.BOOL.optionalFieldOf("mixed", true).forGetter(TerrainHeightFunction::mixed)
     ).apply(i, TerrainHeightFunction::new));
 
-    private static final ThreadLocal<RangeLayout.Sample> SCRATCH = ThreadLocal.withInitial(RangeLayout.Sample::new);
+    private static final ThreadLocal<RidgeSample> SCRATCH = ThreadLocal.withInitial(RidgeSample::new);
 
     @Override
     public double at(int x, int z) {
