@@ -31,7 +31,7 @@ public final class AtlasBiomeSource extends BiomeSource {
             Codec.DOUBLE.optionalFieldOf("warm_above", 0.25).forGetter(b -> b.warmAbove),
             Codec.DOUBLE.optionalFieldOf("mask_threshold", 0.5).forGetter(b -> b.maskThreshold),
             Codec.DOUBLE.optionalFieldOf("snow_line_base", 64.0).forGetter(b -> b.snowLineBase),
-            Codec.DOUBLE.optionalFieldOf("snow_line_scale", 300.0).forGetter(b -> b.snowLineScale),
+            Codec.DOUBLE.optionalFieldOf("snow_line_scale", 700.0).forGetter(b -> b.snowLineScale),
             Codec.DOUBLE.optionalFieldOf("snow_line_frozen", -0.2).forGetter(b -> b.snowLineFrozen),
             Codec.DOUBLE.optionalFieldOf("snow_line_jitter", 25.0).forGetter(b -> b.snowLineJitter)
     ).apply(i, AtlasBiomeSource::new));
