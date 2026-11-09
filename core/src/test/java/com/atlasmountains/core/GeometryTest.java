@@ -9,6 +9,7 @@ class GeometryTest {
     @Test
     void generationIsDeterministic() {
         MountainSettings s = new MountainSettings();
+        s.fieldLayout = false;   // the geometry tests check the design on the parallel layout
         RegionHeightmap a = new RegionPipeline(s, 42).eroded(1, -2);
         RegionHeightmap b = new RegionPipeline(s, 42).eroded(1, -2);
         assertArrayEquals(a.height, b.height);
@@ -17,6 +18,7 @@ class GeometryTest {
     @Test
     void summitIsAPointThatFallsAtTheFaceAngle() {
         MountainSettings s = new MountainSettings();
+        s.fieldLayout = false;   // the geometry tests check the design on the parallel layout
         HeightmapGenerator gen = new HeightmapGenerator(s, 7);
         RangeLayout.Sample sc = new RangeLayout.Sample();
         // summit 0 of range 0 sits on the spine at along = summitAlong(0, 0); find its world position by search
@@ -43,6 +45,7 @@ class GeometryTest {
     @Test
     void valleyFloorIsFlatAndRangesAreLinear() {
         MountainSettings s = new MountainSettings();
+        s.fieldLayout = false;   // the geometry tests check the design on the parallel layout
         RegionHeightmap m = new RegionPipeline(s, 3).eroded(0, 0);
         int flat = 0, total = m.size * m.size;
         float min = Float.MAX_VALUE, max = -Float.MAX_VALUE;
@@ -58,6 +61,7 @@ class GeometryTest {
     @Test
     void settingsOverridesByName() {
         MountainSettings s = new MountainSettings();
+        s.fieldLayout = false;   // the geometry tests check the design on the parallel layout
         SettingsOverrides.apply(s, "peakSpacing=250");
         SettingsOverrides.apply(s, "dropletsPerRegion=10");
         assertEquals(250, s.peakSpacing);
