@@ -25,7 +25,7 @@ public final class MountainSettings {
     /** Average summit relief multiplier in the field layout (1.2 = 20% taller than the design summit). */
     public double fieldHeightBoost = 1.2;
     /** Relief varies by this fraction either side of the boost, over fieldHeightWavelength blocks. */
-    public double fieldHeightVariation = 0.35;
+    public double fieldHeightVariation = 0.2;
     public double fieldHeightWavelength = 1800;
     /** Blocks per heightmap sample. */
     public int sampleSpacing = 4;
@@ -249,7 +249,7 @@ public final class MountainSettings {
     // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
     /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
     public double erosionMountainBelow = -0.375;
-    public double erosionMaskBand = 0.2;
+    public double erosionMaskBand = 0.15;
     /**
      * The footprint edge is domain-warped: the erosion is read at a point displaced by up to
      * footprintWarpAmplitude blocks with noise of wavelength footprintWarpWavelength, so the
