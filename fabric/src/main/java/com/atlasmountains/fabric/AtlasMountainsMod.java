@@ -101,7 +101,8 @@ public final class AtlasMountainsMod implements ModInitializer {
             StretchedErosionFunction.install(sampler, seed, s.erosionStretch);
             if (!(world.getChunkSource().getGenerator().getBiomeSource() instanceof AtlasBiomeSource)) return;
             RegionCache mixed = cache();
-            mixed.layout().setErosion(StretchedErosionFunction::erosion);
+            final double k = s.footprintErosionScale;
+            mixed.layout().setErosion((x, z) -> StretchedErosionFunction.erosion(x * k, z * k));
             mixed.mountainMask().setErosion(StretchedErosionFunction::erosion);
             LOGGER.info("mountain zones are the overworld's mountain footprint (erosion below {}, stretched {}x), filled with {}",
                     s.erosionMountainBelow, s.erosionStretch, mixed.layout().getClass().getSimpleName());

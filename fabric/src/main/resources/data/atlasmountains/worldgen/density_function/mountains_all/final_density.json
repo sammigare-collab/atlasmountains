@@ -22,7 +22,7 @@
             "type": "minecraft:range_choice",
             "input": "minecraft:y",
             "min_inclusive": -1000000.0,
-            "max_exclusive": 150.0,
+            "max_exclusive": 135.0,
             "when_in_range": {
               "type": "minecraft:mul",
               "left": {
@@ -58,7 +58,7 @@
                         "type": "minecraft:range_choice",
                         "input": "minecraft:y",
                         "min_inclusive": -1000000.0,
-                        "max_exclusive": 150.0,
+                        "max_exclusive": 135.0,
                         "when_in_range": {
                           "type": "minecraft:mul",
                           "left": "minecraft:overworld/caves/entrances",
@@ -70,7 +70,7 @@
                         "type": "minecraft:range_choice",
                         "input": "minecraft:y",
                         "min_inclusive": -1000000.0,
-                        "max_exclusive": 150.0,
+                        "max_exclusive": 135.0,
                         "when_in_range": {
                           "type": "minecraft:max",
                           "left": {
@@ -159,7 +159,7 @@
       "type": "minecraft:range_choice",
       "input": "minecraft:y",
       "min_inclusive": -1000000.0,
-      "max_exclusive": 150.0,
+      "max_exclusive": 135.0,
       "when_in_range": "atlasmountains:overworld/caves/noodle",
       "when_out_of_range": 64.0
     }

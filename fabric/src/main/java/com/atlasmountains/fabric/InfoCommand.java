@@ -61,6 +61,26 @@ public final class InfoCommand {
                     for (String line : cl.describe(p.x, p.z, 800)) src.sendSuccess(() -> Component.literal(line), false);
                     return 1;
                 }))
+                .then(Commands.literal("df")
+                        .then(Commands.argument("id", com.mojang.brigadier.arguments.StringArgumentType.string()).executes(ctx -> {
+                    // Sample a registered density function at the player's column: y = -64, 64, 128, 200, 300 (2D functions give the same value at every y)
+                    CommandSourceStack src = ctx.getSource();
+                    Vec3 p = src.getPosition();
+                    String idText = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "id");
+                    var reg = src.getLevel().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.DENSITY_FUNCTION);
+                    var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DENSITY_FUNCTION, net.minecraft.resources.Identifier.parse(idText));
+                    var holder = reg.get(key);
+                    if (holder.isEmpty()) { src.sendFailure(Component.literal("no density function " + idText)); return 0; }
+                    RandomState rs = src.getLevel().getChunkSource().randomState();
+                    StringBuilder sb = new StringBuilder(idText + " at " + (int) p.x + "," + (int) p.z + ":");
+                    for (int y : new int[] {-64, 64, 128, 200, 300}) {
+                        float v = rs.sampleBlockValueUncached(holder.get().value(), (int) Math.floor(p.x), y, (int) Math.floor(p.z));
+                        sb.append(String.format(Locale.UK, "  y%d=%.3f", y, v));
+                    }
+                    final String msg = sb.toString();
+                    src.sendSuccess(() -> Component.literal(msg), false);
+                    return 1;
+                })))
                 .then(Commands.literal("scan").executes(ctx -> {
                     // 8 km square around the player, 200 blocks per character: # mountains, + edge, . vanilla land, ~ sea
                     CommandSourceStack src = ctx.getSource();

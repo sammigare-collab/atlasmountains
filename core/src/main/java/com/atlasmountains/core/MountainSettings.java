@@ -16,7 +16,7 @@ public final class MountainSettings {
      */
     public boolean fieldLayout = true;
     /** Voronoi cell size: ridges enclose cells about this big, so neighbouring ridges sit about this far apart. */
-    public double fieldCellSize = 500;
+    public double fieldCellSize = 420;
     /** Site jitter as a fraction of the cell (0 = square grid, 1 = anywhere in the cell). */
     public double fieldJitter = 0.9;
     /** Domain warp of the diagram, so the ridges curve: amplitude in blocks and wavelength. */
@@ -31,7 +31,7 @@ public final class MountainSettings {
     /** How far below the valley floor our surface sinks where the mask is 0 (see RegionCache.maskedHeight). */
     public double maskSink = 24;
     /** Average summit relief multiplier in the field layout (1.2 = 20% taller than the design summit). */
-    public double fieldHeightBoost = 1.2;
+    public double fieldHeightBoost = 1.1;
     /** Relief varies by this fraction either side of the boost, over fieldHeightWavelength blocks. */
     public double fieldHeightVariation = 0.2;
     public double fieldHeightWavelength = 1800;
@@ -44,7 +44,7 @@ public final class MountainSettings {
     /** Flat valley floor height (y). Lakes sit a few blocks below this after valley fill. */
     public double valleyFloorHeight = 64;   // one above vanilla sea level, so lakes share it
     /** Mean summit height (y). Relief = summitHeight - valleyFloorHeight, target 450 to 600. */
-    public double summitHeight = 272;   // relief 208, about 25% above vanilla peaks (original design was 520; every length scaled by 0.4)   // relief 416 (was 520; "same design, slightly smaller": every length x0.8)
+    public double summitHeight = 232;   // relief 168 (was 272/208: "a decent bit smaller", Nov 2026)   // relief 208, about 25% above vanilla peaks (original design was 520; every length scaled by 0.4)   // relief 416 (was 520; "same design, slightly smaller": every length x0.8)
     /** Fraction of the relief, measured down from the mean summit, that is rock face at the face angle. */
     public double rockFraction = 0.5;
 
@@ -66,7 +66,7 @@ public final class MountainSettings {
 
     // ---- Crest profile along the spine (step 3) ----------------------------------
     /** Mean peak spacing along the crest (target 150 to 300). */
-    public double peakSpacing = 88;
+    public double peakSpacing = 72;
     /** Peak position jitter as a fraction of peakSpacing (target 0.2 to 0.3). */
     public double peakSpacingJitter = 0.25;
     /** Summit height variation as a fraction of the mean (target about 0.15 total spread). */
@@ -256,7 +256,20 @@ public final class MountainSettings {
 
     // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
     /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
-    public double erosionMountainBelow = -0.375;
+    public double erosionMountainBelow = -0.42;   // vanilla's peaks start at -0.375; stricter = smaller provinces
+    /**
+     * Province edges are roughened: a cell counts as mountain when erosion + footprintRagged *
+     * noise(footprintRaggedWavelength) is below the threshold, so the edge breaks into bays and
+     * outliers instead of following one smooth erosion contour.
+     */
+    public double footprintRagged = 0.1;
+    /**
+     * The footprint reads the erosion noise at this many times the biome layer's frequency, so
+     * mountain provinces are smaller than the other biomes (2 = vanilla-sized provinces while the
+     * biomes stay at twice vanilla).
+     */
+    public double footprintErosionScale = 2.5;
+    public double footprintRaggedWavelength = 900;
     public double erosionMaskBand = 0.15;
     /**
      * The footprint edge is domain-warped: the erosion is read at a point displaced by up to
