@@ -123,17 +123,23 @@ public final class RegionCache {
      */
     public double maskedHeight(double x, double z) {
         double m = mask(x, z);
-        if (m <= 0) return s.valleyFloorHeight;
+        if (m <= 0) return s.valleyFloorHeight - s.maskSink;
         double h = height(x, z);
-        return s.valleyFloorHeight + m * (h - s.valleyFloorHeight);
+        return s.valleyFloorHeight + m * (h - s.valleyFloorHeight) - (1 - m) * s.maskSink;
     }
 
-    /** Same for the analytic model. */
+    /**
+     * Same for the analytic model. Both sink the result below the valley floor as the mask fades
+     * (by maskSink at mask 0), so in the fade band our surface drops under vanilla's and vanilla
+     * takes over by height; without this the valley-floor plate at y 64 stayed solid out to the
+     * last quart with any mask at all and ended in a vertical face wherever vanilla was lower, such
+     * as every shoreline.
+     */
     public double maskedBaseHeight(double x, double z, RangeLayout.Sample scratch) {
         double m = mask(x, z);
-        if (m <= 0) return s.valleyFloorHeight;
+        if (m <= 0) return s.valleyFloorHeight - s.maskSink;
         double h = generator().heightAt(x, z, scratch);
-        return s.valleyFloorHeight + m * (h - s.valleyFloorHeight);
+        return s.valleyFloorHeight + m * (h - s.valleyFloorHeight) - (1 - m) * s.maskSink;
     }
 
     /** The un-eroded analytic generator (cheap, no region needed). */

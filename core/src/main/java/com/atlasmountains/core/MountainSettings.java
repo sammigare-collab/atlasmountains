@@ -28,6 +28,8 @@ public final class MountainSettings {
      * then runs one flank beyond the last ridge and fades over this many blocks into vanilla.
      */
     public double fieldEdgeFade = 120;
+    /** How far below the valley floor our surface sinks where the mask is 0 (see RegionCache.maskedHeight). */
+    public double maskSink = 24;
     /** Average summit relief multiplier in the field layout (1.2 = 20% taller than the design summit). */
     public double fieldHeightBoost = 1.2;
     /** Relief varies by this fraction either side of the boost, over fieldHeightWavelength blocks. */
