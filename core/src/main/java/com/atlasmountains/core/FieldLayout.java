@@ -50,7 +50,8 @@ public final class FieldLayout implements SpineLayout {
     private boolean inside(long id, double sx, double sz) {
         Boolean b = siteInside.get(id);
         if (b == null) {
-            b = erosion.applyAsDouble(sx, sz) < s.erosionMountainBelow;
+            double rag = (Hash.value2(Hash.hash(siteSeed, 77), sx / s.footprintRaggedWavelength, sz / s.footprintRaggedWavelength) * 2 - 1) * s.footprintRagged;
+            b = erosion.applyAsDouble(sx, sz) + rag < s.erosionMountainBelow;
             if (siteInside.size() > 200_000) siteInside.clear();
             siteInside.put(id, b);
         }

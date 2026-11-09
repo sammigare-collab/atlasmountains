@@ -22,13 +22,13 @@ NS = 'atlasmountains'
 
 # ---- parameters (keep in step with MountainSettings) -------------------------------
 VALLEY_FLOOR = 64          # MountainSettings.valleyFloorHeight (one above vanilla sea level)
-SUMMIT = 272               # MountainSettings.summitHeight
-ROCK_LINE = 168            # MountainSettings.rockLineHeight() = summit - 0.5 * relief
+SUMMIT = 232               # MountainSettings.summitHeight
+ROCK_LINE = 148            # MountainSettings.rockLineHeight() = summit - 0.5 * relief
 SEA_LEVEL = 63             # vanilla; the lake surface (floor - 1) is the same height
-SNOW_LINE = 238            # top ~15-20% of the relief
+SNOW_LINE = 205            # top ~15-20% of the relief (average summit with the 1.1 boost is about 249)
 SNOW_JITTER_MULT = 3       # surface_depth_multiplier on the y_above condition (jitters by a few blocks)
 ROCK_SLOPE_DEG = 35        # steeper than this = stone
-CAVE_TOP = 150             # no density-function cave carving at or above this y (mountain zones)
+CAVE_TOP = 135             # no density-function cave carving at or above this y (mountain zones)
 DIM_MIN_Y = -64
 DIM_HEIGHT = 576           # build limit 512; the tallest summits are about y 420
 DENSITY_PER_BLOCK = 0.15   # sloped_cheese = (terrain_height - y) * this; vanilla caves expect ~1.56 ten blocks down
@@ -43,7 +43,7 @@ CLIMATE = {   # firstOctave: vanilla verified from the data files -> target. Eac
 }
 # Biome size: twice vanilla on every noise (one octave slower). The ridge
 # (weirdness) noise is left at vanilla so rivers keep their vanilla spacing and shape.
-TREELINE = 100             # no trees in the mountain biomes above this y (lower third of the grass flank only)
+TREELINE = 92              # no trees in the mountain biomes above this y (lower third of the grass flank only)
 
 def load(rel):
     with open(os.path.join(VAN, rel)) as f:
@@ -83,6 +83,9 @@ TERRAIN_MIXED = cache2d({'type': f'{NS}:terrain_height', 'chains': MIXED_CHAINS}
 # block near the surface (about 0.1 to 0.2); erring high only pushes vanilla below the blend,
 # where our term holds the surface.
 VANILLA_SLOPE = 0.25
+EDGE_SINK = 12             # blocks our surface sits under the blend at mask 0
+EDGE_SINK_BAND = 0.15      # the sink fades in over this much of the mask at its outer edge
+EDGE_PUSH = 12             # blocks vanilla is pushed under the blend at inner mask 1
 PSL_SLOPE = 0.4            # the same for the jaggedness-free preliminary-surface density
 TERRAIN_FAST_MASKED = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'chains': MIXED_CHAINS})
 
@@ -376,18 +379,29 @@ def build_variant(settings_name, preset_name, mixed):
         vanilla_depth, v_final = repoint(vanilla_depth), repoint(copy.deepcopy(vanilla_final))
         psl_density, psl_upper = repoint(psl_density), repoint(psl_upper)
         # vanilla's surface height, once per column, and the blended height
+        # Vanilla's surface without its 3D noise: depth = gradient(y) + offset crosses 0 at
+        # y = 128 + 128 * offset (jaggedness is nil here because vanilla's erosion is floored).
+        # Vanilla's own preliminary surface (find_top_surface) sits 6-12 blocks under the real
+        # surface by design and is capped by an estimate, so it is no use as a blend reference.
         write(f'{NS}/worldgen/density_function/{settings_name}/vanilla_surface.json',
-              cache2d({'type': 'minecraft:find_top_surface', 'density': psl_density, 'upper_bound': psl_upper,
-                       'lower_bound': DIM_MIN_Y, 'cell_height': 1}))
+              cache2d(add(128.0, mul(128.0, f'{NS}:overworld/vanilla_offset'))))
         HV = f'{NS}:{settings_name}/vanilla_surface'
         write(f'{NS}/worldgen/density_function/{settings_name}/blend_height.json',
               cache2d(add(HV, mul(MASK, sub(TERRAIN_MIXED, HV)))))
         HB = f'{NS}:{settings_name}/blend_height'
+        # Our surface sits EDGE_SINK below the blend where the mask is 0 (so vanilla's real 3D surface,
+        # which can differ from its jaggedness-free estimate by several blocks, is never undercut by
+        # a plate at the estimate: that made a wall along the mask's outer contour). Vanilla is pushed
+        # EDGE_PUSH below the blend where the inner mask is 1, so it leaves no step at that contour.
+        # the sink only acts in the outermost EDGE_SINK_BAND of the mask (ours = the blend elsewhere,
+        # so the band never dips under vanilla's own ground, let alone sea level)
+        sink_t = {'type': 'minecraft:clamp', 'input': sub(1.0, mul(MASK, 1.0 / EDGE_SINK_BAND)), 'min': 0.0, 'max': 1.0}
+        ours_h = sub(HB, mul(sink_t, EDGE_SINK))
         write(f'{NS}/worldgen/density_function/{settings_name}/sloped_cheese.json',
-              mul(DENSITY_PER_BLOCK, sub(HB, 'minecraft:y')))
+              mul(DENSITY_PER_BLOCK, sub(ours_h, 'minecraft:y')))
         sc = f'{NS}:{settings_name}/sloped_cheese'
         terrain_height = HB
-        drop = dmax(sub(HV, HB), 0.0)                        # how far vanilla's surface must come down here (never up: where ours is higher, ours simply wins)
+        drop = add(dmax(sub(HV, HB), 0.0), mul(INNER, EDGE_PUSH))   # never up: where ours is higher, ours simply wins
         v_final = sub(v_final, mul(VANILLA_SLOPE, drop))
         psl_density = sub(psl_density, mul(PSL_SLOPE, drop))
     # the depth the router and the aquifers share
