@@ -10,6 +10,23 @@ public final class MountainSettings {
     // ---- Region grid -------------------------------------------------------------
     /** Side of one region in blocks. */
     public int regionSizeBlocks = 2048;
+    /**
+     * Field layout: our mountains fill vanilla's mountain footprint 1:1, ridges from a noise
+     * field (see FieldLayout). Overrides chainLayout when true.
+     */
+    public boolean fieldLayout = true;
+    /** Voronoi cell size: ridges enclose cells about this big, so neighbouring ridges sit about this far apart. */
+    public double fieldCellSize = 500;
+    /** Site jitter as a fraction of the cell (0 = square grid, 1 = anywhere in the cell). */
+    public double fieldJitter = 0.9;
+    /** Domain warp of the diagram, so the ridges curve: amplitude in blocks and wavelength. */
+    public double fieldWarpAmplitude = 110;
+    public double fieldWarpWavelength = 700;
+    /** Average summit relief multiplier in the field layout (1.2 = 20% taller than the design summit). */
+    public double fieldHeightBoost = 1.2;
+    /** Relief varies by this fraction either side of the boost, over fieldHeightWavelength blocks. */
+    public double fieldHeightVariation = 0.35;
+    public double fieldHeightWavelength = 1800;
     /** Blocks per heightmap sample. */
     public int sampleSpacing = 4;
     /** Extra samples generated on every side so neighbouring regions agree. */
@@ -231,7 +248,7 @@ public final class MountainSettings {
 
     // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
     /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
-    public double erosionMountainBelow = -0.32;
+    public double erosionMountainBelow = -0.375;
     public double erosionMaskBand = 0.2;
     /**
      * The footprint edge is domain-warped: the erosion is read at a point displaced by up to
