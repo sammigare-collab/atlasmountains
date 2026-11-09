@@ -62,6 +62,8 @@ public final class RegionCache {
     public MountainMask mountainMask() { return mask; }
     public Continents continents() { return continents; }
     /** The chain layout, or null when this cache uses parallel spines. */
+    public SpineLayout layout() { return pipeline.generator().layout(); }
+
     public ChainLayout chainLayout() { return pipeline.generator().layout() instanceof ChainLayout c ? c : null; }
 
     private final ThreadLocal<ColumnCache> maskColumnCache = ThreadLocal.withInitial(ColumnCache::new);

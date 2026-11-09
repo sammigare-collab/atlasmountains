@@ -49,6 +49,7 @@ public final class MountainMask {
      */
     public double zone(double x, double z, double[] scratch) {
         double lz = layout.zone(x, z);
+        if (layout.zoneReplacesFootprint() && !Double.isNaN(lz)) return lz;
         if (erosion != null) {
             // vanilla's mountain footprint; with a chain layout the chains are what shows inside it
             // domain-warped so the biome edge wanders rather than following one smooth contour

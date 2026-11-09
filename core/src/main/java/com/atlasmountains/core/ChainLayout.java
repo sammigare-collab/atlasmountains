@@ -177,6 +177,7 @@ public final class ChainLayout implements SpineLayout {
     private volatile java.util.function.DoubleBinaryOperator erosion;
 
     /** Sets the erosion field and forgets any chains placed without it. */
+    @Override
     public void setErosion(java.util.function.DoubleBinaryOperator erosion) {
         this.erosion = erosion;
         cells.clear();
