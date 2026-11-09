@@ -21,7 +21,7 @@
           "warm_above": 0.25,
           "mask_threshold": 0.5,
           "snow_line_base": 64,
-          "snow_line_scale": 300,
+          "snow_line_scale": 700,
           "snow_line_frozen": -0.2,
           "snow_line_jitter": 25
         },
