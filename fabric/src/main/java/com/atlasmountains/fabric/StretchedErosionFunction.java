@@ -1,6 +1,5 @@
 package com.atlasmountains.fabric;
 
-import com.atlasmountains.core.RangeLayout;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.world.level.levelgen.densityfunction.DensityFunction;
 import net.minecraft.world.level.levelgen.synth.Noise;
@@ -19,9 +18,13 @@ public enum StretchedErosionFunction implements ColumnFunction {
     private static volatile Noise sampler;
     private static volatile double cos = 1, sin = 0, stretch = 1;
 
-    /** Installed when the overworld loads. */
+    /**
+     * Installed when the overworld loads. The frame is rotated by a seed-chosen angle (the old
+     * parallel layout's range direction). With erosionStretch 1 the stretch does nothing, but the
+     * rotation still decides where the erosion field, and with it every mountain province, lies.
+     */
     public static void install(Noise s, long seed, double stretchRatio) {
-        double angle = RangeLayout.angle(seed);
+        double angle = com.atlasmountains.core.Hash.unit(com.atlasmountains.core.Hash.hash(seed, 101)) * Math.PI;
         cos = Math.cos(angle);
         sin = Math.sin(angle);
         stretch = stretchRatio;

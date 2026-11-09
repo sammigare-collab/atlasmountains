@@ -36,7 +36,7 @@ public final class AtlasBiomeSource extends BiomeSource {
             Codec.DOUBLE.optionalFieldOf("snow_line_jitter", 25.0).forGetter(b -> b.snowLineJitter)
     ).apply(i, AtlasBiomeSource::new));
 
-    private static final ThreadLocal<com.atlasmountains.core.RangeLayout.Sample> SCRATCH = ThreadLocal.withInitial(com.atlasmountains.core.RangeLayout.Sample::new);
+    private static final ThreadLocal<com.atlasmountains.core.RidgeSample> SCRATCH = ThreadLocal.withInitial(com.atlasmountains.core.RidgeSample::new);
     private final BiomeSource vanilla;
     private final Holder<Biome> cold, temperate, warm, coldHigh, temperateHigh, warmHigh;
     private final int treelineY;
