@@ -58,7 +58,9 @@ official names; there are no Yarn mappings.
   temperature. Steep ground is stone. Outside the mountains, vanilla's biomes and surface.
 
 **Atlas Mountains (everywhere)** (`atlasmountains:all`): the same field-layout ridges over the
-whole world with no footprint, for looking at the mountain design itself.
+whole world with no footprint, for looking at the mountain design itself. Its mask is 1
+everywhere, so the surface rules (stone on steep faces, snow on top) treat every column as
+mountain.
 
 Each preset keeps its eroded terrain cache under `<world>/atlasmountains/mixed/` or
 `.../everywhere/`. Entering a new 2048x2048 region pauses briefly while it is eroded. The cache
@@ -105,8 +107,6 @@ Outside the game there is no erosion noise: the region tool draws ridges everywh
 
 - The mountain biomes are chosen by temperature only; humidity and erosion do not affect them.
 - The standalone tools cannot reproduce the in-game mountain provinces (no erosion noise).
-- In the "everywhere" preset the mask is 0 (there is no footprint), and the rock-on-steep-slope
-  rule scales the slope by the mask, so faces there stay grass rather than stone.
 
 Older layout experiments (mountain chains, parallel ranges, Voronoi plate continents) were removed
 from the tree; they are on the `archive/layout-experiments` branch.

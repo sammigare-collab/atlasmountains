@@ -33,6 +33,8 @@ public final class RegionCache {
     private final long noiseSeed;
     private final Continents continents;
     private final MountainMask mask;
+    /** The "everywhere" preset: no footprint and no coast, the mask is 1 everywhere. */
+    private final boolean everywhere;
     public Consumer<String> log = msg -> {};
 
     /** Amplitude of the block-resolution noise that hides the 4-block grid. */
@@ -40,7 +42,14 @@ public final class RegionCache {
     /** Wavelength of that noise, blocks. */
     public double upsampleNoiseWavelength = 7;
 
+    /** A cache for the mixed preset (mask from vanilla's mountain footprint and the coast). */
     public RegionCache(MountainSettings settings, long seed, Path diskDir) {
+        this(settings, seed, diskDir, false);
+    }
+
+    /** @param everywhere true for the "everywhere" preset: the mask is 1 at every position. */
+    public RegionCache(MountainSettings settings, long seed, Path diskDir, boolean everywhere) {
+        this.everywhere = everywhere;
         this.s = settings;
         this.seed = seed;
         this.pipeline = new RegionPipeline(settings, seed);
@@ -67,6 +76,7 @@ public final class RegionCache {
 
     /** Mountain mask 0..1 at a block position (cheap, no region needed). Cached per block column. */
     public double mask(double x, double z) {
+        if (everywhere) return 1;
         int bx = (int) Math.floor(x), bz = (int) Math.floor(z);
         long key = ((long) bx << 32) ^ (bz & 0xffffffffL);
         ColumnCache c = maskColumnCache.get();
