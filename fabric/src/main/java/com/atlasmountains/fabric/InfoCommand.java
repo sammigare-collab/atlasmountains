@@ -20,7 +20,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Locale;
 
-/** /atlasmountains info: region id, cached or not, heightmap value and slope at the player. */
+/**
+ * The /atlasmountains debug commands: info, df, scan, continents, fields and heightmap (see the
+ * README for what each prints or writes).
+ */
 public final class InfoCommand {
     private InfoCommand() {}
 
@@ -36,7 +39,7 @@ public final class InfoCommand {
                     boolean cached = cache.isCached(rx, rz);
                     double cont = cache.continents().continentalness(p.x, p.z);
                     String line1 = String.format(Locale.UK, "region %d,%d  cached: %s  seed %d  layout %s  continentalness %.2f (%s)  mask %.2f",
-                            rx, rz, cached ? "yes" : "no", cache.seed(), s.chainLayout ? "chains" : "parallel", cont,
+                            rx, rz, cached ? "yes" : "no", cache.seed(), s.layout, cont,
                             cont < -0.455 ? "deep ocean" : cont < -0.19 ? "ocean" : cont < -0.11 ? "coast" : cont < 0.03 ? "near inland" : cont < 0.3 ? "mid inland" : "far inland",
                             cache.mask(p.x, p.z));
                     String line2;

@@ -28,16 +28,22 @@ public final class FieldLayout implements SpineLayout {
         this.heightSeed = Hash.hash(seed, 9003);
     }
 
-    /** Summit relief scale at (x, z): boost times (1 +/- variation), smooth over fieldHeightWavelength. */
+    /**
+     * Summit relief scale at (x, z): fieldHeightBoost times (1 + fieldHeightVariation * n), with n
+     * a smooth noise in -1..1 over fieldHeightWavelength blocks. Value noise clusters near 0, so
+     * most of the map sits close to the boost and the extremes are rare.
+     */
     public double heightScale(double x, double z) {
-        double n = Hash.value2(heightSeed, x / s.fieldHeightWavelength, z / s.fieldHeightWavelength) * 2 - 1;
+        double n = Hash.value2(heightSeed, x / s.fieldHeightWavelength, z / s.fieldHeightWavelength);
         return s.fieldHeightBoost * (1 + s.fieldHeightVariation * n);
     }
 
+    /** Domain-warp offset in blocks for one axis (salt 1 = x, 2 = z): two octaves plus a constant shift. */
     private double warp(long salt, double x, double z) {
         double w = s.fieldWarpWavelength;
-        return (Hash.value2(Hash.hash(warpSeed, salt), x / w, z / w) - 0.5) * 2 * s.fieldWarpAmplitude
-             + (Hash.value2(Hash.hash(warpSeed, salt + 10), x / w * 2.3, z / w * 2.3) - 0.5) * s.fieldWarpAmplitude * 0.5;
+        return Hash.value2(Hash.hash(warpSeed, salt), x / w, z / w) * s.fieldWarpAmplitude
+             + Hash.value2(Hash.hash(warpSeed, salt + 10), x / w * 2.3, z / w * 2.3) * s.fieldWarpAmplitude * 0.25
+             + s.fieldWarpShift;
     }
 
     @Override
@@ -50,7 +56,7 @@ public final class FieldLayout implements SpineLayout {
     private boolean inside(long id, double sx, double sz) {
         Boolean b = siteInside.get(id);
         if (b == null) {
-            double rag = (Hash.value2(Hash.hash(siteSeed, 77), sx / s.footprintRaggedWavelength, sz / s.footprintRaggedWavelength) * 2 - 1) * s.footprintRagged;
+            double rag = Hash.value2(Hash.hash(siteSeed, 77), sx / s.footprintRaggedWavelength, sz / s.footprintRaggedWavelength) * s.footprintRagged;
             b = erosion.applyAsDouble(sx, sz) + rag < s.erosionMountainBelow;
             if (siteInside.size() > 200_000) siteInside.clear();
             siteInside.put(id, b);

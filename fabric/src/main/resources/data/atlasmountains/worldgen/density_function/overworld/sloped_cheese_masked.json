@@ -8,7 +8,7 @@
       "input": {
         "type": "atlasmountains:terrain_height",
         "mask_relief": true,
-        "chains": true
+        "mixed": true
       }
     },
     "right": {

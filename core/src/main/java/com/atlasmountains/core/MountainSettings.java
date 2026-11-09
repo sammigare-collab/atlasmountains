@@ -1,27 +1,44 @@
 package com.atlasmountains.core;
 
 /**
- * Every size, angle, spacing and strength used by the generator, in one place.
- * Defaults come from the geometry table in the brief. Units are blocks unless stated.
- * Tuning is done by changing these values, never by rewriting generator code.
+ * Every size, angle, spacing and strength used by the generator, in one place. Units are
+ * blocks unless stated. Tuning is done by changing these values, never by rewriting generator
+ * code. The values were tuned in game; several heights are repeated in
+ * tools/build_datapack.py and SettingsSyncTest checks the two agree.
  */
 public final class MountainSettings {
+
+    /** Which {@link SpineLayout} places the ranges. */
+    public enum Layout {
+        /** {@link FieldLayout}: a warped Voronoi ridge network filling vanilla's mountain footprint. Both shipped presets use it. */
+        FIELD,
+        /** {@link ChainLayout}: separate curved chains that fork. Older experiment, not used by any preset. */
+        CHAINS,
+        /** {@link RangeLayout}: parallel spines in one direction. Older experiment, not used by any preset. */
+        PARALLEL
+    }
 
     // ---- Region grid -------------------------------------------------------------
     /** Side of one region in blocks. */
     public int regionSizeBlocks = 2048;
-    /**
-     * Field layout: our mountains fill vanilla's mountain footprint 1:1, ridges from a noise
-     * field (see FieldLayout). Overrides chainLayout when true.
-     */
-    public boolean fieldLayout = true;
+    /** The layout in use. */
+    public Layout layout = Layout.FIELD;
     /** Voronoi cell size: ridges enclose cells about this big, so neighbouring ridges sit about this far apart. */
     public double fieldCellSize = 420;
     /** Site jitter as a fraction of the cell (0 = square grid, 1 = anywhere in the cell). */
     public double fieldJitter = 0.9;
-    /** Domain warp of the diagram, so the ridges curve: amplitude in blocks and wavelength. */
-    public double fieldWarpAmplitude = 110;
+    /**
+     * Domain warp of the diagram, so the ridges curve: amplitude of the main octave in blocks
+     * (a second octave adds a quarter of this), and its wavelength.
+     */
+    public double fieldWarpAmplitude = 220;
     public double fieldWarpWavelength = 700;
+    /**
+     * Constant shift added to the warp, blocks. It has no visual purpose; it keeps every seed's
+     * ridges where they were before the warp formula was corrected (Nov 2026). Setting it to 0
+     * moves the whole ridge network diagonally by about 190 blocks.
+     */
+    public double fieldWarpShift = -137.5;
     /**
      * Field layout mask: a cell is in the mountains when vanilla's footprint is on at its site, so
      * the mountain edge follows whole cells and the last ridge stands at full height; the mask
@@ -30,10 +47,15 @@ public final class MountainSettings {
     public double fieldEdgeFade = 120;
     /** How far below the valley floor our surface sinks where the mask is 0 (see RegionCache.maskedHeight). */
     public double maskSink = 24;
-    /** Average summit relief multiplier in the field layout (1.2 = 20% taller than the design summit). */
-    public double fieldHeightBoost = 1.1;
-    /** Relief varies by this fraction either side of the boost, over fieldHeightWavelength blocks. */
-    public double fieldHeightVariation = 0.2;
+    /**
+     * Typical summit relief multiplier in the field layout (1.0 = the design summit). The relief is
+     * fieldHeightBoost * (1 + fieldHeightVariation * n), n in -1..1 over fieldHeightWavelength
+     * blocks: with 0.88 and 0.5 that is 0.44..1.32, mostly near 0.88. These are the values tuned
+     * in game, restated after a range bug in the old formula was corrected (Nov 2026).
+     */
+    public double fieldHeightBoost = 0.88;
+    /** Relief varies by this fraction either side of fieldHeightBoost. */
+    public double fieldHeightVariation = 0.5;
     public double fieldHeightWavelength = 1800;
     /** Blocks per heightmap sample. */
     public int sampleSpacing = 4;
@@ -43,8 +65,8 @@ public final class MountainSettings {
     // ---- Vertical layout ---------------------------------------------------------
     /** Flat valley floor height (y). Lakes sit a few blocks below this after valley fill. */
     public double valleyFloorHeight = 64;   // one above vanilla sea level, so lakes share it
-    /** Mean summit height (y). Relief = summitHeight - valleyFloorHeight, target 450 to 600. */
-    public double summitHeight = 232;   // relief 168 (was 272/208: "a decent bit smaller", Nov 2026)   // relief 208, about 25% above vanilla peaks (original design was 520; every length scaled by 0.4)   // relief 416 (was 520; "same design, slightly smaller": every length x0.8)
+    /** Design summit height (y), before the field layout's height scale. Relief = summitHeight - valleyFloorHeight. */
+    public double summitHeight = 232;
     /** Fraction of the relief, measured down from the mean summit, that is rock face at the face angle. */
     public double rockFraction = 0.5;
 
@@ -65,15 +87,15 @@ public final class MountainSettings {
     public double spineCurveWavelength = 1280;
 
     // ---- Crest profile along the spine (step 3) ----------------------------------
-    /** Mean peak spacing along the crest (target 150 to 300). */
+    /** Mean peak spacing along the crest. */
     public double peakSpacing = 72;
-    /** Peak position jitter as a fraction of peakSpacing (target 0.2 to 0.3). */
+    /** Peak position jitter as a fraction of peakSpacing. */
     public double peakSpacingJitter = 0.25;
-    /** Summit height variation as a fraction of the mean (target about 0.15 total spread). */
+    /** Summit-to-summit height variation along a crest, as a fraction either side of the mean. */
     public double peakHeightVariation = 0.075;
     /**
      * Slope at which the ridge falls away from a summit along the crest (tan). 0.6 is 31 degrees.
-     * The true slope of a facet is sqrt(faceSlope^2 + crestFallSlope^2): 1.0 and 0.6 give 49 degrees.
+     * The true slope of a facet is sqrt(faceSlope^2 + crestFallSlope^2): 1.15 and 0.6 give 52 degrees.
      */
     public double crestFallSlope = 0.60;
     /** Rounding of the saddle between two summits, blocks. 0 is a sharp V. Summits are never rounded. */
@@ -84,7 +106,7 @@ public final class MountainSettings {
     public double saddleRoundingMaxGap = 112;
 
     // ---- Cross profile (step 3) --------------------------------------------------
-    /** Face slope on rock, as tan. 1.0 is 45 degrees. Also the thermal critical angle on rock. */
+    /** Face slope on rock, as tan. 1.0 is 45 degrees, 1.15 is 49 degrees. */
     public double faceSlope = 1.15;
     /** Flank slope just below the rock line, as tan. 0.7 is 35 degrees. */
     public double flankTopSlope = 0.90;
@@ -114,7 +136,11 @@ public final class MountainSettings {
     public double lakeCoverage = 0.55;
 
     // ---- Thermal erosion (step 5) ------------------------------------------------
-    /** Critical angle on rock, degrees. Default equals the built facet slope so the faces are kept, not cut. */
+    /**
+     * Critical angle on rock, degrees. Computed for a face slope of 1.0 (49 degrees), so it is
+     * below the facet slope actually built with faceSlope 1.15 (52 degrees) and thermal erosion
+     * does trim the faces slightly. That is the tuned look; it is not tied to faceSlope.
+     */
     public double thermalRockAngle = Math.toDegrees(Math.atan(Math.sqrt(1.0 * 1.0 + 0.60 * 0.60)));
     /** Critical angle below the rock line, degrees (gully walls on the grass flank). */
     public double thermalFlankAngle = 36;
@@ -150,14 +176,7 @@ public final class MountainSettings {
     /** Erosion brush radius in samples. */
     public int dropletRadius = 1;
 
-    // ---- Layout mode -------------------------------------------------------------
-    /**
-     * true: mountain chains ({@link ChainLayout}; the mixed "Atlas Mountains" preset).
-     * false: parallel spines over the whole world ({@link RangeLayout}; the "everywhere" preset and the diagnostics).
-     */
-    public boolean chainLayout = false;
-
-    // ---- Mountain chains (chainLayout = true) ------------------------------------
+    // ---- Mountain chains (layout = CHAINS; older experiment) ----------------------
     /** Cell size of the chain lattice, blocks. One chain per cell at most; sets how far apart chains are. */
     public double chainCellSize = 4500;
     /** Probability that a cell has a chain (before the erosion gate). */
@@ -254,15 +273,20 @@ public final class MountainSettings {
     /** After trimming a chain keeps its spines as long as it is still at least this many times longer than its zone is wide. */
     public double chainTrimMinAspect = 1.0;
 
-    // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
-    /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
-    public double erosionMountainBelow = -0.42;   // vanilla's peaks start at -0.375; stricter = smaller provinces
+    // ---- Vanilla's mountain footprint (mixed preset) -----------------------------------------
     /**
-     * Province edges are roughened: a cell counts as mountain when erosion + footprintRagged *
-     * noise(footprintRaggedWavelength) is below the threshold, so the edge breaks into bays and
-     * outliers instead of following one smooth erosion contour.
+     * A field cell is mountain when the world's erosion at its site, plus the ragged noise below,
+     * is under this. Vanilla's own peaks start at about -0.375; lower = smaller provinces.
+     * Restated with footprintRagged after a range bug in the old formula was corrected (Nov 2026);
+     * the old pair (-0.42, 0.1) gives exactly the same provinces.
      */
-    public double footprintRagged = 0.1;
+    public double erosionMountainBelow = -0.32;
+    /**
+     * Province edges are roughened: a cell counts as mountain when erosion + footprintRagged * n
+     * (n in -1..1, wavelength footprintRaggedWavelength) is below the threshold, so the edge breaks
+     * into bays and outliers instead of following one smooth erosion contour.
+     */
+    public double footprintRagged = 0.2;
     /**
      * The footprint reads the erosion noise at this many times the biome layer's frequency, so
      * mountain provinces are smaller than the other biomes (2 = vanilla-sized provinces while the
