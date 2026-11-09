@@ -5,15 +5,15 @@ import com.atlasmountains.core.RegionCache;
 import com.atlasmountains.core.diag.ContinentMap;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.WorldSavePath;
-import net.minecraft.world.Heightmap;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.world.gen.noise.NoiseConfig;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.RandomState;
+import net.minecraft.commands.Commands;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
 
 import java.io.File;
 import java.io.IOException;
@@ -24,12 +24,12 @@ import java.util.Locale;
 public final class InfoCommand {
     private InfoCommand() {}
 
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
-        dispatcher.register(CommandManager.literal("atlasmountains")
-                .then(CommandManager.literal("info").executes(ctx -> {
-                    ServerCommandSource src = ctx.getSource();
-                    Vec3d p = src.getPosition();
-                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getWorld());
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("atlasmountains")
+                .then(Commands.literal("info").executes(ctx -> {
+                    CommandSourceStack src = ctx.getSource();
+                    Vec3 p = src.getPosition();
+                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getLevel());
                     MountainSettings s = cache.settings();
                     int rx = (int) Math.floor(p.x / s.regionSizeBlocks);
                     int rz = (int) Math.floor(p.z / s.regionSizeBlocks);
@@ -48,24 +48,24 @@ public final class InfoCommand {
                     } else {
                         line2 = "region not generated yet (" + cache.cachedRegionNames().size() + " regions cached)";
                     }
-                    src.sendFeedback(() -> Text.literal(line1), false);
-                    src.sendFeedback(() -> Text.literal(line2), false);
+                    src.sendSuccess(() -> Component.literal(line1), false);
+                    src.sendSuccess(() -> Component.literal(line2), false);
                     return 1;
                 }))
-                .then(CommandManager.literal("chains").executes(ctx -> {
-                    ServerCommandSource src = ctx.getSource();
-                    Vec3d p = src.getPosition();
-                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getWorld());
+                .then(Commands.literal("chains").executes(ctx -> {
+                    CommandSourceStack src = ctx.getSource();
+                    Vec3 p = src.getPosition();
+                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getLevel());
                     var cl = cache.chainLayout();
-                    if (cl == null) { src.sendFeedback(() -> Text.literal("no chain layout"), false); return 1; }
-                    for (String line : cl.describe(p.x, p.z, 800)) src.sendFeedback(() -> Text.literal(line), false);
+                    if (cl == null) { src.sendSuccess(() -> Component.literal("no chain layout"), false); return 1; }
+                    for (String line : cl.describe(p.x, p.z, 800)) src.sendSuccess(() -> Component.literal(line), false);
                     return 1;
                 }))
-                .then(CommandManager.literal("scan").executes(ctx -> {
+                .then(Commands.literal("scan").executes(ctx -> {
                     // 8 km square around the player, 200 blocks per character: # mountains, + edge, . vanilla land, ~ sea
-                    ServerCommandSource src = ctx.getSource();
-                    Vec3d p = src.getPosition();
-                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getWorld());
+                    CommandSourceStack src = ctx.getSource();
+                    Vec3 p = src.getPosition();
+                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getLevel());
                     int step = 200, half = 4000;
                     StringBuilder all = new StringBuilder("mountain mask scan, " + step + " blocks per character, north at top, you are at the centre (# mountains, + edge, . land, ~ sea)\n");
                     for (int z = -half; z <= half; z += step) {
@@ -78,45 +78,45 @@ public final class InfoCommand {
                         all.append(row).append('\n');
                     }
                     AtlasMountainsMod.LOGGER.info(all.toString());
-                    src.sendFeedback(() -> Text.literal("mask scan written to the log (latest.log)"), false);
+                    src.sendSuccess(() -> Component.literal("mask scan written to the log (latest.log)"), false);
                     return 1;
                 }))
-                .then(CommandManager.literal("continents")
-                        .then(CommandManager.argument("spanKm", IntegerArgumentType.integer(10, 400)).executes(ctx -> {
+                .then(Commands.literal("continents")
+                        .then(Commands.argument("spanKm", IntegerArgumentType.integer(10, 400)).executes(ctx -> {
                     // Plate continents + mountain zones around the player, 1 pixel per (span / 1000) blocks,
                     // written to <world>/atlasmountains/continents_<x>_<z>_<span>km.png. Mask and plates only, no terrain, so it is quick.
-                    ServerCommandSource src = ctx.getSource();
+                    CommandSourceStack src = ctx.getSource();
                     int spanKm = IntegerArgumentType.getInteger(ctx, "spanKm");
-                    Vec3d p = src.getPosition();
-                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getWorld());
-                    Path dir = src.getServer().getSavePath(WorldSavePath.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                    Vec3 p = src.getPosition();
+                    RegionCache cache = AtlasMountainsMod.cacheFor(src.getLevel());
+                    Path dir = src.getServer().getWorldPath(LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
                     File out = dir.resolve(String.format(Locale.UK, "continents_%d_%d_%dkm.png", (int) p.x, (int) p.z, spanKm)).toFile();
                     try {
                         ContinentMap.render(cache.settings(), cache.continents(), cache.mountainMask(), cache.seed(),
                                 spanKm * 1000, spanKm, (int) p.x, (int) p.z, out);
                     } catch (IOException e) {
-                        src.sendError(Text.literal("could not write the map: " + e.getMessage()));
+                        src.sendFailure(Component.literal("could not write the map: " + e.getMessage()));
                         return 0;
                     }
-                    src.sendFeedback(() -> Text.literal("continent map written to " + out.getPath()), false);
+                    src.sendSuccess(() -> Component.literal("continent map written to " + out.getPath()), false);
                     return 1;
                 })))
-                .then(CommandManager.literal("fields")
-                        .then(CommandManager.argument("spanKm", IntegerArgumentType.integer(4, 200))
-                        .then(CommandManager.argument("erosionBelow", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(-1, 1))
-                        .then(CommandManager.argument("ridgesAbove", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(-1, 1)).executes(ctx -> {
+                .then(Commands.literal("fields")
+                        .then(Commands.argument("spanKm", IntegerArgumentType.integer(4, 200))
+                        .then(Commands.argument("erosionBelow", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(-1, 1))
+                        .then(Commands.argument("ridgesAbove", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(-1, 1)).executes(ctx -> {
                     // The world's own biome noises around the player: continents as colour, and in brown the
                     // "biome-level mountain" footprint erosion < erosionBelow AND folded ridges > ridgesAbove
                     // (vanilla's peaks are roughly erosion < -0.375 and folded ridges > 0.05). Raw noises, no floor.
-                    ServerCommandSource src = ctx.getSource();
+                    CommandSourceStack src = ctx.getSource();
                     int spanKm = IntegerArgumentType.getInteger(ctx, "spanKm");
                     double eBelow = com.mojang.brigadier.arguments.DoubleArgumentType.getDouble(ctx, "erosionBelow");
                     double rAbove = com.mojang.brigadier.arguments.DoubleArgumentType.getDouble(ctx, "ridgesAbove");
-                    Vec3d p = src.getPosition();
-                    ServerWorld world = src.getWorld();
-                    NoiseConfig cfg = world.getChunkManager().getNoiseConfig();
-                    var erosion = cfg.getOrCreateSampler(net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.NOISE_PARAMETERS, AtlasMountainsMod.id("erosion")));
-                    var ridge = cfg.getOrCreateSampler(net.minecraft.world.gen.noise.NoiseParametersKeys.RIDGE);
+                    Vec3 p = src.getPosition();
+                    ServerLevel world = src.getLevel();
+                    RandomState cfg = world.getChunkSource().randomState();
+                    var erosion = cfg.getOrCreateNoise(net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.NOISE, AtlasMountainsMod.id("erosion")));
+                    var ridge = cfg.getOrCreateNoise(net.minecraft.world.level.levelgen.Noises.RIDGE);
                     RegionCache cache = AtlasMountainsMod.cacheFor(world);
                     int span = spanKm * 1000, bpp = Math.max(1, span / 1000), n = span / bpp;
                     java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(n, n, java.awt.image.BufferedImage.TYPE_INT_RGB);
@@ -127,8 +127,8 @@ public final class InfoCommand {
                         int rgb = ContinentMap.landColour(c);
                         if (c > -0.19) {
                             landPx++;
-                            double e = erosion.sample(x * 0.25, 0, z * 0.25);
-                            double r = ridge.sample(x * 0.25, 0, z * 0.25);
+                            double e = erosion.get(x * 0.25, 0, z * 0.25);
+                            double r = ridge.get(x * 0.25, 0, z * 0.25);
                             double folded = -3 * (Math.abs(Math.abs(r) - 2.0 / 3) - 1.0 / 3);
                             if (e < eBelow && folded > rAbove) {
                                 mtPx++;
@@ -138,36 +138,36 @@ public final class InfoCommand {
                         }
                         img.setRGB(px, py, rgb);
                     }
-                    Path dir = src.getServer().getSavePath(WorldSavePath.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                    Path dir = src.getServer().getWorldPath(LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
                     File out = dir.resolve(String.format(Locale.UK, "fields_%d_%d_%dkm_e%.2f_r%.2f.png", (int) p.x, (int) p.z, spanKm, eBelow, rAbove)).toFile();
                     try { out.getParentFile().mkdirs(); javax.imageio.ImageIO.write(img, "png", out); }
-                    catch (IOException ex) { src.sendError(Text.literal("could not write: " + ex.getMessage())); return 0; }
+                    catch (IOException ex) { src.sendFailure(Component.literal("could not write: " + ex.getMessage())); return 0; }
                     final String msg = String.format(Locale.UK, "fields map written to %s (footprint %.0f%% of land)", out.getPath(), 100.0 * mtPx / Math.max(1, landPx));
-                    src.sendFeedback(() -> Text.literal(msg), false);
+                    src.sendSuccess(() -> Component.literal(msg), false);
                     return 1;
                 })))))
-                .then(CommandManager.literal("heightmap")
-                        .then(CommandManager.argument("sizeBlocks", IntegerArgumentType.integer(256, 16384))
-                        .then(CommandManager.argument("stepBlocks", IntegerArgumentType.integer(1, 64)).executes(ctx -> {
+                .then(Commands.literal("heightmap")
+                        .then(Commands.argument("sizeBlocks", IntegerArgumentType.integer(256, 16384))
+                        .then(Commands.argument("stepBlocks", IntegerArgumentType.integer(1, 64)).executes(ctx -> {
                     // Asks the chunk generator for the surface height over a square around the player and writes
                     // <world>/atlasmountains/heightmap_<x>_<z>_<size>.png (hillshade, blue where below sea level).
-                    ServerCommandSource src = ctx.getSource();
+                    CommandSourceStack src = ctx.getSource();
                     int size = IntegerArgumentType.getInteger(ctx, "sizeBlocks");
                     int step = IntegerArgumentType.getInteger(ctx, "stepBlocks");
-                    Vec3d p = src.getPosition();
-                    ServerWorld world = src.getWorld();
-                    ChunkGenerator gen = world.getChunkManager().getChunkGenerator();
-                    NoiseConfig noiseConfig = world.getChunkManager().getNoiseConfig();
+                    Vec3 p = src.getPosition();
+                    ServerLevel world = src.getLevel();
+                    ChunkGenerator gen = world.getChunkSource().getGenerator();
+                    RandomState randomState = world.getChunkSource().randomState();
                     int seaLevel = gen.getSeaLevel();
                     int cx = (int) p.x, cz = (int) p.z;
-                    src.sendFeedback(() -> Text.literal("sampling " + size + "x" + size + " blocks at " + step + " block steps..."), false);
+                    src.sendSuccess(() -> Component.literal("sampling " + size + "x" + size + " blocks at " + step + " block steps..."), false);
                     Thread worker = new Thread(() -> {
                         try {
                             int n = size / step;
                             float[] h = new float[n * n];
                             for (int j = 0; j < n; j++)
                                 for (int i = 0; i < n; i++)
-                                    h[j * n + i] = gen.getHeight(cx - size / 2 + i * step, cz - size / 2 + j * step, Heightmap.Type.WORLD_SURFACE_WG, world, noiseConfig);
+                                    h[j * n + i] = gen.getBaseHeight(cx - size / 2 + i * step, cz - size / 2 + j * step, Heightmap.Types.WORLD_SURFACE_WG, world, randomState);
                             java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(n, n, java.awt.image.BufferedImage.TYPE_INT_RGB);
                             double el = Math.toRadians(45), lx = -Math.cos(el) / Math.sqrt(2), ly = Math.sin(el), lz = lx;
                             for (int j = 0; j < n; j++) {
@@ -186,7 +186,7 @@ public final class InfoCommand {
                                     img.setRGB(i, j, ((int) (r * shade) << 16) | ((int) (g * shade) << 8) | (int) (b * shade));
                                 }
                             }
-                            java.nio.file.Path dir = src.getServer().getSavePath(WorldSavePath.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                            java.nio.file.Path dir = src.getServer().getWorldPath(LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
                             java.nio.file.Files.createDirectories(dir);
                             java.io.File out = dir.resolve("heightmap_" + cx + "_" + cz + "_" + size + ".png").toFile();
                             javax.imageio.ImageIO.write(img, "png", out);

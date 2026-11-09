@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:mul",
+  "left": 0.15,
+  "right": {
+    "type": "minecraft:sub",
+    "left": "atlasmountains:mountains/blend_height",
+    "right": "minecraft:y"
+  }
+}
