@@ -1,12 +1,12 @@
 package com.atlasmountains.core;
 
 /**
- * Where the mountains are, 0..1. Zones come from a value noise sampled in the range frame with
- * a much longer wavelength along the ranges than across them, so they are long and narrow and
- * aligned with the ranges inside them. A soft threshold gives the edge over which terrain,
- * biomes and surface blend from vanilla to ours. Multiplied by an inland ramp on the plate
- * continentalness ({@link PlateContinents}) so zones fade out at the coast instead of marching
- * into the sea.
+ * Where the mountains are, 0..1: the layout's zone (for {@link FieldLayout}, the cells inside
+ * vanilla's mountain footprint plus a fade), multiplied by an inland ramp on the continentalness
+ * so mountains fade out at the coast instead of marching into the sea.
+ * <p>
+ * The other branches of {@link #zone} serve the older layouts: vanilla's erosion footprint
+ * multiplied in for {@link ChainLayout}, and a stretched zone noise for {@link RangeLayout}.
  */
 public final class MountainMask {
 
@@ -88,7 +88,7 @@ public final class MountainMask {
     }
 
     // ---- coarse, cached continentalness ------------------------------------------------
-    // The plate continentalness has a wavelength of kilometres and the mask is asked for per
+    // The continentalness has a wavelength of kilometres and the mask is asked for per
     // block. Sample it on a grid and interpolate.
     private static final int GRID = 32;
     private static final int CACHE_BITS = 12;
@@ -133,7 +133,7 @@ public final class MountainMask {
         return v;
     }
 
-    /** Plate continentalness at a block position, bilinear from a 32-block grid. */
+    /** Continentalness at a block position, bilinear from a 32-block grid. */
     public double continentalnessAt(double x, double z) {
         double fx = x / GRID, fz = z / GRID;
         int gx = (int) Math.floor(fx), gz = (int) Math.floor(fz);

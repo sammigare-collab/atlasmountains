@@ -7,11 +7,12 @@ Builds the mod's worldgen JSON from the vanilla 26.3 data files in tools/vanilla
 
 Everything the mod ships under data/ is generated here, so a change to vanilla or to a
 parameter below is a re-run, not a hand edit. The height parameters must match the defaults
-in MountainSettings (valley floor, rock line, summit height).
+in MountainSettings (valley floor, summit height, rock fraction); SettingsSyncTest in core
+checks them.
 
 Two world presets are produced:
-  atlasmountains:atlasmountains  "Atlas Mountains"              Voronoi plate continents, our ranges in the mountain zones, vanilla elsewhere
-  atlasmountains:all             "Atlas Mountains (everywhere)" the whole world is mountain country (testing)
+  atlasmountains:atlasmountains  "Atlas Mountains"              noise continents, our ridges filling vanilla's mountain footprint, vanilla elsewhere
+  atlasmountains:all             "Atlas Mountains (everywhere)" the same ridges over the whole world, no footprint (for testing the mountains)
 """
 import json, os, copy
 
@@ -22,15 +23,16 @@ NS = 'atlasmountains'
 
 # ---- parameters (keep in step with MountainSettings) -------------------------------
 VALLEY_FLOOR = 64          # MountainSettings.valleyFloorHeight (one above vanilla sea level)
-SUMMIT = 232               # MountainSettings.summitHeight
-ROCK_LINE = 148            # MountainSettings.rockLineHeight() = summit - 0.5 * relief
+SUMMIT = 232               # MountainSettings.summitHeight (design summit, before the field layout's height scale)
+ROCK_FRACTION = 0.5        # MountainSettings.rockFraction
+ROCK_LINE = round(SUMMIT - ROCK_FRACTION * (SUMMIT - VALLEY_FLOOR))   # MountainSettings.rockLineHeight(), 148
 SEA_LEVEL = 63             # vanilla; the lake surface (floor - 1) is the same height
-SNOW_LINE = 205            # top ~15-20% of the relief (average summit with the 1.1 boost is about 249)
+SNOW_LINE = 205            # typical summits are about y 212 (design 232 x the field height scale, mostly near 0.88), the tallest about y 286
 SNOW_JITTER_MULT = 3       # surface_depth_multiplier on the y_above condition (jitters by a few blocks)
 ROCK_SLOPE_DEG = 35        # steeper than this = stone
 CAVE_TOP = 135             # no density-function cave carving at or above this y (mountain zones)
 DIM_MIN_Y = -64
-DIM_HEIGHT = 576           # build limit 512; the tallest summits are about y 420
+DIM_HEIGHT = 576           # build limit 512; the tallest summits are under y 300, so there is headroom
 DENSITY_PER_BLOCK = 0.15   # sloped_cheese = (terrain_height - y) * this; vanilla caves expect ~1.56 ten blocks down
 VANILLA_EROSION_FLOOR = -0.1   # vanilla erosion is never lower than this, so vanilla makes no peaks of its own
 VANILLA_TOP = 320          # vanilla's own build height; its 3D noise is skipped above this (see gate_interpolated)
@@ -65,15 +67,14 @@ def rename(obj, old, new):
 # (576 times per column without it). flat_cache would be cheaper still but samples at 4-block
 # resolution, which would terrace the surface.
 def cache2d(f): return {'type': 'minecraft:cache', 'input': f}   # 26.x: one generic cache; our column functions fill a volume once per column anyway
-TERRAIN = cache2d({'type': f'{NS}:terrain_height', 'chains': False})                 # "everywhere" preset: parallel spines
-TERRAIN_FAST = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'chains': False})   # analytic model, no erosion; for biome depth only
+TERRAIN = cache2d({'type': f'{NS}:terrain_height', 'mixed': False})                 # "everywhere" preset's cache
+TERRAIN_FAST = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mixed': False})   # analytic model, no erosion; for biome depth only
 MASK = cache2d({'type': f'{NS}:mountain_mask'})
-INNER = cache2d({'type': f'{NS}:mountain_mask', 'kind': 'inner'})   # 1 only between a chain's spines
+INNER = cache2d({'type': f'{NS}:mountain_mask', 'kind': 'inner'})   # inner mask; equals the mask for the field layout
 SC = f'{NS}:overworld/sloped_cheese'
 SC_MASKED = f'{NS}:overworld/sloped_cheese_masked'      # relief faded by the mask (mixed world)
-MIXED_CHAINS = True        # must match AtlasMountainsMod.MIXED_USES_CHAINS: chains inside vanilla's mountain footprint
-TERRAIN_MASKED = cache2d({'type': f'{NS}:terrain_height', 'mask_relief': True, 'chains': MIXED_CHAINS})
-TERRAIN_MIXED = cache2d({'type': f'{NS}:terrain_height', 'chains': MIXED_CHAINS})       # raw eroded height, no mask: the blend below applies the mask
+TERRAIN_MASKED = cache2d({'type': f'{NS}:terrain_height', 'mask_relief': True, 'mixed': True})
+TERRAIN_MIXED = cache2d({'type': f'{NS}:terrain_height', 'mixed': True})       # raw eroded height, no mask: the blend below applies the mask
 # Edge blend (mixed world). In the mask's fade band the surface is a true blend of heights,
 # h = vanilla_h + mask * (ours - vanilla_h), where vanilla_h is vanilla's jaggedness-free surface
 # found with find_top_surface. Vanilla's own 3D density is shifted down by VANILLA_SLOPE per block
@@ -87,7 +88,7 @@ EDGE_SINK = 12             # blocks our surface sits under the blend at mask 0
 EDGE_SINK_BAND = 0.15      # the sink fades in over this much of the mask at its outer edge
 EDGE_PUSH = 12             # blocks vanilla is pushed under the blend at inner mask 1
 PSL_SLOPE = 0.4            # the same for the jaggedness-free preliminary-surface density
-TERRAIN_FAST_MASKED = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'chains': MIXED_CHAINS})
+TERRAIN_FAST_MASKED = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'mixed': True})
 
 def mul(a, b): return {'type': 'minecraft:mul', 'left': a, 'right': b}
 def sub(a, b): return {'type': 'minecraft:sub', 'left': a, 'right': b}
@@ -277,7 +278,7 @@ top_block = {'type': 'minecraft:stone_depth', 'offset': 0, 'surface_type': 'floo
 surface_layer = {'type': 'minecraft:stone_depth', 'offset': 0, 'surface_type': 'floor', 'add_surface_depth': True, 'secondary_depth_range': 0}
 above_water = {'type': 'minecraft:water', 'offset': 0, 'surface_depth_multiplier': 0, 'add_stone_depth': False}
 snow = {'type': 'minecraft:y_above', 'anchor': {'absolute': SNOW_LINE}, 'surface_depth_multiplier': SNOW_JITTER_MULT, 'add_stone_depth': False}
-def steep(chains): return {'type': f'{NS}:slope_above', 'degrees': ROCK_SLOPE_DEG, 'chains': chains}
+def steep(mixed): return {'type': f'{NS}:slope_above', 'degrees': ROCK_SLOPE_DEG, 'mixed': mixed}
 in_mountains = {'type': f'{NS}:on_our_slope', 'above_floor': 6.0}   # valley floors and our flanks; not the foot where vanilla shows
 
 rock = seq(   # warm rock palette: a simple noise-selected mix of three vanilla blocks
@@ -285,15 +286,15 @@ rock = seq(   # warm rock palette: a simple noise-selected mix of three vanilla 
     cond(noise_between(0.3, 10.0), block('minecraft:packed_mud')),
     block('minecraft:stone'),
 )
-def mountain_rules(chains): return seq(
+def mountain_rules(mixed): return seq(
     cond(top_block, seq(
         cond(snow, block('minecraft:snow_block')),
-        cond(steep(chains), rock),
+        cond(steep(mixed), rock),
         cond(above_water, block('minecraft:grass_block')),
         block('minecraft:gravel'),
     )),
     cond(surface_layer, seq(
-        cond(steep(chains), rock),
+        cond(steep(mixed), rock),
         block('minecraft:dirt'),
     )),
 )
@@ -429,7 +430,7 @@ def build_variant(settings_name, preset_name, mixed):
     rule = copy.deepcopy(vanilla_rule)
     if mixed:
         rule['sequence'][SURFACE_IDX] = cond({'type': 'minecraft:above_preliminary_surface'},
-                                             seq(cond(in_mountains, mountain_rules(MIXED_CHAINS)), vanilla_surface_run))
+                                             seq(cond(in_mountains, mountain_rules(True)), vanilla_surface_run))
     else:
         rule['sequence'][SURFACE_IDX] = cond({'type': 'minecraft:above_preliminary_surface'}, mountain_rules(False))
     write(f'{NS}/worldgen/material_rule/{settings_name}.json', rule)

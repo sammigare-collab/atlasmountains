@@ -9,7 +9,7 @@
         "type": "atlasmountains:terrain_height",
         "eroded": false,
         "mask_relief": true,
-        "chains": true
+        "mixed": true
       }
     },
     "right": {

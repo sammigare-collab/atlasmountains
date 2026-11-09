@@ -17,7 +17,7 @@
           "type": "minecraft:cache",
           "input": {
             "type": "atlasmountains:terrain_height",
-            "chains": true
+            "mixed": true
           }
         },
         "right": "atlasmountains:mountains/vanilla_surface"

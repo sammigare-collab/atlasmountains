@@ -44,7 +44,7 @@
                   "if_true": {
                     "type": "atlasmountains:slope_above",
                     "degrees": 35,
-                    "chains": false
+                    "mixed": false
                   },
                   "then_run": {
                     "type": "minecraft:sequence",
@@ -119,7 +119,7 @@
                   "if_true": {
                     "type": "atlasmountains:slope_above",
                     "degrees": 35,
-                    "chains": false
+                    "mixed": false
                   },
                   "then_run": {
                     "type": "minecraft:sequence",

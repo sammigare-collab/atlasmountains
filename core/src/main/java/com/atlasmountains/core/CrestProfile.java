@@ -1,10 +1,11 @@
 package com.atlasmountains.core;
 
 /**
- * Step 3a: height along a spine. A row of summits at jittered spacing, each with its own
- * height, joined by straight ridgelines that fall away from each apex at crestFallSlope.
- * The crest at any point is the highest of the nearby summit "tents" (abs-based, no
- * smoothing), so every apex is a point and every saddle is a sharp V in the ridgeline.
+ * Height along a spine. A row of summits at jittered spacing, each with its own height, joined
+ * by straight ridgelines that fall away from each apex at crestFallSlope. The crest at any point
+ * is a smooth maximum of the nearby summit "tents": every apex stays a sharp point, saddles
+ * between summits further apart than saddleRoundingMinGap are rounded by up to saddleRounding
+ * blocks, and saddles between closer summits stay a sharp V.
  */
 public final class CrestProfile {
 
@@ -36,12 +37,6 @@ public final class CrestProfile {
         return s.summitHeight * (1 + var) * scale;
     }
 
-    /**
-     * Crest height at position v along range k: the two highest summit tents, joined by a
-     * smooth maximum whose rounding depends on how far apart those two summits are.
-     * Summits stay sharp points (the abs() is never smoothed); only the saddle is rounded,
-     * and a saddle between two close summits stays a sharp V.
-     */
     /** Rounding for the saddle between two summits this far apart. */
     private double roundingForGap(double gap) {
         double t = (gap - s.saddleRoundingMinGap) / (s.saddleRoundingMaxGap - s.saddleRoundingMinGap);
@@ -69,6 +64,11 @@ public final class CrestProfile {
         return kMid + (kAtB - kMid) * (v - mid) / (b - mid);
     }
 
+    /**
+     * Crest height at position v along range k: the summit tents nearby, joined by a smooth
+     * maximum whose rounding depends on how far apart the neighbouring summits are. Summits stay
+     * sharp points (the abs() is never smoothed); only the saddle is rounded.
+     */
     public double height(int range, double v) {
         long i0 = Math.round(v / s.peakSpacing);
         double best = -Double.MAX_VALUE;
