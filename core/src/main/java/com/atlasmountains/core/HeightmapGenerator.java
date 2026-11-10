@@ -9,43 +9,41 @@ public final class HeightmapGenerator {
 
     private final MountainSettings s;
     private final long seed;
-    private final SpineLayout layout;
+    private final FieldLayout layout;
     private final CrestProfile crest;
     private final CrossProfile cross;
     private final long detailSeed, lakeSeed;
 
-    /** Layout chosen by {@link MountainSettings#chainLayout}: chains, or parallel spines everywhere. */
     public HeightmapGenerator(MountainSettings settings, long seed) {
-        this(settings, seed, settings.fieldLayout ? new FieldLayout(settings, seed)
-                : settings.chainLayout ? new ChainLayout(settings, seed) : new RangeLayout(settings, seed));
+        this(settings, seed, new FieldLayout(settings, seed));
     }
 
-    public HeightmapGenerator(MountainSettings settings, long seed, SpineLayout layout) {
+    public HeightmapGenerator(MountainSettings settings, long seed, FieldLayout layout) {
         this.s = settings;
         this.seed = seed;
         this.layout = layout;
-        this.crest = new CrestProfile(settings, seed, layout);
+        this.crest = new CrestProfile(settings, seed);
         this.cross = new CrossProfile(settings);
         this.detailSeed = Hash.hash(seed, 606);
         this.lakeSeed = Hash.hash(seed, 707);
     }
 
-    public SpineLayout layout() { return layout; }
+    public FieldLayout layout() { return layout; }
     public CrestProfile crest() { return crest; }
     public MountainSettings settings() { return s; }
 
-    /** Un-noised analytic shape: spine, crest, cross profile only (steps 1 to 3). */
-    public double baseHeightAt(double x, double z, RangeLayout.Sample scratch) {
+    /** Un-noised analytic shape: ridge, crest and cross profile only. */
+    public double baseHeightAt(double x, double z, RidgeSample scratch) {
         scratch.scale = 1.0;
         layout.sample(x, z, scratch);
-        double c = crest.height(scratch.range, scratch.along);
+        double c = crest.height(scratch.ridge, scratch.along);
         if (scratch.scale != 1.0) c = s.valleyFloorHeight + (c - s.valleyFloorHeight) * scratch.scale;
         double h = cross.height(c, scratch.distance);
-        // The second spine matters only where two spines are closer than two half-widths (chains
-        // joining at a fork): the union of the two mountains is continuous where either alone
-        // would show a seam. Between parallel spines the second is in the valley and adds nothing.
-        if (scratch.distance2 < s.halfWidth() && (scratch.range2 != scratch.range || scratch.along2 != scratch.along)) {
-            double c2 = crest.height(scratch.range2, scratch.along2);
+        // The second ridge matters only where it is within a half-width (two ridges meeting at a
+        // junction): the union of the two mountains is continuous where either alone would show
+        // a seam. Across a valley the second ridge is too far away and adds nothing.
+        if (scratch.distance2 < s.halfWidth() && (scratch.ridge2 != scratch.ridge || scratch.along2 != scratch.along)) {
+            double c2 = crest.height(scratch.ridge2, scratch.along2);
             if (scratch.scale != 1.0) c2 = s.valleyFloorHeight + (c2 - s.valleyFloorHeight) * scratch.scale;
             double h2 = cross.height(c2, scratch.distance2);
             if (h2 > h) h = h2;
@@ -72,12 +70,12 @@ public final class HeightmapGenerator {
     }
 
     /** Full step 1 to 4 height at any world position. */
-    public double heightAt(double x, double z, RangeLayout.Sample sc) {
+    public double heightAt(double x, double z, RidgeSample sc) {
         return heightFromBase(baseHeightAt(x, z, sc), x, z, sc);
     }
 
     /** heightAt given the base height already sampled into sc at (x, z). */
-    private double heightFromBase(double h, double x, double z, RangeLayout.Sample sc) {
+    private double heightFromBase(double h, double x, double z, RidgeSample sc) {
         double floor = s.valleyFloorHeight;
 
         if (h > floor + 1e-6) {
@@ -103,7 +101,7 @@ public final class HeightmapGenerator {
     public RegionHeightmap generate(int regionX, int regionZ) {
         RegionHeightmap map = new RegionHeightmap(s, regionX, regionZ);
         map.floorModel = new float[map.size * map.size];
-        RangeLayout.Sample scratch = new RangeLayout.Sample();
+        RidgeSample scratch = new RidgeSample();
         double floor = s.valleyFloorHeight;
         for (int gz = 0; gz < map.size; gz++) {
             double z = map.originZ + gz * (double) map.spacing;

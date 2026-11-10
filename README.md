@@ -1,122 +1,112 @@
 # atlasmountains
 
-Minecraft 1.21.1 Fabric mod that generates horn-peak ridge terrain: linear ranges with rows of
-pyramid summits, planar faces with gullies, broad flat valley floors with lakes. Only active in
-the "Atlas Mountains" world type; the normal world type is untouched.
+Minecraft 26.3 Fabric mod that replaces vanilla's mountains with horn-peak ridge terrain: networks
+of linear ridges with rows of pyramid summits, planar rock faces with gullies, small enclosed
+valleys with lakes. It is only active in its own world types; the normal world type is untouched.
 
 ## Layout
 
-- `core/` pure Java (JDK 21, no Minecraft dependency): heightmap model, erosion, region cache,
-  diagnostic tool, unit tests.
-- `fabric/` the mod. Compiles `core/` sources straight into the jar.
-- `tools/build_datapack.py` generates every JSON under `fabric/src/main/resources/data/` from
-  the vanilla 1.21.1 files in `tools/vanilla-1.21.1/`. Re-run it after changing a height
-  parameter; do not hand-edit the generated JSON.
+- `core/` pure Java (no Minecraft dependency): heightmap model, erosion, region cache, mask and
+  continents, diagnostic tools, unit tests.
+- `fabric/` the mod. Compiles `core/` sources straight into the jar (no nested jar).
+- `tools/build_datapack.py` generates every JSON under `fabric/src/main/resources/data/` from the
+  vanilla 26.3 files in `tools/vanilla-26.3/` (extracted from `data/minecraft` in the game jar).
+  Re-run it after changing a parameter in it; do not hand-edit the generated JSON. The heights it
+  shares with `MountainSettings` (valley floor, summit, rock fraction) are checked by
+  `SettingsSyncTest`.
 
 ## Build
 
-    gradlew build          # jar in fabric/build/libs/atlasmountains-0.2.0.jar
-    gradlew :core:test     # core unit tests
+    python3 tools/build_datapack.py   # only after changing the generator
+    gradlew build                     # jar in fabric/build/libs/atlasmountains-<version>.jar, runs the core tests
 
-Versions (verified 2026-11-07): Loom 1.10.5, Loader 0.20.1, Yarn 1.21.1+build.3, Fabric API 0.116.17+1.21.1.
-
-## Diagnostic tool
-
-Writes hillshade, contour, slope and zoom PNGs, a cross-section CSV and raw float grids to
-`out/seed_<seed>/`, plus a 3x3-region un-eroded overview.
-
-    gradlew :core:diag -Pseed=1 -Prx=0 -Prz=0
-    # or without Gradle:
-    javac -d build/classes $(find core/src/main/java -name '*.java')
-    java -cp build/classes com.atlasmountains.core.diag.Diagnostics <seed> <regionX> <regionZ> [outDir] [overviewSpan] [raw] [name=value ...]
-
-Any field of `MountainSettings` can be overridden on the command line, e.g.
-`dropletsPerRegion=60000 saddleRounding=0`.
-
-## In game
-
-Create a world with world type "Atlas Mountains". Entering a new 2048x2048 region pauses for a
-few seconds while it is eroded (then cached under `<world>/atlasmountains/`).
-`/atlasmountains info` prints the region, whether it is cached, and the terrain height and slope
-at your position.
-
-Height parameters that live in JSON (`tools/build_datapack.py`) must match `MountainSettings`:
-valley floor 64, rock line 168, summit 272 (chains scale this up to about 420), sea level 63, snow line 238,
-caves stop at 150, treeline 100 (no trees in the mountain biomes above it), dimension -64..512.
+Needs JDK 25. Versions are in `gradle.properties` (Minecraft 26.3, Fabric Loader 0.20.1,
+Fabric API 0.165.2+26.3, Loom 1.19.4). 26.3 ships unobfuscated, so the code uses Mojang's
+official names; there are no Yarn mappings.
 
 ## World presets
 
-- **Atlas Mountains** (`atlasmountains:atlasmountains`): continents, vanilla terrain and biomes, our
-  mountains in chains. Three layers, all in `core/`:
-  - *Continents* (`NoiseContinents`, `MountainSettings.continent*`): a large fractal noise, Continents-mod
-    style, replaces vanilla's continentalness: mostly ocean, big organic landmasses and islands, spawn
-    on land. Mapped onto vanilla's continentalness scale by gradient-normalised distance to the shore,
-    so beaches and the mountain coast fade are a fixed number of blocks. `PlateContinents` (Voronoi
-    plates) is the alternative model (`noiseContinents=false`).
-  - *Mountain zones* = vanilla's own mountain footprint: where the world's erosion noise is below
-    vanilla's peak threshold (`erosionMountainBelow` -0.375, fading over `erosionMaskBand`). The erosion
-    noise is sampled stretched `erosionStretch` (2x) along the range direction (`stretched_erosion`
-    density function), so every erosion province, and with it the mountain footprint and its hilly
-    surroundings, is elongated 2:1. Inside the footprint the mountains are *chains* (`ChainLayout`):
-    curved centrelines 2.5 to 5.5 km long with 1 to 4 spines (mostly 2 to 3), gaps between spines
-    usually tight (ranges back to back in a col) and sometimes wide (flat valley with lakes), forks at
-    35 to 65 degrees, one dominant summit per chain, taller summits at forks, outer spines lower.
-    Chains are laid everywhere as candidates and the footprint mask decides where they show. Vanilla
-    terrain is removed only between a chain's spines (inner mask); under the outer flanks it carries on,
-    and the surface rules and biome hand over to vanilla's at the foot (`on_our_slope`).
-    `MIXED_USES_CHAINS` / `MIXED_CHAINS` switch the footprint to straight parallel ranges instead.
-  - *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Climate noises are slowed
-    to Large Biomes scale (temperature, vegetation and erosion 4x vanilla); the ridge noise is left
-    alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring erosion at -0.1.
-    Note: vanilla's terrain splines read `minecraft:overworld/continents` and `/erosion` by name, so
-    the preset ships repointed copies (`vanilla_*` density functions) that read the mod's continents and
-    the floored erosion; the router entries alone only affect biomes.
-  Inside a chain: our ranges, valleys and lakes at vanilla sea level; our three biomes and surface rules,
-  with treeless twins (`*_high`) above the treeline (y 100) so only the lower flanks are wooded.
-  Terrain, biomes and surface all read the same `atlasmountains:mountain_mask`.
-- **Atlas Mountains (everywhere)** (`atlasmountains:all`): the whole world is mountain country with the
-  parallel-spine layout (`RangeLayout`); for testing the mountain design. Separate terrain cache
-  (`<world>/atlasmountains/parallel/` vs `chains/`).
+**Atlas Mountains** (`atlasmountains:atlasmountains`), the one to play:
 
-Commands: `/atlasmountains info` (layout, continentalness, mask, terrain height), `/atlasmountains scan`
-(mask map around you to the log: `#` mountains, `+` edge, `.` land, `~` sea), `/atlasmountains continents <km>`
-(PNG of continents and chains around you into `<world>/atlasmountains/`, quick), `/atlasmountains fields <km>
-<erosionBelow> <ridgesAbove>` (PNG of where the world's erosion/ridge noises would put biome-level mountains),
-`/atlasmountains heightmap <size> <step>` (surface heightmap PNG; about 1.5 ms per column).
+- *Continents*: `NoiseContinents` replaces vanilla's continentalness with a large fractal noise
+  (Continents-mod style): mostly ocean, big organic landmasses, spawn on land. It is mapped onto
+  vanilla's continentalness scale by distance to the shore, so beaches and the coast fade are a
+  fixed number of blocks wide.
+- *Mountain provinces* are vanilla's own mountain footprint: the world's erosion noise, read at
+  `footprintErosionScale` (2.5x) the biome layer's frequency so provinces are smaller than other
+  biomes, with ragged edges.
+- *The mountains* (`FieldLayout`): a domain-warped Voronoi diagram with cells about 420 blocks
+  across. Its edges are the ridges, so a province fills with ranges back to back, meeting at
+  three-way junctions, and wide cells leave a small enclosed valley floor with a lake. A cell is
+  mountain when vanilla's footprint is on at its site, so a province edge follows whole cells and
+  its last ridge stands at full height before fading into vanilla terrain. Summit heights are
+  scaled by a slow 2-D field (`fieldHeightBoost` x (1 +/- `fieldHeightVariation`)), so some
+  massifs are big and some small.
+- *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Temperature, vegetation
+  and erosion noises run at half vanilla's frequency (biomes twice vanilla size); the ridge noise
+  is left alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring its erosion at
+  -0.1, and its inland lowlands are lifted a few blocks to stop kilometre-wide pooling at sea level.
+  Vanilla's terrain splines read `minecraft:overworld/continents` and `/erosion` by name, so the
+  preset ships repointed copies (`vanilla_*` density functions) that read the mod's continents and
+  the floored erosion.
+- *Edge blend*: in the mask's fade band the surface is a blend of our height and vanilla's
+  jaggedness-free surface, with vanilla's 3-D density shifted to follow it, so vanilla hills ramp
+  down into our valleys instead of standing in them.
+- *Biomes and surface*: inside the mountains, three biomes (`cold`, `temperate`, `warm`), copies of
+  vanilla snowy_taiga, meadow and savanna with sparse spruce and short grass, plus treeless twins
+  (`*_high`) above the treeline (y 92). The cold biome starts at a snow line that rises with
+  temperature. Steep ground is stone. Outside the mountains, vanilla's biomes and surface.
 
-Layout previews without the game: `java -cp build/classes com.atlasmountains.core.diag.ContinentMap <seed> [span] [blocksPerPixel] [cx] [cz] [out.png] [name=value...]`
-with `chainLayout=true` (no erosion gating outside the game, so it shows every candidate chain).
+**Atlas Mountains (everywhere)** (`atlasmountains:all`): the same field-layout ridges over the
+whole world with no footprint, for looking at the mountain design itself. Its mask is 1
+everywhere, so the surface rules (stone on steep faces, snow on top) treat every column as
+mountain.
 
-## Biomes
+Each preset keeps its eroded terrain cache under `<world>/atlasmountains/mixed/` or
+`.../everywhere/`. Entering a new 2048x2048 region pauses briefly while it is eroded. The cache
+files are not keyed by settings: after changing a terrain parameter, test in a new world or delete
+that folder.
 
-The preset uses its own three biomes (`atlasmountains:cold`, `temperate`, `warm`), chosen by the
-rescaled temperature noise only. They are copies of vanilla snowy_taiga, meadow and savanna with
-the vegetation step replaced by `atlasmountains:sparse_spruce` plus short grass, and no
-freeze_top_layer (snow comes from the surface rule, top of the relief only). Ores, caves,
-carvers and mob spawns are vanilla. The vanilla overworld biome list is not used because it put
-jungles and forests on the flanks; nothing outside the preset is changed.
+## Heights
 
-## Tested (2026-11-08, chains + noise continents)
+Valley floor y 64 (vanilla sea level 63), design summit y 232, rock line y 148, snow surface from
+y 205, density-function caves stop at y 135, treeline y 92, dimension -64..512. With the field
+height scale typical summits are about y 212 and the tallest about y 286. The height parameters
+live in `MountainSettings`; the surface and dimension ones in `tools/build_datapack.py`.
 
-- `gradlew build` and `:core:test` pass.
-- Dedicated dev server, seed 1, both presets: the mixed preset loads, chains follow the erosion
-  noise, continentalness/beach/ocean/deep-ocean bands verified at probed positions, chunks generated
-  over a chain and read back from the region files (summits to y 281, snow/rock/grass surface);
-  the everywhere preset loads with the parallel layout and gives the same spawn height as before.
-- Region generation (chains) about 3 s per 2048x2048 region on a 2-core machine; neighbouring regions
-  are prefetched when a sample comes within 700 blocks of a region edge.
-- Performance (2-core dev server, 256 chunks): vanilla 43 s, this preset 55 s on ordinary land and 65 s
-  over a chain. The terrain and mask functions are wrapped in `cache_2d` (once per column); the dimension
-  is 576 tall (was 1024), which is most of the remaining difference.
-- Not tested: the client; the look of a fork and its taller summit from the ground; long play.
+## Commands
+
+- `/atlasmountains info`: region, cache state, layout, continentalness, mask, terrain height and
+  slope at your position.
+- `/atlasmountains df <id>`: samples a registered density function at your column.
+- `/atlasmountains scan`: mask map 8 km around you into the log (`#` mountains, `+` edge,
+  `.` land, `~` sea).
+- `/atlasmountains continents <km>`: PNG of continents and mountain mask around you into
+  `<world>/atlasmountains/`. Quick.
+- `/atlasmountains fields <km> <erosionBelow> <ridgesAbove>`: PNG of where the world's raw
+  erosion/ridge noises would put biome-level mountains.
+- `/atlasmountains heightmap <size> <step>`: surface heightmap PNG from the chunk generator
+  (about 1.5 ms per column).
+
+## Diagnostic tools (no game needed)
+
+Region heightmap: hillshade, contour, slope and zoom PNGs, a cross-section CSV and raw float
+grids to `out/seed_<seed>/`.
+
+    gradlew :core:diag -Pseed=1 -Prx=0 -Prz=0
+
+Continent and mask map:
+
+    java -cp core/build/classes/java/main com.atlasmountains.core.diag.ContinentMap <seed> [span] [blocksPerPixel] [cx] [cz] [out.png] [name=value...]
+
+Both accept `name=value` overrides of any `MountainSettings` field, e.g. `dropletsPerRegion=60000`.
+Outside the game there is no erosion noise: the region tool draws ridges everywhere (like the
+"everywhere" preset) and the continent map shows continents but no mountain provinces.
 
 ## Known limitations
 
-- Treeline: spruce grows on any grass (up to the rock line, ~y 340) rather than only the lowest
-  25 to 35% of the relief; vanilla placement modifiers cannot filter by height.
-- Vanilla cave carvers still cut the lower flanks (they run to y 180); the density-function caves
-  stop at y 300.
-- Our three biomes are chosen by temperature only; humidity and erosion do not affect them.
-- Between a chain's spines the land is the flat valley floor at y 64 (with lakes), not vanilla terrain.
-- Chain placement depends on the world's erosion noise, which the mod receives when the overworld
-  loads; the standalone preview tool has no erosion and shows every candidate chain.
+- The mountain biomes are chosen by temperature only; humidity and erosion do not affect them.
+- The standalone tools cannot reproduce the in-game mountain provinces (no erosion noise).
+
+Older layout experiments (mountain chains, parallel ranges, Voronoi plate continents) were removed
+from the tree; they are on the `archive/layout-experiments` branch.

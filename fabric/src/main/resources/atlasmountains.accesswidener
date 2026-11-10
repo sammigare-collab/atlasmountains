@@ -1,8 +1,0 @@
-accessWidener v2 named
-
-# Surface-rule context: our slope condition needs the block position.
-accessible class net/minecraft/world/gen/surfacebuilder/MaterialRules$MaterialRuleContext
-accessible field net/minecraft/world/gen/surfacebuilder/MaterialRules$MaterialRuleContext blockX I
-accessible field net/minecraft/world/gen/surfacebuilder/MaterialRules$MaterialRuleContext blockZ I
-# The supplier type a MaterialCondition must return is private in vanilla.
-accessible class net/minecraft/world/gen/surfacebuilder/MaterialRules$BooleanSupplier

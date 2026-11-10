@@ -1,0 +1,42 @@
+{
+  "type": "minecraft:add",
+  "left": {
+    "type": "minecraft:mul",
+    "left": {
+      "type": "minecraft:add",
+      "left": 1.0,
+      "right": {
+        "type": "minecraft:mul",
+        "left": -1.0,
+        "right": {
+          "type": "minecraft:cache",
+          "input": {
+            "type": "atlasmountains:mountain_mask"
+          }
+        }
+      }
+    },
+    "right": {
+      "type": "minecraft:add",
+      "left": {
+        "type": "minecraft:gradient",
+        "axis": "y",
+        "from_coordinate": -64,
+        "from_value": 1.5,
+        "to_coordinate": 320,
+        "to_value": -1.5
+      },
+      "right": "atlasmountains:overworld/vanilla_offset"
+    }
+  },
+  "right": {
+    "type": "minecraft:mul",
+    "left": {
+      "type": "minecraft:cache",
+      "input": {
+        "type": "atlasmountains:mountain_mask"
+      }
+    },
+    "right": "atlasmountains:overworld/depth_masked"
+  }
+}

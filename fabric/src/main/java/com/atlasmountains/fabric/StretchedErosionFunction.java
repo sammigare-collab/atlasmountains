@@ -1,32 +1,30 @@
 package com.atlasmountains.fabric;
 
-import com.atlasmountains.core.RangeLayout;
 import com.mojang.serialization.MapCodec;
-import net.minecraft.util.dynamic.CodecHolder;
-import net.minecraft.util.math.noise.DoublePerlinNoiseSampler;
-import net.minecraft.world.gen.densityfunction.DensityFunction;
+import net.minecraft.world.level.levelgen.densityfunction.DensityFunction;
+import net.minecraft.world.level.levelgen.synth.Noise;
 
 /**
  * Density function "atlasmountains:stretched_erosion": the mod's erosion noise sampled in a
- * frame rotated to the range direction and stretched {@code erosionStretch} times along it, so
- * every erosion-driven province (flat, hilly, mountainous) is elongated the same way and the
- * mountain footprint runs along the ranges. Vanilla's own erosion is shifted_noise at xz_scale
- * 0.25; the small shift is dropped here.
+ * frame rotated to the range direction and stretched {@code erosionStretch} times along it (1 =
+ * no stretch). Vanilla's own erosion is noise at xz_scale 0.25 with a small shift; the shift is
+ * dropped here. Also read directly by the mountain layout for vanilla's mountain footprint.
  */
-public final class StretchedErosionFunction implements DensityFunction.Base {
+public enum StretchedErosionFunction implements ColumnFunction {
+    INSTANCE;
 
-    public static final StretchedErosionFunction INSTANCE = new StretchedErosionFunction();
-    public static final MapCodec<StretchedErosionFunction> MAP_CODEC = MapCodec.unit(INSTANCE);
-    public static final CodecHolder<StretchedErosionFunction> CODEC_HOLDER = CodecHolder.of(MAP_CODEC);
+    public static final MapCodec<StretchedErosionFunction> CODEC = MapCodec.unit(INSTANCE);
 
-    private static volatile DoublePerlinNoiseSampler sampler;
+    private static volatile Noise sampler;
     private static volatile double cos = 1, sin = 0, stretch = 1;
 
-    private StretchedErosionFunction() {}
-
-    /** Installed when the overworld loads. */
-    public static void install(DoublePerlinNoiseSampler s, long seed, double stretchRatio) {
-        double angle = RangeLayout.angle(seed);
+    /**
+     * Installed when the overworld loads. The frame is rotated by a seed-chosen angle (the old
+     * parallel layout's range direction). With erosionStretch 1 the stretch does nothing, but the
+     * rotation still decides where the erosion field, and with it every mountain province, lies.
+     */
+    public static void install(Noise s, long seed, double stretchRatio) {
+        double angle = com.atlasmountains.core.Hash.unit(com.atlasmountains.core.Hash.hash(seed, 101)) * Math.PI;
         cos = Math.cos(angle);
         sin = Math.sin(angle);
         stretch = stretchRatio;
@@ -37,24 +35,16 @@ public final class StretchedErosionFunction implements DensityFunction.Base {
 
     /** Erosion at a block position, on vanilla's scale. 0 (flat) until installed. */
     public static double erosion(double x, double z) {
-        DoublePerlinNoiseSampler s = sampler;
+        Noise s = sampler;
         if (s == null) return 0;
         double along = x * cos + z * sin;      // along the ranges: stretched
         double across = -x * sin + z * cos;
-        return s.sample(along / stretch * 0.25, 0, across * 0.25);
+        return s.get(along / stretch * 0.25, 0, across * 0.25);
     }
 
     @Override
-    public double sample(NoisePos pos) {
-        return erosion(pos.blockX(), pos.blockZ());
-    }
+    public double at(int x, int z) { return erosion(x, z); }
 
     @Override
-    public double minValue() { return -1; }
-
-    @Override
-    public double maxValue() { return 1; }
-
-    @Override
-    public CodecHolder<? extends DensityFunction> getCodecHolder() { return CODEC_HOLDER; }
+    public MapCodec<? extends DensityFunction> codec() { return CODEC; }
 }
