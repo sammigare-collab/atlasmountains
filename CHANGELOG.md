@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Sharper mountains: rock faces 53 degrees instead of 49, crests falling 37 degrees between
+  summits instead of 31, saddles half as rounded, and the scree smoothing now allows those
+  angles instead of rounding every crest back to 49 degrees. Each summit stands as its own
+  pyramid. Ranges are about 10 blocks narrower on each side.
+- Mountain areas use the mod's own cold, temperate and warm biomes again (matching the
+  surrounding biome was tried and dropped).
 - No more straight walls where a mountain area ends. Outside the mountain cells, the distance to
   the nearest mountain ridge was measured only from the sample's own cell, so it jumped where
   that cell met a neighbour, and the flank stopped dead along a straight line. It now takes every

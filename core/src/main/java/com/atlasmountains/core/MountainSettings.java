@@ -151,13 +151,14 @@ public final class MountainSettings {
     /** Summit-to-summit height variation along a crest, as a fraction either side of the mean. */
     public double peakHeightVariation = 0.075;
     /**
-     * Slope at which the ridge falls away from a summit along the crest (tan). 0.6 is 31 degrees.
-     * The true slope of a facet is sqrt(faceSlope^2 + crestFallSlope^2): 1.15 and 0.6 give 52 degrees.
+     * Slope at which the ridge falls away from a summit along the crest (tan). 0.75 is 37 degrees
+     * (0.6, 31 degrees, until Nov 2026; Sammi wanted sharper, more separate peaks, like the reference).
+     * The true slope of a facet is sqrt(faceSlope^2 + crestFallSlope^2): 1.35 and 0.75 give 57 degrees.
      * This is what makes each summit a pointed pyramid rather than a bump on a level wall.
      */
-    public double crestFallSlope = 0.60;
-    /** Rounding of the saddle between two summits, blocks. 0 is a sharp V. Summits are never rounded. */
-    public double saddleRounding = 12;
+    public double crestFallSlope = 0.75;
+    /** Rounding of the saddle between two summits, blocks. 0 is a sharp V. Summits are never rounded. Was 12 until Nov 2026. */
+    public double saddleRounding = 6;
     /**
      * Summits closer together than this keep a sharp V saddle (Sammi chose rounded saddles that stay
      * sharp between close peaks). Between this and saddleRoundingMaxGap the rounding ramps up.
@@ -168,11 +169,13 @@ public final class MountainSettings {
 
     // ---- Cross profile --------------------------------------------------
     /**
-     * Face slope on rock, as tan, measured straight down from the crest. 1.0 is 45 degrees, 1.15
-     * is 49 degrees. This sets the angular look; steeper and the faces become vertical walls once
-     * voxelised, gentler and the mountains read as hills.
+     * Face slope on rock, as tan, measured straight down from the crest. 1.0 is 45 degrees, 1.35
+     * is 53 degrees (1.15, 49 degrees, until Nov 2026: Sammi found that version too rounded). This
+     * sets the angular look; much past ~55 degrees the faces read as vertical walls once voxelised,
+     * gentler and the mountains read as hills. Steeper faces also shorten the rock run, so each
+     * range is about 10 blocks narrower on each side than with 1.15.
      */
-    public double faceSlope = 1.15;
+    public double faceSlope = 1.35;
     /**
      * Flank slope just below the rock line, as tan (0.9 is 42 degrees). The flank then eases out
      * to flat at the valley edge, following flankConcavity.
@@ -219,11 +222,12 @@ public final class MountainSettings {
      * angle. See erosion/ThermalErosion.
      */
     /**
-     * Critical angle on rock, degrees. Computed for a face slope of 1.0 (49 degrees), so it is
-     * below the facet slope actually built with faceSlope 1.15 (52 degrees) and thermal erosion
-     * does trim the faces slightly. That is the tuned look; it is not tied to faceSlope.
+     * Critical angle on rock, degrees. Computed for a face slope of 1.25 and crest fall 0.75 (55
+     * degrees), so it is a little below the facet slope actually built (57 degrees) and thermal
+     * erosion still trims the faces slightly. Until Nov 2026 it was computed for 1.0 and 0.6 (49
+     * degrees), which rounded every crest back down whatever faceSlope was.
      */
-    public double thermalRockAngle = Math.toDegrees(Math.atan(Math.sqrt(1.0 * 1.0 + 0.60 * 0.60)));
+    public double thermalRockAngle = Math.toDegrees(Math.atan(Math.sqrt(1.25 * 1.25 + 0.75 * 0.75)));
     /** Critical angle below the rock line, degrees (gully walls on the grass flank). */
     public double thermalFlankAngle = 36;
     /** Height band over which the critical angle blends, blocks, centred on the rock line. */
