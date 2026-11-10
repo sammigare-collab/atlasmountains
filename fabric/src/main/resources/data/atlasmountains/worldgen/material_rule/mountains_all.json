@@ -67,16 +67,16 @@
                     "blend_width": 1.0,
                     "stops": [
                       {
-                        "state": "minecraft:tuff",
+                        "state": "minecraft:andesite",
                         "y": 110
                       },
                       {
                         "state": "minecraft:stone",
-                        "y": 170
+                        "y": 160
                       },
                       {
-                        "state": "minecraft:andesite",
-                        "y": 230
+                        "state": "minecraft:tuff",
+                        "y": 205
                       }
                     ]
                   }
@@ -126,16 +126,16 @@
                     "blend_width": 1.0,
                     "stops": [
                       {
-                        "state": "minecraft:tuff",
+                        "state": "minecraft:andesite",
                         "y": 110
                       },
                       {
                         "state": "minecraft:stone",
-                        "y": 170
+                        "y": 160
                       },
                       {
-                        "state": "minecraft:andesite",
-                        "y": 230
+                        "state": "minecraft:tuff",
+                        "y": 205
                       }
                     ]
                   }

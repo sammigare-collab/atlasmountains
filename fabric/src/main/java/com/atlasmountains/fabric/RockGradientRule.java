@@ -17,8 +17,8 @@ import java.util.function.DoubleSupplier;
 
 /**
  * Material rule "atlasmountains:rock_gradient": exposed rock that shades from one stone to the
- * next with height, so a face is pale near the summit and darker towards its foot, with no
- * stripes and no hard lines.
+ * next with height (in the shipped datapack: dark just under the snow, lighter towards the foot
+ * of the face), with no stripes and no hard lines.
  *
  * <h2>Why</h2>
  * Two looks were tried before this and rejected. A per-column noise choice gave large flat
@@ -28,8 +28,8 @@ import java.util.function.DoubleSupplier;
  *
  * <h2>How a block is chosen</h2>
  * <ol>
- *   <li><b>Stops.</b> {@code stops} lists rocks by height, lowest first, e.g. tuff at y 110,
- *       stone at y 170, andesite at y 230. Below the first stop the first rock is used, above the
+ *   <li><b>Stops.</b> {@code stops} lists rocks by height, lowest first, e.g. andesite at y 110,
+ *       stone at y 160, tuff at y 205. Below the first stop the first rock is used, above the
  *       last the last one.</li>
  *   <li><b>Wobble.</b> The height is shifted by {@code wobble} blocks times a slow 2D noise
  *       ({@code atlasmountains:rock_wobble}), so the change from one rock to the next happens
@@ -79,6 +79,9 @@ public record RockGradientRule(List<Stop> stops, float wobble, float blendWidth)
     private static final ResourceKey<NormalNoise> MOTTLE_NOISE =
             ResourceKey.create(Registries.NOISE, AtlasMountainsMod.id("rock_mottle"));
 
+    /** Stretch applied to the mottle noise so its values cover -1..1 instead of bunching near 0. */
+    private static final double MOTTLE_SPREAD = 2.5;
+
     /** Weight of the per-block jitter against the mottle noise in the blend roll. */
     private static final double JITTER = 0.25;
 
@@ -103,8 +106,11 @@ public record RockGradientRule(List<Stop> stops, float wobble, float blendWidth)
             // squeeze the mixed part into the middle blendWidth of the interval
             double w = Math.max(1e-3, blendWidth);
             t = Math.max(0, Math.min(1, (t - 0.5) / w + 0.5));
-            // roll in 0..1, clumped: mottle noise (about -1..1) mapped to 0..1, plus jitter
-            double roll = 0.5 + 0.5 * (mottleNoise.getAsDouble() * (1 - JITTER)
+            // roll in 0..1, clumped: mottle noise mapped to 0..1, plus jitter. The noise mostly
+            // sits within about +/-0.4, so it is stretched by MOTTLE_SPREAD and clamped; without
+            // that every roll lands near 0.5 and the mix collapses into a narrow band.
+            double mottle = Math.max(-1, Math.min(1, mottleNoise.getAsDouble() * MOTTLE_SPREAD));
+            double roll = 0.5 + 0.5 * (mottle * (1 - JITTER)
                     + (randoms.at(x, y, z).nextDouble() * 2 - 1) * JITTER);
             return roll < t ? hi.state() : lo.state();
         };

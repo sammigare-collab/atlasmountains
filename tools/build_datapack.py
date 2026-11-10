@@ -326,14 +326,15 @@ snow = {'type': 'minecraft:y_above', 'anchor': {'absolute': SNOW_LINE}, 'surface
 def steep(mixed): return {'type': f'{NS}:slope_above', 'degrees': ROCK_SLOPE_DEG, 'mixed': mixed}
 in_mountains = {'type': f'{NS}:on_our_slope', 'above_floor': 6.0}   # valley floors and our flanks; not the foot where vanilla shows
 
-# Exposed rock: a gradient by height (atlasmountains:rock_gradient, see RockGradientRule), pale
-# andesite near the summits through stone to darker tuff at the foot of the faces, mixed in small
+# Exposed rock: a gradient by height (atlasmountains:rock_gradient, see RockGradientRule): snow on
+# top, dark tuff directly under the snow line, lightening through stone to pale andesite at the
+# foot of the faces (Sammi: "snow to dark to light"). Mixed in small
 # clumps between stops and wobbled up and down by a slow noise so it never follows one contour.
 # (Tried and dropped: noise blotches of tuff and packed mud, then horizontal strata, "too stripy".)
 rock = {'type': f'{NS}:rock_gradient', 'wobble': 16.0, 'blend_width': 1.0, 'stops': [
-    {'state': 'minecraft:tuff',     'y': 110},
-    {'state': 'minecraft:stone',    'y': 170},
-    {'state': 'minecraft:andesite', 'y': 230},
+    {'state': 'minecraft:andesite', 'y': 110},
+    {'state': 'minecraft:stone',    'y': 160},
+    {'state': 'minecraft:tuff',     'y': SNOW_LINE},
 ]}
 def snow_cover(mixed):   # patchy snow on ledges below the snow line (see SnowCoverCondition)
     return {'type': f'{NS}:snow_cover', 'snow_line': SNOW_LINE, 'lowest': SNOW_PATCH_LOWEST,
