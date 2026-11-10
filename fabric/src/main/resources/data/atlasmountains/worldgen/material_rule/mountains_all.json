@@ -62,31 +62,21 @@
                     "mixed": false
                   },
                   "then_run": {
-                    "type": "atlasmountains:strata",
-                    "min_thickness": 1,
-                    "period": 192,
-                    "warp": 12.0,
-                    "speckle": 0.18,
-                    "layers": [
+                    "type": "atlasmountains:rock_gradient",
+                    "wobble": 16.0,
+                    "blend_width": 1.0,
+                    "stops": [
+                      {
+                        "state": "minecraft:tuff",
+                        "y": 110
+                      },
                       {
                         "state": "minecraft:stone",
-                        "weight": 5.0,
-                        "max_thickness": 6
+                        "y": 170
                       },
                       {
                         "state": "minecraft:andesite",
-                        "weight": 3.0,
-                        "max_thickness": 5
-                      },
-                      {
-                        "state": "minecraft:tuff",
-                        "weight": 2.0,
-                        "max_thickness": 4
-                      },
-                      {
-                        "state": "minecraft:dripstone_block",
-                        "weight": 1.0,
-                        "max_thickness": 2
+                        "y": 230
                       }
                     ]
                   }
@@ -131,31 +121,21 @@
                     "mixed": false
                   },
                   "then_run": {
-                    "type": "atlasmountains:strata",
-                    "min_thickness": 1,
-                    "period": 192,
-                    "warp": 12.0,
-                    "speckle": 0.18,
-                    "layers": [
+                    "type": "atlasmountains:rock_gradient",
+                    "wobble": 16.0,
+                    "blend_width": 1.0,
+                    "stops": [
+                      {
+                        "state": "minecraft:tuff",
+                        "y": 110
+                      },
                       {
                         "state": "minecraft:stone",
-                        "weight": 5.0,
-                        "max_thickness": 6
+                        "y": 170
                       },
                       {
                         "state": "minecraft:andesite",
-                        "weight": 3.0,
-                        "max_thickness": 5
-                      },
-                      {
-                        "state": "minecraft:tuff",
-                        "weight": 2.0,
-                        "max_thickness": 4
-                      },
-                      {
-                        "state": "minecraft:dripstone_block",
-                        "weight": 1.0,
-                        "max_thickness": 2
+                        "y": 230
                       }
                     ]
                   }

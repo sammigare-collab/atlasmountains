@@ -21,7 +21,7 @@ How the script is laid out, top to bottom:
   4. density functions  our terrain, the continents, and copies of vanilla's terrain shape
                         re-pointed at them
   5. final density      vanilla's, and ours with caves gated off near the summits
-  6. material rules     rock strata, snow, gravel and grass on our slopes; vanilla elsewhere
+  6. material rules     rock by height, snow, gravel and grass on our slopes; vanilla elsewhere
   7. biomes             three climate bands with sparse spruce, and treeless twins above the treeline
   8. presets            build_variant() puts it all together, once per preset
 
@@ -180,7 +180,7 @@ for name, octave in CLIMATE.items():
     write(f'{NS}/worldgen/noise/{name}.json', n)
 
 # ---- 3b. material noises -----------------------------------------------------------------
-# Two small noises read by our own material rules (see StrataRule and SnowCoverCondition).
+# Small noises read by our own material rules (see RockGradientRule and SnowCoverCondition).
 # 26.x noise files give the first octave, the octave count and base_amplitude, a normalising
 # factor that depends only on the octave count; the values below are copied from vanilla noises
 # with the same count (pillar.json for 2 octaves, surface.json for 3).
@@ -188,7 +188,8 @@ BASE_AMPLITUDE = {2: 0.9494731054427981, 3: 0.9381732587751008}
 def material_noise(name, base_octave, octaves):
     write(f'{NS}/worldgen/noise/{name}.json',
           {'base_amplitude': BASE_AMPLITUDE[octaves], 'base_octave': base_octave, 'octave_count': octaves})
-material_noise('strata_warp', -8, 2)    # wavelength about 256 blocks: beds rise and dip slowly along a ridge
+material_noise('rock_wobble', -8, 2)    # wavelength about 256 blocks: the rock gradient rises and dips across a ridge
+material_noise('rock_mottle', -2, 2)    # wavelength about 4 blocks, 3D: the rocks of the gradient mix in small clumps
 material_noise('snow_patches', -4, 3)   # wavelength about 16 blocks, with finer detail: blobs a dozen blocks across
 
 # ---- 4. density functions ---------------------------------------------------------------
@@ -305,7 +306,7 @@ def make_preliminary(mask, sc, terrain_height, vanilla_density, vanilla_upper):
 # ---- 6. material rules (26.x name for surface rules) ------------------------------------------
 # A rule is a tree of conditions and results, evaluated top to bottom for each block near the
 # surface; the first result reached wins. Ours, for a block on our slopes (mountain_rules below):
-#   top block    snow above the snow line, patchy snow below it on gentle ground, rock (strata)
+#   top block    snow above the snow line, patchy snow below it on gentle ground, rock (gradient)
 #                on steep ground, grass where water can't reach, gravel otherwise
 #   just below   rock on steep ground, dirt otherwise
 # Anything deeper falls through to vanilla's underground rules (stone, deepslate, ores).
@@ -325,17 +326,14 @@ snow = {'type': 'minecraft:y_above', 'anchor': {'absolute': SNOW_LINE}, 'surface
 def steep(mixed): return {'type': f'{NS}:slope_above', 'degrees': ROCK_SLOPE_DEG, 'mixed': mixed}
 in_mountains = {'type': f'{NS}:on_our_slope', 'above_floor': 6.0}   # valley floors and our flanks; not the foot where vanilla shows
 
-def layer(name, weight, max_thickness):
-    return {'state': name, 'weight': weight, 'max_thickness': max_thickness}
-# Exposed rock: horizontal beds of several stone types (atlasmountains:strata, see StrataRule).
-# Grey stone and andesite carry the faces; tuff and dripstone add darker and warmer beds.
-# Weights are relative. (Thin calcite seams were tried and dropped: too busy, and they read as
-# streaks of snow.)
-rock = {'type': f'{NS}:strata', 'min_thickness': 1, 'period': 192, 'warp': 12.0, 'speckle': 0.18, 'layers': [
-    layer('minecraft:stone',           5.0, 6),
-    layer('minecraft:andesite',        3.0, 5),
-    layer('minecraft:tuff',            2.0, 4),
-    layer('minecraft:dripstone_block', 1.0, 2),
+# Exposed rock: a gradient by height (atlasmountains:rock_gradient, see RockGradientRule), pale
+# andesite near the summits through stone to darker tuff at the foot of the faces, mixed in small
+# clumps between stops and wobbled up and down by a slow noise so it never follows one contour.
+# (Tried and dropped: noise blotches of tuff and packed mud, then horizontal strata, "too stripy".)
+rock = {'type': f'{NS}:rock_gradient', 'wobble': 16.0, 'blend_width': 1.0, 'stops': [
+    {'state': 'minecraft:tuff',     'y': 110},
+    {'state': 'minecraft:stone',    'y': 170},
+    {'state': 'minecraft:andesite', 'y': 230},
 ]}
 def snow_cover(mixed):   # patchy snow on ledges below the snow line (see SnowCoverCondition)
     return {'type': f'{NS}:snow_cover', 'snow_line': SNOW_LINE, 'lowest': SNOW_PATCH_LOWEST,

@@ -44,8 +44,9 @@ Technical notes on the terrain generator. For installing and playing, see the [R
 - *Biomes and surface*: inside the mountains, three biomes (`cold`, `temperate`, `warm`), copies of
   vanilla snowy_taiga, meadow and savanna with sparse spruce and short grass, plus treeless twins
   (`*_high`) above the treeline (y 92). The cold biome starts at a snow line that rises with
-  temperature. Steep ground is layered rock (`atlasmountains:strata`: horizontal beds of stone,
-  andesite, tuff and dripstone, bent by a slow noise and speckled at the edges). Above
+  temperature. Steep ground is rock that shades with height (`atlasmountains:rock_gradient`: tuff
+  at y 110, stone at y 170, andesite at y 230, mixed in small clumps between and wobbled by a
+  slow noise). Above
   the snow line every top block is snow; below it, down to y 160, snow settles in patches
   (`atlasmountains:snow_cover`), more on gentle ground and less on steep faces. Outside the
   mountains, vanilla's biomes and surface.

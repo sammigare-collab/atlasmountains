@@ -24,7 +24,7 @@ import java.nio.file.Path;
  *
  * <h2>What is registered</h2>
  * Density functions (terrain_height, mountain_mask, continents, stretched_erosion), material
- * conditions and rules (on_our_slope, slope_above, snow_cover, strata), the biome source (mask),
+ * conditions and rules (on_our_slope, slope_above, snow_cover, rock_gradient), the biome source (mask),
  * and the /atlasmountains command. The datapack in resources/data refers to these by id.
  *
  * <h2>Lifecycle</h2>
@@ -56,7 +56,7 @@ public final class AtlasMountainsMod implements ModInitializer {
     /** The running world's cache folder, {@code <world>/atlasmountains}. */
     private static volatile Path dir;
 
-    /** An identifier in the mod's namespace, e.g. id("strata") = atlasmountains:strata. */
+    /** An identifier in the mod's namespace, e.g. id("rock_gradient") = atlasmountains:rock_gradient. */
     public static Identifier id(String path) {
         return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }
@@ -117,7 +117,7 @@ public final class AtlasMountainsMod implements ModInitializer {
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("stretched_erosion"), StretchedErosionFunction.CODEC);
         Registry.register(BuiltInRegistries.MATERIAL_CONDITION_TYPE, id("slope_above"), SlopeAboveCondition.CODEC);
         Registry.register(BuiltInRegistries.MATERIAL_CONDITION_TYPE, id("snow_cover"), SnowCoverCondition.CODEC);
-        Registry.register(BuiltInRegistries.MATERIAL_RULE_TYPE, id("strata"), StrataRule.CODEC);
+        Registry.register(BuiltInRegistries.MATERIAL_RULE_TYPE, id("rock_gradient"), RockGradientRule.CODEC);
         Registry.register(BuiltInRegistries.BIOME_SOURCE, id("mask"), AtlasBiomeSource.CODEC);
 
         // Once the overworld exists, hand the world's erosion noise to the mixed preset's layout:
