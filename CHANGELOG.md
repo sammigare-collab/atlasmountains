@@ -18,6 +18,8 @@
 - Fixed straight strips of mountain biome running out of mountain areas into open country,
   and the walls and bare grass slopes along them: outside a mountain area, ridges are now
   measured to their real, finite length instead of as endless lines.
+- Fixed the white fringe of snow along the edge of cold mountain areas: the cold mountain biome
+  now only counts as freezing above about y 200, where the mountains' own snow starts.
 - New debug commands: `/atlasmountains climate` (the biome and six climate values where you stand), `/atlasmountains biomes <km> <step>` (a map of the real biomes) and
   `/atlasmountains footprint <km> <threshold>` (mountain share and map for another threshold).
 - Much more detailed comments throughout the code.

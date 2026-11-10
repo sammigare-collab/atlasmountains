@@ -400,6 +400,16 @@ for ours_id, (template, trange) in BIOMES.items():
     while len(feats) < 11: feats.append([])
     feats[9] = VEGETATION          # vegetal decoration
     feats[10] = []                 # no freeze_top_layer; snow comes from the surface rule
+    if ours_id == 'cold':
+        # Snowy taiga is freezing at every height (-0.5), so vanilla's freeze_top_layer, which runs
+        # for a whole chunk from any vanilla biome in it, laid snow on our cold columns in every
+        # chunk along a province edge: a white fringe a chunk wide at any height. At 0.3 the game's
+        # height-adjusted temperature only drops below freezing (0.15) above about y 200, which is
+        # where our own snow starts, so precipitation and freezing match the snow line instead.
+        # The grass and leaves keep snowy taiga's colours (from the colour map at temperature 0).
+        b['temperature'] = 0.3
+        b['effects']['grass_color'] = '#80b497'
+        b['effects']['foliage_color'] = '#60a17b'
     write(f'{NS}/worldgen/biome/{ours_id}.json', b)
     # treeless twin for above the treeline (biomes are 3D, so the biome source can switch by height)
     high = copy.deepcopy(b)

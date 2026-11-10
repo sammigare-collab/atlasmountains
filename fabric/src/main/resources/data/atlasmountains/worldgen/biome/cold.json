@@ -126,7 +126,9 @@
   ],
   "downfall": 0.4,
   "effects": {
-    "water_color": "#3d57d6"
+    "water_color": "#3d57d6",
+    "grass_color": "#80b497",
+    "foliage_color": "#60a17b"
   },
   "features": [
     [],
@@ -186,5 +188,5 @@
     []
   ],
   "has_precipitation": true,
-  "temperature": -0.5
+  "temperature": 0.3
 }
