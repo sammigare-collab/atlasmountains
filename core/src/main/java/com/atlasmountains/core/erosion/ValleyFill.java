@@ -24,13 +24,20 @@ public final class ValleyFill {
 
     public void run(RegionHeightmap m, HeightmapGenerator gen) {
         RangeLayout.Sample sc = new RangeLayout.Sample();
+        float[] fm = m.floorModel;
         for (int gz = 0; gz < m.size; gz++) {
             double z = m.originZ + gz * (double) m.spacing;
             for (int gx = 0; gx < m.size; gx++) {
-                double x = m.originX + gx * (double) m.spacing;
-                double base = gen.baseHeightAt(x, z, sc);
-                if (base > s.valleyFloorHeight + 1e-6) continue;
-                double model = gen.heightAt(x, z, sc);  // floor with lake dip
+                double model;
+                if (fm != null) {
+                    model = fm[gz * m.size + gx];              // floor with lake dip, from the generator
+                    if (Float.isNaN((float) model)) continue;
+                } else {
+                    double x = m.originX + gx * (double) m.spacing;
+                    double base = gen.baseHeightAt(x, z, sc);
+                    if (base > s.valleyFloorHeight + 1e-6) continue;
+                    model = gen.heightAt(x, z, sc);
+                }
                 double h = m.get(gx, gz);
                 if (h < model) h = model;
                 if (h > model + maxFanHeight) h = model + maxFanHeight;

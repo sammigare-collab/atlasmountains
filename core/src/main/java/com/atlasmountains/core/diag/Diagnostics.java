@@ -171,8 +171,9 @@ public final class Diagnostics {
             }
         }
         ax = bestX; az = bestZ;
-        double[] along = gen.layout().alongDirection();
-        double cx = along[1], cz = -along[0]; // across direction
+        // across direction: perpendicular to the ranges (parallel layout), or along x for chains
+        double[] along = gen.layout() instanceof RangeLayout rl ? rl.alongDirection() : new double[] {0, 1};
+        double cx = along[1], cz = -along[0];
         int half = 1200;
         try (PrintWriter w = new PrintWriter(file)) {
             w.println("offset,height_eroded_bicubic,height_model_uneroded,slope_deg_eroded");
