@@ -1,112 +1,103 @@
-# atlasmountains
+# Atlas Mountains
 
-Minecraft 26.3 Fabric mod that replaces vanilla's mountains with horn-peak ridge terrain: networks
-of linear ridges with rows of pyramid summits, planar rock faces with gullies, small enclosed
-valleys with lakes. It is only active in its own world types; the normal world type is untouched.
+[![build](https://github.com/sammigare-collab/atlasmountains/actions/workflows/build.yml/badge.svg)](https://github.com/sammigare-collab/atlasmountains/actions/workflows/build.yml)
+![Minecraft 26.3](https://img.shields.io/badge/Minecraft-26.3-62b47a)
+![Fabric](https://img.shields.io/badge/loader-Fabric-dbd0b4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-## Layout
+A Fabric world-generation mod that swaps vanilla's mountains for sharp, angular ranges: networks of
+horn-peak ridges with snow-capped summits, bare rock faces and small walled-in valleys, set into an
+otherwise normal vanilla world.
 
-- `core/` pure Java (no Minecraft dependency): heightmap model, erosion, region cache, mask and
-  continents, diagnostic tools, unit tests.
-- `fabric/` the mod. Compiles `core/` sources straight into the jar (no nested jar).
-- `tools/build_datapack.py` generates every JSON under `fabric/src/main/resources/data/` from the
-  vanilla 26.3 files in `tools/vanilla-26.3/` (extracted from `data/minecraft` in the game jar).
-  Re-run it after changing a parameter in it; do not hand-edit the generated JSON. The heights it
-  shares with `MountainSettings` (valley floor, summit, rock fraction) are checked by
-  `SettingsSyncTest`.
+![Snow-capped ridges either side of a forested valley](docs/images/hero.jpg)
 
-## Build
+## Features
 
-    python3 tools/build_datapack.py   # only after changing the generator
-    gradlew build                     # jar in fabric/build/libs/atlasmountains-<version>.jar, runs the core tests
+- **New mountains, vanilla everything else.** Wherever vanilla would generate a mountain biome,
+  the mod builds its own ranges instead. Rivers, caves, structures, villages and the other biomes
+  are left to vanilla.
+- **Ridge networks, not lone peaks.** Ranges stand back to back and meet at three-way junctions,
+  with rows of pyramid summits along each crest. Heights vary from massif to massif, so some
+  mountains tower over the ones leading up to them.
+- **Enclosed valleys.** Where two ridges part, a small flat valley floor with a lake is walled in
+  between them.
+- **Snow line and treeline.** Snow starts at a height that rises with the climate, so it wraps the
+  summits as a ragged contour; trees thin out and stop at the treeline, and steep faces are rock.
+- **Blended edges.** Mountain provinces have ragged outlines and their foothills ease into the
+  surrounding vanilla terrain rather than ending in a wall.
+- **Continents.** Land comes in large, irregular continents and islands surrounded by ocean, with
+  spawn always on land.
+- **Opt-in.** Everything happens in the mod's own world type. Normal worlds, and worlds created
+  before installing the mod, are untouched.
 
-Needs JDK 25. Versions are in `gradle.properties` (Minecraft 26.3, Fabric Loader 0.20.1,
-Fabric API 0.165.2+26.3, Loom 1.19.4). 26.3 ships unobfuscated, so the code uses Mojang's
-official names; there are no Yarn mappings.
+| | |
+|---|---|
+| ![Ridges meeting vanilla meadow](docs/images/ridges-into-vanilla.jpg) | ![Snowy summits along a ridge line](docs/images/snowy-summits.jpg) |
+| Ridges dropping into vanilla meadow and forest | Snow on the summits along a ridge line |
 
-## World presets
+<p align="center"><img src="docs/images/ridge-network-map.jpg" width="480" alt="Shaded heightmap of a mountain province: a network of ridges meeting at junctions, surrounded by lowland"><br>
+<em>Heightmap of one mountain province (about 4 km across), from the mod's diagnostic tools</em></p>
 
-**Atlas Mountains** (`atlasmountains:atlasmountains`), the one to play:
+## Installation
 
-- *Continents*: `NoiseContinents` replaces vanilla's continentalness with a large fractal noise
-  (Continents-mod style): mostly ocean, big organic landmasses, spawn on land. It is mapped onto
-  vanilla's continentalness scale by distance to the shore, so beaches and the coast fade are a
-  fixed number of blocks wide.
-- *Mountain provinces* are vanilla's own mountain footprint: the world's erosion noise, read at
-  `footprintErosionScale` (2.5x) the biome layer's frequency so provinces are smaller than other
-  biomes, with ragged edges.
-- *The mountains* (`FieldLayout`): a domain-warped Voronoi diagram with cells about 420 blocks
-  across. Its edges are the ridges, so a province fills with ranges back to back, meeting at
-  three-way junctions, and wide cells leave a small enclosed valley floor with a lake. A cell is
-  mountain when vanilla's footprint is on at its site, so a province edge follows whole cells and
-  its last ridge stands at full height before fading into vanilla terrain. Summit heights are
-  scaled by a slow 2-D field (`fieldHeightBoost` x (1 +/- `fieldHeightVariation`)), so some
-  massifs are big and some small.
-- *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Temperature, vegetation
-  and erosion noises run at half vanilla's frequency (biomes twice vanilla size); the ridge noise
-  is left alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring its erosion at
-  -0.1, and its inland lowlands are lifted a few blocks to stop kilometre-wide pooling at sea level.
-  Vanilla's terrain splines read `minecraft:overworld/continents` and `/erosion` by name, so the
-  preset ships repointed copies (`vanilla_*` density functions) that read the mod's continents and
-  the floored erosion.
-- *Edge blend*: in the mask's fade band the surface is a blend of our height and vanilla's
-  jaggedness-free surface, with vanilla's 3-D density shifted to follow it, so vanilla hills ramp
-  down into our valleys instead of standing in them.
-- *Biomes and surface*: inside the mountains, three biomes (`cold`, `temperate`, `warm`), copies of
-  vanilla snowy_taiga, meadow and savanna with sparse spruce and short grass, plus treeless twins
-  (`*_high`) above the treeline (y 92). The cold biome starts at a snow line that rises with
-  temperature. Steep ground is stone. Outside the mountains, vanilla's biomes and surface.
+Requirements: **Minecraft 26.3**, [Fabric Loader](https://fabricmc.net/use/) 0.20.1 or newer,
+[Fabric API](https://modrinth.com/mod/fabric-api) for 26.3, and Java 25.
 
-**Atlas Mountains (everywhere)** (`atlasmountains:all`): the same field-layout ridges over the
-whole world with no footprint, for looking at the mountain design itself. Its mask is 1
-everywhere, so the surface rules (stone on steep faces, snow on top) treat every column as
-mountain.
+1. Download the latest `atlasmountains-<version>.jar` from the
+   [Releases](https://github.com/sammigare-collab/atlasmountains/releases) page.
+2. Put it, together with Fabric API, in your `mods` folder.
+3. Create a new world, open **More** → **World Type** and choose **Atlas Mountains**.
 
-Each preset keeps its eroded terrain cache under `<world>/atlasmountains/mixed/` or
-`.../everywhere/`. Entering a new 2048x2048 region pauses briefly while it is eroded. The cache
-files are not keyed by settings: after changing a terrain parameter, test in a new world or delete
-that folder.
+On a dedicated server, set `level-type=atlasmountains\:atlasmountains` in `server.properties`
+before the world is first generated.
 
-## Heights
+There is also an **Atlas Mountains (everywhere)** world type, which puts the ridges over the whole
+world with no vanilla terrain at all. It is meant for looking at the mountain shapes on their own.
 
-Valley floor y 64 (vanilla sea level 63), design summit y 232, rock line y 148, snow surface from
-y 205, density-function caves stop at y 135, treeline y 92, dimension -64..512. With the field
-height scale typical summits are about y 212 and the tallest about y 286. The height parameters
-live in `MountainSettings`; the surface and dimension ones in `tools/build_datapack.py`.
+## Finding mountains
 
-## Commands
+Mountain provinces are a few kilometres across and sit inland. If spawn is in lowland, these
+commands (operator only) help:
 
-- `/atlasmountains info`: region, cache state, layout, continentalness, mask, terrain height and
-  slope at your position.
-- `/atlasmountains df <id>`: samples a registered density function at your column.
-- `/atlasmountains scan`: mask map 8 km around you into the log (`#` mountains, `+` edge,
-  `.` land, `~` sea).
-- `/atlasmountains continents <km>`: PNG of continents and mountain mask around you into
-  `<world>/atlasmountains/`. Quick.
-- `/atlasmountains fields <km> <erosionBelow> <ridgesAbove>`: PNG of where the world's raw
-  erosion/ridge noises would put biome-level mountains.
-- `/atlasmountains heightmap <size> <step>`: surface heightmap PNG from the chunk generator
-  (about 1.5 ms per column).
+| Command | What it does |
+|---|---|
+| `/atlasmountains scan` | Prints an 8 km map of mountains, land and sea around you to the server log |
+| `/atlasmountains continents <km>` | Saves a PNG map of continents and mountain provinces into `<world>/atlasmountains/` |
+| `/atlasmountains heightmap <size> <step>` | Saves a shaded heightmap PNG of the area around you |
+| `/atlasmountains info` | Shows the terrain height, slope and mountain mask where you stand |
 
-## Diagnostic tools (no game needed)
+## Good to know
 
-Region heightmap: hillshade, contour, slope and zoom PNGs, a cross-section CSV and raw float
-grids to `out/seed_<seed>/`.
+- Mountain terrain is eroded in 2048 x 2048 block regions. The first time you enter a new region
+  there is a short pause while it is computed; it is cached in `<world>/atlasmountains/` after
+  that.
+- Changing the mod version can change the terrain. Generate new chunks with the version the world
+  was made with, or expect seams at the border between old and new chunks.
+- Tested on a dedicated server and a client on Minecraft 26.3. Compatibility with other
+  world-generation or LOD mods has not been tested.
 
-    gradlew :core:diag -Pseed=1 -Prx=0 -Prz=0
+## Building from source
 
-Continent and mask map:
+Needs JDK 25.
 
-    java -cp core/build/classes/java/main com.atlasmountains.core.diag.ContinentMap <seed> [span] [blocksPerPixel] [cx] [cz] [out.png] [name=value...]
+```sh
+./gradlew build
+```
 
-Both accept `name=value` overrides of any `MountainSettings` field, e.g. `dropletsPerRegion=60000`.
-Outside the game there is no erosion noise: the region tool draws ridges everywhere (like the
-"everywhere" preset) and the continent map shows continents but no mountain provinces.
+The jar is written to `fabric/build/libs/`. The build also runs the unit tests in `core/`.
 
-## Known limitations
+The worldgen JSON under `fabric/src/main/resources/data/` is generated, not hand-written. After
+changing the generator:
 
-- The mountain biomes are chosen by temperature only; humidity and erosion do not affect them.
-- The standalone tools cannot reproduce the in-game mountain provinces (no erosion noise).
+```sh
+python3 tools/extract_vanilla.py   # copies vanilla's worldgen data out of the game jar (after one Gradle build)
+python3 tools/build_datapack.py    # regenerates the mod's datapack
+```
 
-Older layout experiments (mountain chains, parallel ranges, Voronoi plate continents) were removed
-from the tree; they are on the `archive/layout-experiments` branch.
+How the terrain is put together, the code layout and the diagnostic tools are described in
+[docs/how-it-works.md](docs/how-it-works.md). Version history is in [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+[MIT](LICENSE). Minecraft is a trademark of Mojang AB; this project is not affiliated with
+Mojang or Microsoft.

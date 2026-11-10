@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Builds the mod's worldgen JSON from the vanilla 26.3 data files in tools/vanilla-26.3
-(extracted from data/minecraft in the Minecraft jar; the game ships its worldgen as JSON). Run from the project root:
+(extracted from data/minecraft in the Minecraft jar by tools/extract_vanilla.py; not committed). Run from the project root:
 
     python3 tools/build_datapack.py
 
@@ -18,6 +18,8 @@ import json, os, copy
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VAN = os.path.join(ROOT, 'tools', 'vanilla-26.3')
+if not os.path.isdir(VAN):
+    raise SystemExit('tools/vanilla-26.3 is missing: run python3 tools/extract_vanilla.py first')
 OUT = os.path.join(ROOT, 'fabric', 'src', 'main', 'resources', 'data')
 NS = 'atlasmountains'
 

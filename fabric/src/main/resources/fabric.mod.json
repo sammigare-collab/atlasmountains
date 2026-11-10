@@ -3,12 +3,22 @@
   "id": "atlasmountains",
   "version": "${version}",
   "name": "Atlas Mountains",
-  "description": "Horn-peak ridge terrain: linear ranges with rows of pyramid summits, eroded faces and flat lake valleys. Only active in the Atlas Mountains world type.",
-  "authors": ["Sammi"],
+  "description": "Replaces vanilla's mountains with networks of sharp horn-peak ridges, snow-capped summits and small walled-in valleys, blended into normal vanilla terrain. Adds the Atlas Mountains world type; other world types are untouched.",
+  "authors": [
+    "Sammi"
+  ],
+  "contact": {
+    "homepage": "https://github.com/sammigare-collab/atlasmountains",
+    "sources": "https://github.com/sammigare-collab/atlasmountains",
+    "issues": "https://github.com/sammigare-collab/atlasmountains/issues"
+  },
   "license": "MIT",
+  "icon": "assets/atlasmountains/icon.png",
   "environment": "*",
   "entrypoints": {
-    "main": ["com.atlasmountains.fabric.AtlasMountainsMod"]
+    "main": [
+      "com.atlasmountains.fabric.AtlasMountainsMod"
+    ]
   },
   "depends": {
     "fabricloader": ">=0.20.0",
