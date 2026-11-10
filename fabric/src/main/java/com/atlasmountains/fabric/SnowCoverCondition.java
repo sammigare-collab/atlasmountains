@@ -34,10 +34,12 @@ import java.util.function.DoubleSupplier;
  *   <li>A threshold that falls with height: {@code 0.9 - 1.6 t}. Near the bottom of the band
  *       only the strongest noise blobs pass, so snow is rare; near the snow line almost
  *       everything passes, so the patches merge into the solid cover above.</li>
- *   <li>Steepness: where our terrain's slope is above {@code ledge_slope} degrees the threshold
- *       is raised by {@code steep_penalty}. Steep faces still get a dusting, but far less than
- *       ledges and gentle ground, which is the look of the reference: bare rock faces between
- *       white ledges.</li>
+ *   <li>Steepness, so snow lies where it would settle: the threshold is shifted by
+ *       {@code steep_penalty * clamp((slope - ledge_slope) / 15, -1, 1)}. Ground 15 degrees or
+ *       more gentler than {@code ledge_slope} gets the full bonus, so on shoulders, cols and
+ *       benches the snow reaches furthest down; ground 15 degrees or more steeper gets the full
+ *       penalty, so steep faces only carry a dusting. In between the effect is proportional.
+ *       That is the look of the reference: bare rock faces between white ledges.</li>
  * </ol>
  * The slope comes from our terrain heightmap ({@link com.atlasmountains.core.RegionCache#slopeDegrees}),
  * the same one that decides where rock shows, so snow and rock agree about which ground is steep.
@@ -45,8 +47,8 @@ import java.util.function.DoubleSupplier;
  *
  * @param snowLine     the height above which everything is snow already (the top of this band)
  * @param lowest       the lowest height a patch can reach
- * @param ledgeSlope   slopes gentler than this, in degrees, hold snow easily
- * @param steepPenalty how much harder it is for snow to settle on steeper ground (noise units;
+ * @param ledgeSlope   the slope, in degrees, at which the slope has no effect either way
+ * @param steepPenalty the largest shift of the threshold from slope, either way (noise units;
  *                     the noise runs roughly from -1 to 1)
  * @param mixed        which preset's terrain cache to read
  */
@@ -65,6 +67,9 @@ public record SnowCoverCondition(int snowLine, int lowest, float ledgeSlope, flo
     private static final ResourceKey<NormalNoise> PATCH_NOISE =
             ResourceKey.create(Registries.NOISE, AtlasMountainsMod.id("snow_patches"));
 
+    /** Degrees either side of ledgeSlope over which the slope effect ramps from full bonus to full penalty. */
+    private static final double SLOPE_RAMP = 15;
+
     /** Largest per-block jitter added to the patch noise, either way. */
     private static final float JITTER = 0.15f;
 
@@ -82,7 +87,10 @@ public record SnowCoverCondition(int snowLine, int lowest, float ledgeSlope, flo
             float t = (y - lowest) / span;
             int x = context.blockX(), z = context.blockZ();
             double threshold = 0.9 - 1.6 * t;
-            if (AtlasMountainsMod.cache(mixed).slopeDegrees(x, z) > ledgeSlope) threshold += steepPenalty;
+            // Gradual: 15 degrees gentler than ledgeSlope gives the full bonus (snow reaches further
+            // down), 15 degrees steeper gives the full penalty (only a dusting).
+            double steepness = (AtlasMountainsMod.cache(mixed).slopeDegrees(x, z) - ledgeSlope) / SLOPE_RAMP;
+            threshold += steepPenalty * Math.max(-1, Math.min(1, steepness));
             double jitter = (randoms.at(x, y, z).nextFloat() * 2 - 1) * JITTER;
             return patches.getAsDouble() + jitter > threshold;
         };
