@@ -13,8 +13,8 @@
   with an older build regenerates its regions rather than mixing two terrain models.
 - Below the snow line, snow settles in patches on ledges and gentle ground down to y 160, so the
   white of the summits frays downwards instead of ending at one height.
-- Mountains now cover about the same share of land as vanilla's mountain biomes (about 5%,
-  was about 40%), as separate areas of a few ridges each instead of a web across the land.
+- Mountains now come as separate areas a kilometre or two across instead of a web over the
+  land: about 9-10% of land (was about 40%; vanilla's own mountain biomes take about 5.6%).
 - New debug commands: `/atlasmountains biomes <km> <step>` (a map of the real biomes) and
   `/atlasmountains footprint <km> <threshold>` (mountain share and map for another threshold).
 - Much more detailed comments throughout the code.

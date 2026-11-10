@@ -286,11 +286,13 @@ public final class MountainSettings {
      * A field cell is mountain when the world's erosion at its site, plus the ragged noise below,
      * is under this. Lower = fewer, smaller provinces. Set so our mountains cover about the same
      * share of land as vanilla's own mountain biomes (Sammi: replace vanilla's mountains 1:1, as
-     * common as any other biome): measured with /atlasmountains footprint and biomes on two seeds
-     * (Nov 2026), vanilla's peaks, slopes, groves, meadows and windswept hills take about 5.6% of
-     * land, and -0.72 gives 4 to 8% depending on the area (-0.32, the previous value, gave about 40%).
+     * common as any other biome), then each area made 20% wider at his request with the number of
+     * areas kept. Measured with /atlasmountains footprint and biomes (Nov 2026): vanilla's peaks,
+     * slopes, groves, meadows and windswept hills take about 5.6% of land; -0.62 with
+     * footprintErosionScale 2.08 gives about 9 to 10% (-0.72 with 2.5 gave 5 to 8%, and -0.32 with
+     * 2.5, the value before that, about 40%).
      */
-    public double erosionMountainBelow = -0.72;
+    public double erosionMountainBelow = -0.62;
     /**
      * Province edges are roughened: a cell counts as mountain when erosion + footprintRagged * n
      * (n in -1..1, wavelength footprintRaggedWavelength) is below the threshold, so the edge breaks
@@ -301,9 +303,9 @@ public final class MountainSettings {
     /**
      * The footprint reads the erosion noise at this many times the biome layer's frequency, so
      * mountain provinces are smaller than the other biomes (2 = vanilla-sized provinces while the
-     * biomes stay at twice vanilla).
+     * biomes stay at twice vanilla). 2.08 is 2.5 / 1.2: provinces 20% wider than at 2.5.
      */
-    public double footprintErosionScale = 2.5;
+    public double footprintErosionScale = 2.08;
     /** Wavelength of the ragged-edge noise, blocks. */
     public double footprintRaggedWavelength = 900;
     /**
