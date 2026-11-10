@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- No more straight walls where a mountain area ends. Outside the mountain cells, the distance to
+  the nearest mountain ridge was measured only from the sample's own cell, so it jumped where
+  that cell met a neighbour, and the flank stopped dead along a straight line. It now takes every
+  nearby ridge into account, so flanks run on smoothly (some mountain areas reach a little
+  further). Terrain changes, so region caches are versioned again.
+- No more straight ditch around the mountain areas. At the outer edge of the blend, vanilla's
+  ground was pushed down onto our surface, which sat 12 blocks under; in flat land that dropped
+  it by 10 blocks or more in one step. Our surface now rises from further below and vanilla is
+  only pushed further in, so the ground eases down over a few tens of blocks.
 - Rivers and swamps outside the mountains have their water back. The inland lowland lift
   (about 4 blocks, plus 8 more in vanilla's flattest class) also lifted river beds and swamps,
   leaving rivers as dry green valleys and mangrove swamps as dry hills under solid canopy. The

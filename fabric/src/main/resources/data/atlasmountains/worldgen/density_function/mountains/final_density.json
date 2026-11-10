@@ -343,25 +343,69 @@
         "type": "minecraft:mul",
         "left": 0.25,
         "right": {
-          "type": "minecraft:add",
+          "type": "minecraft:mul",
           "left": {
-            "type": "minecraft:max",
-            "left": {
-              "type": "minecraft:sub",
-              "left": "atlasmountains:mountains/vanilla_surface",
-              "right": "atlasmountains:mountains/blend_height"
-            },
-            "right": 0.0
-          },
-          "right": {
             "type": "minecraft:mul",
             "left": {
-              "type": "minecraft:cache",
+              "type": "minecraft:clamp",
               "input": {
-                "type": "atlasmountains:mountain_mask"
-              }
+                "type": "minecraft:mul",
+                "left": {
+                  "type": "minecraft:sub",
+                  "left": {
+                    "type": "minecraft:cache",
+                    "input": {
+                      "type": "atlasmountains:mountain_mask"
+                    }
+                  },
+                  "right": 0.15
+                },
+                "right": 6.666666666666667
+              },
+              "min": 0.0,
+              "max": 1.0
             },
-            "right": 12
+            "right": {
+              "type": "minecraft:clamp",
+              "input": {
+                "type": "minecraft:mul",
+                "left": {
+                  "type": "minecraft:sub",
+                  "left": {
+                    "type": "minecraft:cache",
+                    "input": {
+                      "type": "atlasmountains:mountain_mask"
+                    }
+                  },
+                  "right": 0.15
+                },
+                "right": 6.666666666666667
+              },
+              "min": 0.0,
+              "max": 1.0
+            }
+          },
+          "right": {
+            "type": "minecraft:add",
+            "left": {
+              "type": "minecraft:max",
+              "left": {
+                "type": "minecraft:sub",
+                "left": "atlasmountains:mountains/vanilla_surface",
+                "right": "atlasmountains:mountains/blend_height"
+              },
+              "right": 0.0
+            },
+            "right": {
+              "type": "minecraft:mul",
+              "left": {
+                "type": "minecraft:cache",
+                "input": {
+                  "type": "atlasmountains:mountain_mask"
+                }
+              },
+              "right": 12
+            }
           }
         }
       }

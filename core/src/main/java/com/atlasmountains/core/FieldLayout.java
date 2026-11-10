@@ -113,12 +113,9 @@ public final class FieldLayout {
         if (erosion == null) return Double.NaN;
         Sites n = nearest(x, z);
         if (inside(n.ids[n.i1], n.xs[n.i1], n.zs[n.i1])) return 1;
-        double d = Double.MAX_VALUE;
-        for (int k = 0; k < Sites.N; k++) {
-            if (k == n.i1 || !inside(n.ids[k], n.xs[k], n.zs[k])) continue;
-            d = Math.min(d, edgeDistance(n, n.i1, k));
-        }
-        // d is the distance to the nearest ridge that bounds an inside cell. The mask is 1 within
+        double d = outsideEdges(n);
+        // d is the distance to the nearest ridge that bounds an inside cell (any such ridge nearby,
+        // not only the edges of the sample's own cell, so it does not jump where cells meet). The mask is 1 within
         // one flank's width of it (halfWidth), then falls to 0 over fieldEdgeFade blocks with a
         // smoothstep, so there is no kink where the fade starts or ends.
         double t = (s.halfWidth() + s.fieldEdgeFade - d) / s.fieldEdgeFade;
@@ -225,31 +222,45 @@ public final class FieldLayout {
         boolean aIn = gate && inside(n.ids[a], n.xs[a], n.zs[a]);
         // the two nearest ridges of the sample's cell; with the footprint installed only ridges
         // that bound a mountain cell count, so nothing stands between two non-mountain cells
+        if (gate && !aIn) {
+            // Outside the footprint: the two nearest real edges between any outside cell and an
+            // inside cell, not only the edges of the sample's own cell. Measuring only from the
+            // sample's own cell made the distance jump where that cell met an outside neighbour
+            // that touches no inside cell (or a different one): the flank and the mask stopped
+            // dead along that line, which showed as a straight wall (Nov 2026).
+            int[] pair = new int[4];
+            double[] dd = new double[2];
+            outsideEdgesInto(n, pair, dd);
+            double far = 3 * s.halfWidth();
+            if (pair[0] < 0) { out.distance = far; out.along = 0; out.ridge = 0; }
+            else {
+                int j = pair[0], k = pair[1];
+                edge(n.px, n.pz, n.ds[j], n.xs[j], n.zs[j], n.ids[j], n.ds[k], n.xs[k], n.zs[k], n.ids[k], out, false);
+                out.distance = dd[0];
+            }
+            if (pair[2] < 0) { out.distance2 = far; out.along2 = 0; out.ridge2 = 1; }
+            else {
+                int j = pair[2], k = pair[3];
+                edge(n.px, n.pz, n.ds[j], n.xs[j], n.zs[j], n.ids[j], n.ds[k], n.xs[k], n.zs[k], n.ids[k], out, true);
+                out.distance2 = dd[1];
+            }
+            out.scale = heightScale(x, z);
+            return;
+        }
+        // inside a mountain cell (or no footprint installed): the two nearest ridges of the cell
         int b1 = -1, b2 = -1;
         double e1 = Double.MAX_VALUE, e2 = Double.MAX_VALUE;
         for (int k = 0; k < Sites.N; k++) {
             if (k == a) continue;
-            if (gate && !aIn && !inside(n.ids[k], n.xs[k], n.zs[k])) continue;
-            // outside the footprint, only real edges count (see edgeDistance): the bisector of two
-            // cells that do not touch is not a ridge, and treating it as one put mountain flanks and
-            // mountain biome along lines running out of a province into open country
-            double d = gate && !aIn ? edgeDistance(n, a, k) : bisectorDistance(n, a, k);
+            double d = bisectorDistance(n, a, k);
             if (d < e1) { e2 = e1; b2 = b1; e1 = d; b1 = k; }
             else if (d < e2) { e2 = d; b2 = k; }
         }
         double far = 3 * s.halfWidth();
-        if (e1 >= Double.MAX_VALUE / 2) b1 = -1;   // edgeDistance found no real edge with any inside cell
-        if (e2 >= Double.MAX_VALUE / 2) b2 = -1;
         if (b1 < 0) { out.distance = far; out.along = 0; out.ridge = 0; }
         else edge(n.px, n.pz, n.ds[a], n.xs[a], n.zs[a], n.ids[a], n.ds[b1], n.xs[b1], n.zs[b1], n.ids[b1], out, false);
         if (b2 < 0) { out.distance2 = far; out.along2 = 0; out.ridge2 = 1; }
         else edge(n.px, n.pz, n.ds[a], n.xs[a], n.zs[a], n.ids[a], n.ds[b2], n.xs[b2], n.zs[b2], n.ids[b2], out, true);
-        // outside the footprint the distance is to the real, finite edge (it differs from the
-        // bisector distance edge() wrote only past the edge's ends, where it rounds off the corner)
-        if (gate && !aIn) {
-            if (b1 >= 0) out.distance = e1;
-            if (b2 >= 0) out.distance2 = e2;
-        }
         out.scale = heightScale(x, z);
     }
 
@@ -274,5 +285,49 @@ public final class FieldLayout {
         int ridge = (int) Hash.hash(Math.min(ida, idb), Math.max(ida, idb));
         if (second) { out.distance2 = dist; out.along2 = along; out.ridge2 = ridge; }
         else { out.distance = dist; out.along = along; out.ridge = ridge; }
+    }
+
+    /** Distance to the nearest real edge between an outside cell and an inside cell (MAX_VALUE if none is near). */
+    private double outsideEdges(Sites n) {
+        int[] pair = new int[4];
+        double[] dd = new double[2];
+        outsideEdgesInto(n, pair, dd);
+        return pair[0] < 0 ? Double.MAX_VALUE : dd[0];
+    }
+
+    /**
+     * The two nearest real Voronoi edges that separate an outside cell j from an inside cell k,
+     * measured from the sample point: pair = {j1, k1, j2, k2} (-1 if none), dd = their distances.
+     * Only edges within one flank plus the fade (reach) matter, and a point X on edge (j, k) is
+     * closer to j and k than to the sample's own site, so |P - j| and |P - k| are at most
+     * |P - a| + 2 reach; sites further than that are skipped. Taking every such edge, not only
+     * those of the sample's own cell, keeps the distance continuous across cell boundaries.
+     */
+    private void outsideEdgesInto(Sites n, int[] pair, double[] dd) {
+        pair[0] = pair[1] = pair[2] = pair[3] = -1;
+        dd[0] = dd[1] = Double.MAX_VALUE;
+        double reach = s.halfWidth() + s.fieldEdgeFade;
+        double lim = Math.sqrt(n.ds[n.i1]) + 2 * reach;
+        double lim2 = lim * lim;
+        boolean[] in = new boolean[Sites.N];
+        boolean[] near = new boolean[Sites.N];
+        for (int k = 0; k < Sites.N; k++) {
+            near[k] = n.ds[k] <= lim2;
+            if (near[k]) in[k] = inside(n.ids[k], n.xs[k], n.zs[k]);
+        }
+        for (int j = 0; j < Sites.N; j++) {
+            if (!near[j] || in[j]) continue;
+            for (int k = 0; k < Sites.N; k++) {
+                if (!near[k] || !in[k]) continue;
+                double d = edgeDistance(n, j, k);
+                if (d >= Double.MAX_VALUE / 2) continue;
+                if (d < dd[0]) {
+                    dd[1] = dd[0]; pair[2] = pair[0]; pair[3] = pair[1];
+                    dd[0] = d; pair[0] = j; pair[1] = k;
+                } else if (d < dd[1]) {
+                    dd[1] = d; pair[2] = j; pair[3] = k;
+                }
+            }
+        }
     }
 }
