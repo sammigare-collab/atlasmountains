@@ -23,7 +23,9 @@ Technical notes on the terrain generator. For installing and playing, see the [R
   fixed number of blocks wide.
 - *Mountain provinces* are vanilla's own mountain footprint: the world's erosion noise, read at
   `footprintErosionScale` (2.5x) the biome layer's frequency so provinces are smaller than other
-  biomes, with ragged edges.
+  biomes, with ragged edges. The threshold (`erosionMountainBelow`, -0.72) is set so mountains
+  cover about the same share of land as vanilla's own mountain biomes (about 5%); check it with
+  `/atlasmountains footprint <km> <threshold>` and `/atlasmountains biomes <km> <step>`.
 - *The mountains* (`FieldLayout`): a domain-warped Voronoi diagram with cells about 420 blocks
   across. Its edges are the ridges, so a province fills with ranges back to back, meeting at
   three-way junctions, and wide cells leave a small enclosed valley floor with a lake. A cell is

@@ -30,6 +30,10 @@ import java.util.Locale;
  *       several heights, for checking the datapack's blend by number.</li>
  *   <li>{@code scan}: an 8 km text map of the mask written to the log.</li>
  *   <li>{@code continents <km>}: a PNG of the continents and mountain provinces.</li>
+ *   <li>{@code footprint <km> <erosionBelow>}: the share of land that would be mountain with a
+ *       different footprint threshold, and a map of it, without a rebuild.</li>
+ *   <li>{@code biomes <km> <step>}: a PNG of the real biomes at the ground, from the world's own
+ *       biome source, with a per-biome pixel count in the log.</li>
  *   <li>{@code fields <km> <erosion> <ridges>}: a PNG of the raw biome noises, for choosing the
  *       footprint thresholds.</li>
  *   <li>{@code heightmap <size> <step>}: a hillshaded PNG of the real surface around the player,
@@ -40,6 +44,39 @@ import java.util.Locale;
  */
 public final class InfoCommand {
     private InfoCommand() {}
+
+    /**
+     * Map colour for a biome id: a fixed colour for our biomes and the common vanilla ones, so maps
+     * from different runs compare, and a colour hashed from the id for anything else.
+     */
+    static int biomeColour(String id) {
+        String k = id.replace("minecraft:", "");
+        return switch (k) {
+            case "atlasmountains:cold", "atlasmountains:cold_high" -> 0xF2F4F8;
+            case "atlasmountains:temperate", "atlasmountains:temperate_high" -> 0x9C8F7A;
+            case "atlasmountains:warm", "atlasmountains:warm_high" -> 0xB7865A;
+            case "ocean", "cold_ocean", "lukewarm_ocean", "warm_ocean", "frozen_ocean" -> 0x2E5CB8;
+            case "deep_ocean", "deep_cold_ocean", "deep_lukewarm_ocean", "deep_frozen_ocean" -> 0x1F3F8A;
+            case "river", "frozen_river" -> 0x4F8FE0;
+            case "beach", "snowy_beach" -> 0xE8DCA0;
+            case "stony_shore" -> 0x9A9A9A;
+            case "plains", "sunflower_plains" -> 0x8DB360;
+            case "forest", "flower_forest" -> 0x4E8A32;
+            case "birch_forest", "old_growth_birch_forest" -> 0x6FA850;
+            case "dark_forest", "pale_garden" -> 0x2F5A22;
+            case "taiga", "old_growth_pine_taiga", "old_growth_spruce_taiga" -> 0x3F6E4A;
+            case "snowy_taiga", "snowy_plains", "ice_spikes", "frozen_peaks", "snowy_slopes", "jagged_peaks", "grove" -> 0xDDE6EE;
+            case "savanna", "savanna_plateau", "windswept_savanna" -> 0xBDB25F;
+            case "desert" -> 0xF0D890;
+            case "badlands", "eroded_badlands", "wooded_badlands" -> 0xC9643A;
+            case "jungle", "sparse_jungle", "bamboo_jungle" -> 0x3C9A1E;
+            case "swamp", "mangrove_swamp" -> 0x4C6B4A;
+            case "meadow", "cherry_grove" -> 0xA6CF7A;
+            case "stony_peaks", "windswept_hills", "windswept_gravelly_hills", "windswept_forest" -> 0x8A8F86;
+            case "mushroom_fields" -> 0x9C6FA6;
+            default -> 0x808080 ^ (k.hashCode() & 0x3F3F3F);
+        };
+    }
 
     /** Registers the command tree; called from the mod's command registration callback. */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -130,6 +167,100 @@ public final class InfoCommand {
                     src.sendSuccess(() -> Component.literal("continent map written to " + out.getPath()), false);
                     return 1;
                 })))
+                .then(Commands.literal("biomes")
+                        .then(Commands.argument("spanKm", IntegerArgumentType.integer(1, 200))
+                        .then(Commands.argument("stepBlocks", IntegerArgumentType.integer(4, 256)).executes(ctx -> {
+                    // The world's real biomes around the player, one pixel per stepBlocks, written to
+                    // <world>/atlasmountains/biomes_<x>_<z>_<span>km.png. Each pixel asks the dimension's own
+                    // biome source (ours in the Atlas Mountains preset) at the surface: our terrain height
+                    // inside the mountains, just above sea level elsewhere. Biomes are 3D, so a column can
+                    // change biome with height; this shows the one at the ground. Runs off the server thread.
+                    CommandSourceStack src = ctx.getSource();
+                    int spanKm = IntegerArgumentType.getInteger(ctx, "spanKm");
+                    int step = IntegerArgumentType.getInteger(ctx, "stepBlocks");
+                    Vec3 p = src.getPosition();
+                    ServerLevel world = src.getLevel();
+                    RegionCache cache = AtlasMountainsMod.cacheFor(world);
+                    ChunkGenerator gen = world.getChunkSource().getGenerator();
+                    RandomState rstate = world.getChunkSource().randomState();
+                    var resolver = gen.getBiomeSource().createUncachedResolver(rstate);
+                    int cx = (int) p.x, cz = (int) p.z, span = spanKm * 1000, n = span / step;
+                    src.sendSuccess(() -> Component.literal("sampling biomes: " + n + "x" + n + " pixels..."), false);
+                    Thread worker = new Thread(() -> {
+                        try {
+                            java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(n, n, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                            java.util.Map<String, Integer> legend = new java.util.TreeMap<>();
+                            com.atlasmountains.core.RidgeSample scratch = new com.atlasmountains.core.RidgeSample();
+                            for (int j = 0; j < n; j++) {
+                                for (int i = 0; i < n; i++) {
+                                    int x = cx - span / 2 + i * step, z = cz - span / 2 + j * step;
+                                    double m = cache.mask(x, z);
+                                    // analytic height: close enough to pick the biome, and needs no eroded regions
+                                    int y = m > 0 ? (int) Math.max(64, cache.maskedBaseHeight(x, z, scratch)) : 64;
+                                    // any other world type (vanilla, for comparison): ask the generator for the real
+                                    // surface, since vanilla's mountain biomes depend on height
+                                    if (!(gen.getBiomeSource() instanceof AtlasBiomeSource))
+                                        y = gen.getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG, world, rstate);
+                                    String id = resolver.getNoiseBiome(x >> 2, y >> 2, z >> 2).unwrapKey()
+                                            .map(k -> k.identifier().toString()).orElse("?");
+                                    int rgb = biomeColour(id);
+                                    legend.merge(id, 1, Integer::sum);
+                                    img.setRGB(i, j, rgb);
+                                }
+                            }
+                            java.nio.file.Path dir = src.getServer().getWorldPath(LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                            java.nio.file.Files.createDirectories(dir);
+                            java.io.File out = dir.resolve(String.format(Locale.UK, "biomes_%d_%d_%dkm.png", cx, cz, spanKm)).toFile();
+                            javax.imageio.ImageIO.write(img, "png", out);
+                            AtlasMountainsMod.LOGGER.info("biome map written to {}; pixels per biome: {}", out, legend);
+                        } catch (Exception e) {
+                            AtlasMountainsMod.LOGGER.error("biome map failed", e);
+                        }
+                    }, "atlasmountains-biomes");
+                    worker.setDaemon(true);
+                    worker.start();
+                    return 1;
+                }))))
+                .then(Commands.literal("footprint")
+                        .then(Commands.argument("spanKm", IntegerArgumentType.integer(4, 200))
+                        .then(Commands.argument("erosionBelow", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(-1, 1)).executes(ctx -> {
+                    // Tuning aid: the share of land that would be mountain with a different footprint
+                    // threshold (erosionMountainBelow), without a rebuild. Builds a throwaway mask with that one
+                    // setting changed, reads the world's erosion the way the mod does, and samples a grid of
+                    // 64-block steps around the player. Land is continentalness above the shoreline (-0.15).
+                    CommandSourceStack src = ctx.getSource();
+                    int spanKm = IntegerArgumentType.getInteger(ctx, "spanKm");
+                    double below = com.mojang.brigadier.arguments.DoubleArgumentType.getDouble(ctx, "erosionBelow");
+                    Vec3 p = src.getPosition();
+                    RegionCache live = AtlasMountainsMod.cacheFor(src.getLevel());
+                    MountainSettings s = new MountainSettings();
+                    s.erosionMountainBelow = below;
+                    RegionCache trial = new RegionCache(s, live.seed(), null);
+                    final double k = s.footprintErosionScale;
+                    trial.layout().setErosion((x, z) -> StretchedErosionFunction.erosion(x * k, z * k));
+                    int span = spanKm * 1000, step = 64, n = span / step, cx = (int) p.x, cz = (int) p.z;
+                    long land = 0, mountain = 0;
+                    for (int j = 0; j < n; j++)
+                        for (int i = 0; i < n; i++) {
+                            int x = cx - span / 2 + i * step, z = cz - span / 2 + j * step;
+                            if (trial.continents().continentalness(x, z) <= -0.15) continue;
+                            land++;
+                            if (trial.mask(x, z) >= 0.5) mountain++;
+                        }
+                    try {
+                        Path dir = src.getServer().getWorldPath(LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                        java.nio.file.Files.createDirectories(dir);
+                        ContinentMap.render(s, trial.continents(), trial.mountainMask(), trial.seed(), span, spanKm, cx, cz,
+                                dir.resolve(String.format(Locale.UK, "footprint_%.2f_%dkm.png", below, spanKm)).toFile());
+                    } catch (IOException e) {
+                        AtlasMountainsMod.LOGGER.error("footprint map failed", e);
+                    }
+                    trial.shutdown();
+                    final long l = land, m = mountain;
+                    src.sendSuccess(() -> Component.literal(String.format(Locale.UK,
+                            "erosion below %.3f: mountains %.1f%% of land (%d of %d samples)", below, 100.0 * m / Math.max(1, l), m, l)), false);
+                    return 1;
+                }))))
                 .then(Commands.literal("fields")
                         .then(Commands.argument("spanKm", IntegerArgumentType.integer(4, 200))
                         .then(Commands.argument("erosionBelow", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(-1, 1))

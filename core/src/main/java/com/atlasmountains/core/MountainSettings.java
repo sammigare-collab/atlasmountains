@@ -284,11 +284,13 @@ public final class MountainSettings {
      */
     /**
      * A field cell is mountain when the world's erosion at its site, plus the ragged noise below,
-     * is under this. Vanilla's own peaks start at about -0.375; lower = smaller provinces.
-     * Restated with footprintRagged after a range bug in the old formula was corrected (Nov 2026);
-     * the old pair (-0.42, 0.1) gives exactly the same provinces.
+     * is under this. Lower = fewer, smaller provinces. Set so our mountains cover about the same
+     * share of land as vanilla's own mountain biomes (Sammi: replace vanilla's mountains 1:1, as
+     * common as any other biome): measured with /atlasmountains footprint and biomes on two seeds
+     * (Nov 2026), vanilla's peaks, slopes, groves, meadows and windswept hills take about 5.6% of
+     * land, and -0.72 gives 4 to 8% depending on the area (-0.32, the previous value, gave about 40%).
      */
-    public double erosionMountainBelow = -0.32;
+    public double erosionMountainBelow = -0.72;
     /**
      * Province edges are roughened: a cell counts as mountain when erosion + footprintRagged * n
      * (n in -1..1, wavelength footprintRaggedWavelength) is below the threshold, so the edge breaks
