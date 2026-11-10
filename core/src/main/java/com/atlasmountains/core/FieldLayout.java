@@ -116,7 +116,7 @@ public final class FieldLayout {
         double d = Double.MAX_VALUE;
         for (int k = 0; k < Sites.N; k++) {
             if (k == n.i1 || !inside(n.ids[k], n.xs[k], n.zs[k])) continue;
-            d = Math.min(d, bisectorDistance(n, n.i1, k));
+            d = Math.min(d, edgeDistance(n, n.i1, k));
         }
         // d is the distance to the nearest ridge that bounds an inside cell. The mask is 1 within
         // one flank's width of it (halfWidth), then falls to 0 over fieldEdgeFade blocks with a
@@ -130,6 +130,47 @@ public final class FieldLayout {
      * Distance from the sample point to the bisector of sites a and b (a is the nearest site).
      * ds holds squared distances, so this is (db^2 - da^2) / (2 |ab|): positive, and exact.
      */
+    /**
+     * Distance from the sample point to the real Voronoi edge between cells a and b: the part of
+     * their bisector that is closer to a and b than to any other of the 25 sites. That piece is
+     * finite (it ends at the two corners where a third cell meets it), so past its ends the
+     * distance is to the nearer corner. Returns Double.MAX_VALUE if a and b do not touch at all.
+     * <p>
+     * {@link #bisectorDistance} measures to the whole infinite line instead. For a point inside
+     * cell a that is right for a's own nearest edge, but the line of a pair that does not touch,
+     * or of a real edge beyond its corner, runs on through other cells. Outside the footprint
+     * that showed as straight strips of mountain biome and flank leading out of a province, and
+     * as walls where the flank met the next cell.
+     * <p>
+     * The edge is the line M + t * dir (M the midpoint of a and b, dir along the bisector). For
+     * each other site j, "closer to a than to j" is a linear condition on t, so the valid t form
+     * one interval; coordinates are taken relative to the sample point to keep the arithmetic
+     * small.
+     */
+    private static double edgeDistance(Sites n, int a, int b) {
+        double ax = n.xs[a] - n.px, az = n.zs[a] - n.pz, bx = n.xs[b] - n.px, bz = n.zs[b] - n.pz;
+        double ex = bx - ax, ez = bz - az, len = Math.hypot(ex, ez);
+        if (len < 1e-9) return Double.MAX_VALUE;
+        double dx = -ez / len, dz = ex / len;                 // along the bisector
+        double mx = (ax + bx) * 0.5, mz = (az + bz) * 0.5;    // midpoint, relative to the sample point
+        double lo = Double.NEGATIVE_INFINITY, hi = Double.POSITIVE_INFINITY;
+        for (int j = 0; j < Sites.N; j++) {
+            if (j == a || j == b) continue;
+            double jx = n.xs[j] - n.px, jz = n.zs[j] - n.pz;
+            double gx = jx - ax, gz = jz - az;                // X closer to a than j: 2 X.(J-A) <= |J|^2 - |A|^2
+            double c = 2 * (dx * gx + dz * gz);
+            double r = (jx * jx + jz * jz) - (ax * ax + az * az) - 2 * (mx * gx + mz * gz);
+            if (Math.abs(c) < 1e-12) { if (r < 0) return Double.MAX_VALUE; continue; }
+            double t = r / c;
+            if (c > 0) hi = Math.min(hi, t); else lo = Math.max(lo, t);
+            if (lo > hi) return Double.MAX_VALUE;
+        }
+        double t0 = -(mx * dx + mz * dz);                     // the sample point (origin) projected onto the line
+        double perp = Math.abs(mx * (ex / len) + mz * (ez / len));
+        double tc = Math.max(lo, Math.min(hi, t0));
+        return Math.hypot(perp, t0 - tc);
+    }
+
     private static double bisectorDistance(Sites n, int a, int b) {
         double len = Math.max(1e-9, Math.hypot(n.xs[b] - n.xs[a], n.zs[b] - n.zs[a]));
         return (n.ds[b] - n.ds[a]) / (2 * len);
@@ -189,15 +230,26 @@ public final class FieldLayout {
         for (int k = 0; k < Sites.N; k++) {
             if (k == a) continue;
             if (gate && !aIn && !inside(n.ids[k], n.xs[k], n.zs[k])) continue;
-            double d = bisectorDistance(n, a, k);
+            // outside the footprint, only real edges count (see edgeDistance): the bisector of two
+            // cells that do not touch is not a ridge, and treating it as one put mountain flanks and
+            // mountain biome along lines running out of a province into open country
+            double d = gate && !aIn ? edgeDistance(n, a, k) : bisectorDistance(n, a, k);
             if (d < e1) { e2 = e1; b2 = b1; e1 = d; b1 = k; }
             else if (d < e2) { e2 = d; b2 = k; }
         }
         double far = 3 * s.halfWidth();
+        if (e1 >= Double.MAX_VALUE / 2) b1 = -1;   // edgeDistance found no real edge with any inside cell
+        if (e2 >= Double.MAX_VALUE / 2) b2 = -1;
         if (b1 < 0) { out.distance = far; out.along = 0; out.ridge = 0; }
         else edge(n.px, n.pz, n.ds[a], n.xs[a], n.zs[a], n.ids[a], n.ds[b1], n.xs[b1], n.zs[b1], n.ids[b1], out, false);
         if (b2 < 0) { out.distance2 = far; out.along2 = 0; out.ridge2 = 1; }
         else edge(n.px, n.pz, n.ds[a], n.xs[a], n.zs[a], n.ids[a], n.ds[b2], n.xs[b2], n.zs[b2], n.ids[b2], out, true);
+        // outside the footprint the distance is to the real, finite edge (it differs from the
+        // bisector distance edge() wrote only past the edge's ends, where it rounds off the corner)
+        if (gate && !aIn) {
+            if (b1 >= 0) out.distance = e1;
+            if (b2 >= 0) out.distance2 = e2;
+        }
         out.scale = heightScale(x, z);
     }
 

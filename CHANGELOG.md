@@ -15,7 +15,10 @@
   white of the summits frays downwards instead of ending at one height.
 - Mountains now come as separate areas a kilometre or two across instead of a web over the
   land: about 9-10% of land (was about 40%; vanilla's own mountain biomes take about 5.6%).
-- New debug commands: `/atlasmountains biomes <km> <step>` (a map of the real biomes) and
+- Fixed straight strips of mountain biome running out of mountain areas into open country,
+  and the walls and bare grass slopes along them: outside a mountain area, ridges are now
+  measured to their real, finite length instead of as endless lines.
+- New debug commands: `/atlasmountains climate` (the biome and six climate values where you stand), `/atlasmountains biomes <km> <step>` (a map of the real biomes) and
   `/atlasmountains footprint <km> <threshold>` (mountain share and map for another threshold).
 - Much more detailed comments throughout the code.
 

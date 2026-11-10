@@ -181,8 +181,8 @@ public final class RegionCache {
     /** The un-eroded analytic generator (cheap, no region needed). */
     public HeightmapGenerator generator() { return pipeline.generator(); }
 
-    /** Bumped whenever a change alters the generated terrain: 2 = junction summits (Nov 2026). */
-    public static final int TERRAIN_VERSION = 2;
+    /** Bumped whenever a change alters the generated terrain: 2 = junction summits, 3 = real edges outside the footprint (Nov 2026). */
+    public static final int TERRAIN_VERSION = 3;
 
     /** Packs region coordinates into one map key: rx in the high 32 bits, rz in the low. */
     private static long key(int rx, int rz) { return ((long) rx << 32) ^ (rz & 0xffffffffL); }

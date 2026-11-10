@@ -30,6 +30,7 @@ import java.util.Locale;
  *       several heights, for checking the datapack's blend by number.</li>
  *   <li>{@code scan}: an 8 km text map of the mask written to the log.</li>
  *   <li>{@code continents <km>}: a PNG of the continents and mountain provinces.</li>
+ *   <li>{@code climate}: the biome at the player and the six climate values it was chosen from.</li>
  *   <li>{@code footprint <km> <erosionBelow>}: the share of land that would be mountain with a
  *       different footprint threshold, and a map of it, without a rebuild.</li>
  *   <li>{@code biomes <km> <step>}: a PNG of the real biomes at the ground, from the world's own
@@ -261,6 +262,26 @@ public final class InfoCommand {
                             "erosion below %.3f: mountains %.1f%% of land (%d of %d samples)", below, 100.0 * m / Math.max(1, l), m, l)), false);
                     return 1;
                 }))))
+                .then(Commands.literal("climate").executes(ctx -> {
+                    // The biome at the player's position and the six climate values it was chosen from
+                    // (temperature, humidity, continentalness, erosion, depth, weirdness), as the world's
+                    // own climate sampler reports them. For tracking down why a biome appears where it does.
+                    CommandSourceStack src = ctx.getSource();
+                    ServerLevel world = src.getLevel();
+                    Vec3 p = src.getPosition();
+                    int x = (int) Math.floor(p.x), y = (int) Math.floor(p.y), z = (int) Math.floor(p.z);
+                    RandomState rstate = world.getChunkSource().randomState();
+                    var climate = rstate.createClimateSampler(net.minecraft.world.level.levelgen.densityfunction.SamplerContext.EMPTY_UNCACHED);
+                    var resolver = world.getChunkSource().getGenerator().getBiomeSource().createUncachedResolver(rstate);
+                    String id = resolver.getNoiseBiome(x >> 2, y >> 2, z >> 2).unwrapKey().map(k -> k.identifier().toString()).orElse("?");
+                    String msg = String.format(Locale.UK, "%d %d %d  %s  T %.3f  H %.3f  C %.3f  E %.3f  D %.3f  W %.3f  mask %.2f", x, y, z, id,
+                            climate.temperature().sampleValue(x, y, z), climate.humidity().sampleValue(x, y, z),
+                            climate.continentalness().sampleValue(x, y, z), climate.erosion().sampleValue(x, y, z),
+                            climate.depth().sampleValue(x, y, z), climate.weirdness().sampleValue(x, y, z),
+                            AtlasMountainsMod.cacheFor(world).mask(x, z));
+                    src.sendSuccess(() -> Component.literal(msg), false);
+                    return 1;
+                }))
                 .then(Commands.literal("fields")
                         .then(Commands.argument("spanKm", IntegerArgumentType.integer(4, 200))
                         .then(Commands.argument("erosionBelow", com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg(-1, 1))
