@@ -1,0 +1,49 @@
+name: Bug report
+description: Something generates wrong or the game crashes
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead. Screenshots help a lot.
+    validations:
+      required: true
+  - type: input
+    id: seed
+    attributes:
+      label: World seed
+    validations:
+      required: true
+  - type: input
+    id: coords
+    attributes:
+      label: Coordinates
+      description: From the F3 screen, e.g. -2104 80 1916
+  - type: input
+    id: version
+    attributes:
+      label: Mod version
+      placeholder: 0.3.0
+    validations:
+      required: true
+  - type: dropdown
+    id: worldtype
+    attributes:
+      label: World type
+      options:
+        - Atlas Mountains
+        - Atlas Mountains (everywhere)
+    validations:
+      required: true
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other mods
+      description: Especially other world-generation or LOD mods.
+  - type: textarea
+    id: log
+    attributes:
+      label: Crash report or log
+      description: For crashes, paste the crash report or attach latest.log.
+      render: text
