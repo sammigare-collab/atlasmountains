@@ -31,6 +31,7 @@ ROCK_LINE = round(SUMMIT - ROCK_FRACTION * (SUMMIT - VALLEY_FLOOR))   # Mountain
 SEA_LEVEL = 63             # vanilla; the lake surface (floor - 1) is the same height
 SNOW_LINE = 205            # typical summits are about y 212 (design 232 x the field height scale, mostly near 0.88), the tallest about y 286
 SNOW_JITTER_MULT = 3       # surface_depth_multiplier on the y_above condition (jitters by a few blocks)
+SNOW_PATCH_LOWEST = 160    # patchy snow on ledges reaches down to here (atlasmountains:snow_cover)
 ROCK_SLOPE_DEG = 35        # steeper than this = stone
 CAVE_TOP = 135             # no density-function cave carving at or above this y (mountain zones)
 DIM_MIN_Y = -64
@@ -151,6 +152,18 @@ for name, octave in CLIMATE.items():
     n = load(f'worldgen/noise/{name}.json')
     n['base_octave'] = octave
     write(f'{NS}/worldgen/noise/{name}.json', n)
+
+# ---- material noises -----------------------------------------------------------------
+# Two small noises read by our own material rules (see StrataRule and SnowCoverCondition).
+# 26.x noise files give the first octave, the octave count and base_amplitude, a normalising
+# factor that depends only on the octave count; the values below are copied from vanilla noises
+# with the same count (pillar.json for 2 octaves, surface.json for 3).
+BASE_AMPLITUDE = {2: 0.9494731054427981, 3: 0.9381732587751008}
+def material_noise(name, base_octave, octaves):
+    write(f'{NS}/worldgen/noise/{name}.json',
+          {'base_amplitude': BASE_AMPLITUDE[octaves], 'base_octave': base_octave, 'octave_count': octaves})
+material_noise('strata_warp', -8, 2)    # wavelength about 256 blocks: beds rise and dip slowly along a ridge
+material_noise('snow_patches', -4, 3)   # wavelength about 16 blocks, with finer detail: blobs a dozen blocks across
 
 # ---- density functions ---------------------------------------------------------------
 write(f'{NS}/worldgen/density_function/overworld/sloped_cheese.json',
@@ -275,14 +288,25 @@ snow = {'type': 'minecraft:y_above', 'anchor': {'absolute': SNOW_LINE}, 'surface
 def steep(mixed): return {'type': f'{NS}:slope_above', 'degrees': ROCK_SLOPE_DEG, 'mixed': mixed}
 in_mountains = {'type': f'{NS}:on_our_slope', 'above_floor': 6.0}   # valley floors and our flanks; not the foot where vanilla shows
 
-rock = seq(   # warm rock palette: a simple noise-selected mix of three vanilla blocks
-    cond(noise_between(-10.0, -0.25), block('minecraft:tuff')),
-    cond(noise_between(0.3, 10.0), block('minecraft:packed_mud')),
-    block('minecraft:stone'),
-)
+def layer(name, weight, max_thickness):
+    return {'state': name, 'weight': weight, 'max_thickness': max_thickness}
+# Exposed rock: horizontal beds of several stone types (atlasmountains:strata, see StrataRule).
+# Grey stone and andesite carry the faces; tuff and dripstone add darker and warmer beds; thin
+# calcite seams give the pale lines that make strata read from a distance. Weights are relative.
+rock = {'type': f'{NS}:strata', 'min_thickness': 1, 'period': 192, 'warp': 12.0, 'speckle': 0.18, 'layers': [
+    layer('minecraft:stone',           5.0, 6),
+    layer('minecraft:andesite',        3.0, 5),
+    layer('minecraft:tuff',            2.0, 4),
+    layer('minecraft:dripstone_block', 1.0, 2),
+    layer('minecraft:calcite',         0.8, 2),
+]}
+def snow_cover(mixed):   # patchy snow on ledges below the snow line (see SnowCoverCondition)
+    return {'type': f'{NS}:snow_cover', 'snow_line': SNOW_LINE, 'lowest': SNOW_PATCH_LOWEST,
+            'ledge_slope': 38.0, 'steep_penalty': 0.45, 'mixed': mixed}
 def mountain_rules(mixed): return seq(
     cond(top_block, seq(
         cond(snow, block('minecraft:snow_block')),
+        cond(snow_cover(mixed), block('minecraft:snow_block')),
         cond(steep(mixed), rock),
         cond(above_water, block('minecraft:grass_block')),
         block('minecraft:gravel'),

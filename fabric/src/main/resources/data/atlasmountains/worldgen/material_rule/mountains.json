@@ -51,42 +51,56 @@
                       {
                         "type": "minecraft:condition",
                         "if_true": {
+                          "type": "atlasmountains:snow_cover",
+                          "snow_line": 205,
+                          "lowest": 160,
+                          "ledge_slope": 38.0,
+                          "steep_penalty": 0.45,
+                          "mixed": true
+                        },
+                        "then_run": {
+                          "type": "minecraft:block",
+                          "result_state": "minecraft:snow_block"
+                        }
+                      },
+                      {
+                        "type": "minecraft:condition",
+                        "if_true": {
                           "type": "atlasmountains:slope_above",
                           "degrees": 35,
                           "mixed": true
                         },
                         "then_run": {
-                          "type": "minecraft:sequence",
-                          "sequence": [
+                          "type": "atlasmountains:strata",
+                          "min_thickness": 1,
+                          "period": 192,
+                          "warp": 12.0,
+                          "speckle": 0.18,
+                          "layers": [
                             {
-                              "type": "minecraft:condition",
-                              "if_true": {
-                                "type": "minecraft:noise_threshold",
-                                "noise": "minecraft:surface",
-                                "min_threshold": -10.0,
-                                "max_threshold": -0.25
-                              },
-                              "then_run": {
-                                "type": "minecraft:block",
-                                "result_state": "minecraft:tuff"
-                              }
+                              "state": "minecraft:stone",
+                              "weight": 5.0,
+                              "max_thickness": 6
                             },
                             {
-                              "type": "minecraft:condition",
-                              "if_true": {
-                                "type": "minecraft:noise_threshold",
-                                "noise": "minecraft:surface",
-                                "min_threshold": 0.3,
-                                "max_threshold": 10.0
-                              },
-                              "then_run": {
-                                "type": "minecraft:block",
-                                "result_state": "minecraft:packed_mud"
-                              }
+                              "state": "minecraft:andesite",
+                              "weight": 3.0,
+                              "max_thickness": 5
                             },
                             {
-                              "type": "minecraft:block",
-                              "result_state": "minecraft:stone"
+                              "state": "minecraft:tuff",
+                              "weight": 2.0,
+                              "max_thickness": 4
+                            },
+                            {
+                              "state": "minecraft:dripstone_block",
+                              "weight": 1.0,
+                              "max_thickness": 2
+                            },
+                            {
+                              "state": "minecraft:calcite",
+                              "weight": 0.8,
+                              "max_thickness": 2
                             }
                           ]
                         }
@@ -131,37 +145,36 @@
                           "mixed": true
                         },
                         "then_run": {
-                          "type": "minecraft:sequence",
-                          "sequence": [
+                          "type": "atlasmountains:strata",
+                          "min_thickness": 1,
+                          "period": 192,
+                          "warp": 12.0,
+                          "speckle": 0.18,
+                          "layers": [
                             {
-                              "type": "minecraft:condition",
-                              "if_true": {
-                                "type": "minecraft:noise_threshold",
-                                "noise": "minecraft:surface",
-                                "min_threshold": -10.0,
-                                "max_threshold": -0.25
-                              },
-                              "then_run": {
-                                "type": "minecraft:block",
-                                "result_state": "minecraft:tuff"
-                              }
+                              "state": "minecraft:stone",
+                              "weight": 5.0,
+                              "max_thickness": 6
                             },
                             {
-                              "type": "minecraft:condition",
-                              "if_true": {
-                                "type": "minecraft:noise_threshold",
-                                "noise": "minecraft:surface",
-                                "min_threshold": 0.3,
-                                "max_threshold": 10.0
-                              },
-                              "then_run": {
-                                "type": "minecraft:block",
-                                "result_state": "minecraft:packed_mud"
-                              }
+                              "state": "minecraft:andesite",
+                              "weight": 3.0,
+                              "max_thickness": 5
                             },
                             {
-                              "type": "minecraft:block",
-                              "result_state": "minecraft:stone"
+                              "state": "minecraft:tuff",
+                              "weight": 2.0,
+                              "max_thickness": 4
+                            },
+                            {
+                              "state": "minecraft:dripstone_block",
+                              "weight": 1.0,
+                              "max_thickness": 2
+                            },
+                            {
+                              "state": "minecraft:calcite",
+                              "weight": 0.8,
+                              "max_thickness": 2
                             }
                           ]
                         }

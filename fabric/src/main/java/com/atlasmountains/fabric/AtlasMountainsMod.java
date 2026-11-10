@@ -91,6 +91,8 @@ public final class AtlasMountainsMod implements ModInitializer {
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("continents"), ContinentsFunction.CODEC);
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("stretched_erosion"), StretchedErosionFunction.CODEC);
         Registry.register(BuiltInRegistries.MATERIAL_CONDITION_TYPE, id("slope_above"), SlopeAboveCondition.CODEC);
+        Registry.register(BuiltInRegistries.MATERIAL_CONDITION_TYPE, id("snow_cover"), SnowCoverCondition.CODEC);
+        Registry.register(BuiltInRegistries.MATERIAL_RULE_TYPE, id("strata"), StrataRule.CODEC);
         Registry.register(BuiltInRegistries.BIOME_SOURCE, id("mask"), AtlasBiomeSource.CODEC);
 
         // Once the overworld exists, hand the world's erosion noise to the mixed preset's layout:
