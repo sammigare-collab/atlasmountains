@@ -1,0 +1,11 @@
+name: Idea or request
+description: Suggest a change to the terrain or the mod
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Idea
+      description: What you'd like to see. Reference screenshots or real places are welcome.
+    validations:
+      required: true

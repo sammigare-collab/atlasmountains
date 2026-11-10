@@ -12,12 +12,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test
+        run: chmod +x gradlew && ./gradlew build --no-daemon
       - name: Generated datapack is up to date
         run: |
+          python3 tools/extract_vanilla.py
           python3 tools/build_datapack.py > /dev/null
           git diff --exit-code -- fabric/src/main/resources/data || { echo "::error::Re-run tools/build_datapack.py and commit the result"; exit 1; }
-      - uses: gradle/actions/setup-gradle@v4
-      - run: chmod +x gradlew && ./gradlew build --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: atlasmountains-jar
