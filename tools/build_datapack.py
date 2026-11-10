@@ -358,24 +358,23 @@ def rock(mixed):
 def snow_cover(mixed):   # patchy snow on ledges below the snow line (see SnowCoverCondition)
     return {'type': f'{NS}:snow_cover', 'snow_line': SNOW_LINE, 'lowest': SNOW_PATCH_LOWEST,
             'ledge_slope': 38.0, 'steep_penalty': 0.45, 'mixed': mixed}
-def mountain_rules(mixed):
-    """Our surface on our slopes: snow and rock always. Ordinary ground (grass, gravel under
-    water, dirt below) only in the everywhere preset; in the mixed preset it falls through to
-    vanilla's rules for the column's biome, so a mountain in a desert has sand and one in an old
-    taiga podzol, like the land around it."""
-    top = [cond(snow, block('minecraft:snow_block')),
-           cond(snow_cover(mixed), block('minecraft:snow_block')),
-           cond(steep(mixed), rock(mixed))]
-    below = [
+def mountain_rules(mixed): return seq(
+    cond(top_block, seq(
+        cond(snow, block('minecraft:snow_block')),
+        cond(snow_cover(mixed), block('minecraft:snow_block')),
+        cond(steep(mixed), rock(mixed)),
+        cond(above_water, block('minecraft:grass_block')),
+        block('minecraft:gravel'),
+    )),
+    cond(surface_layer, seq(
         # snow a few blocks deep above the snow line, not only on top: on steep ground most of what
         # you see is the sides of the voxel steps, which are surface-layer blocks, and with only a
         # top block of snow the summits read as dark rock with white specks
         cond(snow, block('minecraft:snow_block')),
-        cond(steep(mixed), rock(mixed))]
-    if not mixed:
-        top += [cond(above_water, block('minecraft:grass_block')), block('minecraft:gravel')]
-        below += [block('minecraft:dirt')]
-    return seq(cond(top_block, seq(*top)), cond(surface_layer, seq(*below)))
+        cond(steep(mixed), rock(mixed)),
+        block('minecraft:dirt'),
+    )),
+)
 # vanilla's overworld rule: sequence[bedrock_floor, copper, iron, condition(above_preliminary_surface, overworld/surface), overworld/underground]
 vanilla_rule = load('worldgen/material_rule/overworld.json')
 assert vanilla_rule['type'] == 'minecraft:sequence'
@@ -428,55 +427,6 @@ for ours_id, (template, trange) in BIOMES.items():
     entries.append({'biome': f'{NS}:{ours_id}', 'parameters': {
         'temperature': trange, 'humidity': [-1.0, 1.0], 'continentalness': [-1.0, 1.0],
         'erosion': [-1.0, 1.0], 'weirdness': [-1.0, 1.0], 'depth': [-1.0, 1.0], 'offset': 0.0}})
-
-# ---- 7b. treeless twins of vanilla's land biomes ----------------------------------------------
-# In the mixed preset a mountain takes the biome of its surroundings (Sammi: grass colour,
-# temperature, trees and ground should match what is around it: sand in a desert, jungle in a
-# jungle, snow in a snowy biome). Below the treeline that is the vanilla biome itself; above it,
-# its twin here: an exact copy with the tree features taken out of the vegetation step, so the
-# treeline stays where it was while grass colour, weather and mobs still match. Oceans, rivers,
-# beaches, caves and the Nether and End have no twin: inside a mountain those fall back to our
-# own temperature-chosen biomes, as before.
-NO_TWIN = {'beach', 'snowy_beach', 'stony_shore', 'river', 'frozen_river', 'deep_dark', 'dripstone_caves',
-           'lush_caves', 'sulfur_caves', 'basalt_deltas', 'crimson_forest', 'nether_wastes', 'soul_sand_valley',
-           'warped_forest', 'the_end', 'end_barrens', 'end_highlands', 'end_midlands', 'small_end_islands', 'the_void'}
-TREE_FEATURES = {'minecraft:birch_tall', 'minecraft:bamboo', 'minecraft:bamboo_light', 'minecraft:bamboo_vegetation',
-                 'minecraft:dark_forest_vegetation', 'minecraft:pale_garden_vegetation', 'minecraft:rooted_azalea_tree',
-                 'minecraft:mushroom_island_vegetation'}
-def is_tree(feature): return feature.startswith('minecraft:trees_') or feature in TREE_FEATURES
-TWINS = {}   # vanilla biome id -> our treeless twin id
-for name in sorted(f[:-5] for f in os.listdir(os.path.join(VAN, 'worldgen', 'biome')) if f.endswith('.json')):
-    if name in NO_TWIN or 'ocean' in name: continue
-    b = load(f'worldgen/biome/{name}.json')
-    feats = b.get('features', [])
-    if len(feats) > 9: feats[9] = [f for f in feats[9] if not is_tree(f)]
-    write(f'{NS}/worldgen/biome/high/{name}.json', b)
-    TWINS[f'minecraft:{name}'] = f'{NS}:high/{name}'
-
-# Vanilla's ground rules pick blocks by biome (sand for deserts, podzol for old taigas, terracotta
-# for badlands...). Our copy adds each twin wherever its vanilla biome is named, so the ground
-# above the treeline matches the ground below it; references between vanilla's rule files are
-# pointed at our copies.
-def twin_rules(obj):
-    if isinstance(obj, dict):
-        out = {k: twin_rules(v) for k, v in obj.items()}
-        if out.get('type') == 'minecraft:biome':
-            ids = out['biome_is'] if isinstance(out['biome_is'], list) else [out['biome_is']]
-            out['biome_is'] = ids + [TWINS[i] for i in ids if i in TWINS]
-        return out
-    if isinstance(obj, list): return [twin_rules(v) for v in obj]
-    # a reference to another of vanilla's overworld rule files (but not a density function or a
-    # noise that happens to share the prefix): point it at our copy
-    if isinstance(obj, str) and obj.startswith('minecraft:overworld/') and \
-            os.path.isfile(os.path.join(VAN, 'worldgen', 'material_rule', obj[len('minecraft:'):] + '.json')):
-        return obj.replace('minecraft:overworld/', f'{NS}:vanilla_twins/', 1)
-    return obj
-_rules_root = os.path.join(VAN, 'worldgen', 'material_rule', 'overworld')
-for folder, _, files in sorted(os.walk(_rules_root)):
-    for f in sorted(files):
-        if not f.endswith('.json'): continue
-        rel = os.path.relpath(os.path.join(folder, f), _rules_root).replace(os.sep, '/')
-        write(f'{NS}/worldgen/material_rule/vanilla_twins/{rel}', twin_rules(load(f'worldgen/material_rule/overworld/{rel}')))
 
 # ---- dimension type: vanilla's overworld, made taller so the summits fit ------------------------
 dt = load('dimension_type/overworld.json')
@@ -569,10 +519,8 @@ def build_variant(settings_name, preset_name, mixed):
     # material rules: vanilla's overworld chain with our mountain surface in front of vanilla's surface
     rule = copy.deepcopy(vanilla_rule)
     if mixed:
-        # vanilla's whole chain, pointed at our twin-aware copies of its rule files
-        rule = twin_rules(rule)
         rule['sequence'][SURFACE_IDX] = cond({'type': 'minecraft:above_preliminary_surface'},
-                                             seq(cond(in_mountains, mountain_rules(True)), twin_rules(vanilla_surface_run)))
+                                             seq(cond(in_mountains, mountain_rules(True)), vanilla_surface_run))
     else:
         rule['sequence'][SURFACE_IDX] = cond({'type': 'minecraft:above_preliminary_surface'}, mountain_rules(False))
     write(f'{NS}/worldgen/material_rule/{settings_name}.json', rule)
@@ -588,11 +536,7 @@ def build_variant(settings_name, preset_name, mixed):
                         'treeline_y': TREELINE,
                         'cold_below': BIOMES['cold'][1][1], 'warm_above': BIOMES['warm'][1][0], 'mask_threshold': 0.5,
                         # snow line: y = base + (temperature - frozen) * scale (+/- jitter); snow everywhere below 'frozen'
-                        'snow_line_base': 64, 'snow_line_scale': 700, 'snow_line_frozen': -0.2, 'snow_line_jitter': 25,
-                        # match the surroundings: our cold biome above the snow line; below it vanilla's
-                        # biome below the treeline and its treeless twin above
-                        'match_surroundings': {'snow_line': SNOW_LINE,
-                                               'twins': [{'vanilla': v, 'high': h} for v, h in sorted(TWINS.items())]}}
+                        'snow_line_base': 64, 'snow_line_scale': 700, 'snow_line_frozen': -0.2, 'snow_line_jitter': 25}
     else:
         biome_source = {'type': 'minecraft:multi_noise', 'biomes': entries}
     wp['dimensions']['minecraft:overworld'] = {

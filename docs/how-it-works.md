@@ -45,13 +45,10 @@ Technical notes on the terrain generator. For installing and playing, see the [R
 - *Edge blend*: in the mask's fade band the surface is a blend of our height and vanilla's
   jaggedness-free surface, with vanilla's 3-D density shifted to follow it, so vanilla hills ramp
   down into our valleys instead of standing in them.
-- *Biomes and surface*: inside the mountains, below the snow line, the biome vanilla would put
-  there, so a mountain matches the land around it; above the treeline (y 92) a treeless twin of
-  that biome (`atlasmountains:high/<name>`, generated from vanilla's file with the tree features
-  removed). Ordinary ground follows vanilla's rules for the biome, through a copy of them that
-  knows the twins (`material_rule/vanilla_twins`). Above the snow line (y 205) our `cold` biome.
-  Rivers, beaches and caves inside a mountain use our `cold`, `temperate` or `warm` (copies of
-  snowy_taiga, meadow and savanna with sparse spruce) by temperature. Steep ground is rock that shades down each face (`atlasmountains:rock_gradient`,
+- *Biomes and surface*: inside the mountains, three biomes (`cold`, `temperate`, `warm`), copies of
+  vanilla snowy_taiga, meadow and savanna with sparse spruce and short grass, plus treeless twins
+  (`*_high`) above the treeline (y 92). The cold biome starts at a snow line that rises with
+  temperature. Steep ground is rock that shades down each face (`atlasmountains:rock_gradient`,
   measured as a percentage of that face's height, from the valley floor to where its rock begins:
   the column's own summit, or the snow line if the summit is above it). Smooth basalt at the top,
   then deepslate, tuff, stone and andesite at the foot, mixed in small clumps and wobbled by a
