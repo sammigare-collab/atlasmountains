@@ -1,21 +1,21 @@
 {
   "type": "minecraft:mul",
-  "argument1": 0.0078125,
-  "argument2": {
+  "left": 0.0078125,
+  "right": {
     "type": "minecraft:add",
-    "argument1": {
-      "type": "minecraft:cache_2d",
-      "argument": {
+    "left": {
+      "type": "minecraft:cache",
+      "input": {
         "type": "atlasmountains:terrain_height",
         "eroded": false,
         "mask_relief": true,
-        "chains": true
+        "mixed": true
       }
     },
-    "argument2": {
+    "right": {
       "type": "minecraft:mul",
-      "argument1": -1.0,
-      "argument2": "minecraft:y"
+      "left": -1.0,
+      "right": "minecraft:y"
     }
   }
 }

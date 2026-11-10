@@ -1,7 +1,7 @@
 package com.atlasmountains.core;
 
 /**
- * Spines everywhere, as the edges of a warped Voronoi diagram: a connected network of ridges
+ * Where the ridges are. Ridges everywhere, as the edges of a warped Voronoi diagram: a connected network of ridges
  * meeting at three-way junctions, enclosing cells. Where the mountain mask is on (vanilla's
  * mountain footprint) every column is on one of these ridges or on the flank below it, so the
  * footprint fills with ranges back to back; a cell wider than two flanks leaves a small
@@ -14,7 +14,7 @@ package com.atlasmountains.core;
  * ({@link MountainSettings#fieldHeightBoost} on average, plus or minus
  * {@link MountainSettings#fieldHeightVariation}), so some massifs are big and some small.
  */
-public final class FieldLayout implements SpineLayout {
+public final class FieldLayout {
 
     private final MountainSettings s;
     private final long siteSeed, warpSeed, heightSeed;
@@ -28,29 +28,37 @@ public final class FieldLayout implements SpineLayout {
         this.heightSeed = Hash.hash(seed, 9003);
     }
 
-    /** Summit relief scale at (x, z): boost times (1 +/- variation), smooth over fieldHeightWavelength. */
+    /**
+     * Summit relief scale at (x, z): fieldHeightBoost times (1 + fieldHeightVariation * n), with n
+     * a smooth noise in -1..1 over fieldHeightWavelength blocks. Value noise clusters near 0, so
+     * most of the map sits close to the boost and the extremes are rare.
+     */
     public double heightScale(double x, double z) {
-        double n = Hash.value2(heightSeed, x / s.fieldHeightWavelength, z / s.fieldHeightWavelength) * 2 - 1;
+        double n = Hash.value2(heightSeed, x / s.fieldHeightWavelength, z / s.fieldHeightWavelength);
         return s.fieldHeightBoost * (1 + s.fieldHeightVariation * n);
     }
 
+    /** Domain-warp offset in blocks for one axis (salt 1 = x, 2 = z): two octaves plus a constant shift. */
     private double warp(long salt, double x, double z) {
         double w = s.fieldWarpWavelength;
-        return (Hash.value2(Hash.hash(warpSeed, salt), x / w, z / w) - 0.5) * 2 * s.fieldWarpAmplitude
-             + (Hash.value2(Hash.hash(warpSeed, salt + 10), x / w * 2.3, z / w * 2.3) - 0.5) * s.fieldWarpAmplitude * 0.5;
+        return Hash.value2(Hash.hash(warpSeed, salt), x / w, z / w) * s.fieldWarpAmplitude
+             + Hash.value2(Hash.hash(warpSeed, salt + 10), x / w * 2.3, z / w * 2.3) * s.fieldWarpAmplitude * 0.25
+             + s.fieldWarpShift;
     }
 
-    @Override
+    /**
+     * Gives the layout the world's erosion field, (x, z) -> erosion on vanilla's scale. Until it
+     * is set there is no footprint: {@link #zone} is NaN and ridges run everywhere (the
+     * "everywhere" preset and the standalone tools).
+     */
     public void setErosion(java.util.function.DoubleBinaryOperator erosion) { this.erosion = erosion; siteInside.clear(); }
-
-    @Override
-    public boolean zoneReplacesFootprint() { return true; }
 
     /** Whether the cell of this site is in the mountains: vanilla's footprint is on at the site. */
     private boolean inside(long id, double sx, double sz) {
         Boolean b = siteInside.get(id);
         if (b == null) {
-            b = erosion.applyAsDouble(sx, sz) < s.erosionMountainBelow;
+            double rag = Hash.value2(Hash.hash(siteSeed, 77), sx / s.footprintRaggedWavelength, sz / s.footprintRaggedWavelength) * s.footprintRagged;
+            b = erosion.applyAsDouble(sx, sz) + rag < s.erosionMountainBelow;
             if (siteInside.size() > 200_000) siteInside.clear();
             siteInside.put(id, b);
         }
@@ -63,7 +71,6 @@ public final class FieldLayout implements SpineLayout {
      * erosion field is installed. Uses the same ridges as sample(), so the mask and the terrain
      * move together.
      */
-    @Override
     public double zone(double x, double z) {
         if (erosion == null) return Double.NaN;
         Sites n = nearest(x, z);
@@ -113,8 +120,8 @@ public final class FieldLayout implements SpineLayout {
         return n;
     }
 
-    @Override
-    public void sample(double x, double z, RangeLayout.Sample out) {
+    /** The nearest two ridges to (x, z) and the height scale there, written into out. */
+    public void sample(double x, double z, RidgeSample out) {
         Sites n = nearest(x, z);
         int a = n.i1;
         boolean gate = erosion != null;
@@ -131,16 +138,16 @@ public final class FieldLayout implements SpineLayout {
             else if (d < e2) { e2 = d; b2 = k; }
         }
         double far = 3 * s.halfWidth();
-        if (b1 < 0) { out.distance = far; out.along = 0; out.range = 0; }
+        if (b1 < 0) { out.distance = far; out.along = 0; out.ridge = 0; }
         else edge(n.px, n.pz, n.ds[a], n.xs[a], n.zs[a], n.ids[a], n.ds[b1], n.xs[b1], n.zs[b1], n.ids[b1], out, false);
-        if (b2 < 0) { out.distance2 = far; out.along2 = 0; out.range2 = 1; }
+        if (b2 < 0) { out.distance2 = far; out.along2 = 0; out.ridge2 = 1; }
         else edge(n.px, n.pz, n.ds[a], n.xs[a], n.zs[a], n.ids[a], n.ds[b2], n.xs[b2], n.zs[b2], n.ids[b2], out, true);
         out.scale = heightScale(x, z);
     }
 
-    /** Distance to, and position along, the bisector of sites a and b; written as the first or second spine of out. */
+    /** Distance to, and position along, the bisector of sites a and b; written as the first or second ridge of out. */
     private static void edge(double px, double pz, double da, double ax, double az, long ida, double db, double bx, double bz, long idb,
-                             RangeLayout.Sample out, boolean second) {
+                             RidgeSample out, boolean second) {
         double ex = bx - ax, ez = bz - az;
         double len = Math.max(1e-9, Math.sqrt(ex * ex + ez * ez));
         double dist = (db - da) / (2 * len);                      // db, da are squared distances
@@ -150,8 +157,8 @@ public final class FieldLayout implements SpineLayout {
         if (flip) { tx = -tx; tz = -tz; }
         double mx = (ax + bx) * 0.5, mz = (az + bz) * 0.5;
         double along = (px - mx) * tx + (pz - mz) * tz;
-        int range = (int) Hash.hash(Math.min(ida, idb), Math.max(ida, idb));
-        if (second) { out.distance2 = dist; out.along2 = along; out.range2 = range; }
-        else { out.distance = dist; out.along = along; out.range = range; }
+        int ridge = (int) Hash.hash(Math.min(ida, idb), Math.max(ida, idb));
+        if (second) { out.distance2 = dist; out.along2 = along; out.ridge2 = ridge; }
+        else { out.distance = dist; out.along = along; out.ridge = ridge; }
     }
 }

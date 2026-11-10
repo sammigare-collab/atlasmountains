@@ -2,10 +2,8 @@ package com.atlasmountains.core.diag;
 
 import com.atlasmountains.core.MountainMask;
 import com.atlasmountains.core.MountainSettings;
-import com.atlasmountains.core.ChainLayout;
+import com.atlasmountains.core.FieldLayout;
 import com.atlasmountains.core.Continents;
-import com.atlasmountains.core.SpineLayout;
-import com.atlasmountains.core.RangeLayout;
 import com.atlasmountains.core.SettingsOverrides;
 
 import javax.imageio.ImageIO;
@@ -19,16 +17,16 @@ import java.io.File;
 import java.io.IOException;
 
 /**
- * PNG preview of the plate continents with the mountain zones drawn on them, from the same
- * code the mod runs. No erosion, no regions: continentalness and mask only, so a 64 km map
+ * PNG preview of the continents with the mountain mask drawn on them, from the same code the
+ * mod runs. Outside the game there is no erosion noise, so the standalone map shows continents
+ * only; {@code /atlasmountains continents} in game draws the mountain provinces too. No erosion, no regions: continentalness and mask only, so a 64 km map
  * takes a few seconds.
  *
  *     java -cp build/classes com.atlasmountains.core.diag.ContinentMap <seed> [spanBlocks] [blocksPerPixel] [centreX] [centreZ] [out.png] [name=value ...]
  *
  * Colours: deep ocean to shallow sea in blues, beach band in sand, land in greens darkening
- * inland, mountain zones in brown (opacity = mask value, so the coast fade is visible),
- * dashed grey lines mark the plate boundaries themselves (for reference only; nothing in the
- * world is drawn along them). A 10 km bar and the parameters are printed in the corner.
+ * inland, mountains in brown (opacity = mask value, so the coast fade is visible). A 10 km bar
+ * and the parameters are printed in the corner.
  */
 public final class ContinentMap {
 
@@ -42,30 +40,28 @@ public final class ContinentMap {
         MountainSettings s = new MountainSettings();
         for (int i = 6; i < args.length; i++) SettingsOverrides.apply(s, args[i]);
 
-        Continents plates = Continents.create(s, seed);
-        SpineLayout layout = s.chainLayout ? new ChainLayout(s, seed) : new RangeLayout(s, seed);
-        MountainMask mask = new MountainMask(s, layout, plates, seed);
-        String info = render(s, plates, mask, seed, span, bpp, cx, cz, new File(out));
+        Continents continents = Continents.create(s, seed);
+        MountainMask mask = new MountainMask(s, new FieldLayout(s, seed), continents);
+        String info = render(s, continents, mask, seed, span, bpp, cx, cz, new File(out));
         System.out.println(info);
         System.out.println("wrote " + out);
     }
 
     /** Renders the map and writes it to {@code out}; returns the legend line. */
-    public static String render(MountainSettings s, Continents plates, MountainMask mask, long seed,
+    public static String render(MountainSettings s, Continents continents, MountainMask mask, long seed,
                                 int span, int bpp, int cx, int cz, File out) throws IOException {
         int n = span / bpp;
         BufferedImage img = new BufferedImage(n, n, BufferedImage.TYPE_INT_RGB);
-        double[] scratch = new double[2];
         double landPx = 0, zonePx = 0, deepPx = 0;
         for (int py = 0; py < n; py++) {
             for (int px = 0; px < n; px++) {
                 double x = cx - span / 2.0 + (px + 0.5) * bpp;
                 double z = cz - span / 2.0 + (py + 0.5) * bpp;
-                double c = plates.continentalness(x, z);
+                double c = continents.continentalness(x, z);
                 int rgb = landColour(c);
                 if (c > -0.19) {
                     landPx++;
-                    double m = mask.zone(x, z, scratch) * mask.inland(x, z);
+                    double m = mask.mask(x, z);
                     if (m > 0.01) {
                         zonePx += m;
                         rgb = blend(rgb, 0x5a3a1e, m);
@@ -85,8 +81,7 @@ public final class ContinentMap {
         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, Math.max(12, n / 60)));
         g.drawString("10 km", 20, n - 32);
         String info = String.format("seed %d   span %d km   %s   land %.0f%%   mountain zones %.0f%% of land   deep ocean %.0f%%",
-                seed, span / 1000, s.noiseContinents ? String.format("noise continents %.0f km", s.continentWavelength / 1000)
-                        : String.format("plates ~%.0f km, %d%% land", s.plateSizeBlocks / 1000, Math.round(s.plateLandFraction * 100)),
+                seed, span / 1000, String.format("noise continents %.0f km", s.continentWavelength / 1000),
                 100 * landPx / (n * (double) n), 100 * zonePx / Math.max(1, landPx), 100 * deepPx / (n * (double) n));
         g.setColor(new Color(0, 0, 0, 160));
         g.fillRect(10, 10, g.getFontMetrics().stringWidth(info) + 20, g.getFontMetrics().getHeight() + 10);

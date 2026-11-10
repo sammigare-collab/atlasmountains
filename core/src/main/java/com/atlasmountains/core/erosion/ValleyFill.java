@@ -1,8 +1,8 @@
 package com.atlasmountains.core.erosion;
 
+import com.atlasmountains.core.RidgeSample;
 import com.atlasmountains.core.HeightmapGenerator;
 import com.atlasmountains.core.MountainSettings;
-import com.atlasmountains.core.RangeLayout;
 import com.atlasmountains.core.RegionHeightmap;
 
 /**
@@ -23,7 +23,7 @@ public final class ValleyFill {
     }
 
     public void run(RegionHeightmap m, HeightmapGenerator gen) {
-        RangeLayout.Sample sc = new RangeLayout.Sample();
+        RidgeSample sc = new RidgeSample();
         float[] fm = m.floorModel;
         for (int gz = 0; gz < m.size; gz++) {
             double z = m.originZ + gz * (double) m.spacing;
