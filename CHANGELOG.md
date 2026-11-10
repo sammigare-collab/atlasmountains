@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Rivers and swamps outside the mountains have their water back. The inland lowland lift
+  (about 4 blocks, plus 8 more in vanilla's flattest class) also lifted river beds and swamps,
+  leaving rivers as dry green valleys and mangrove swamps as dry hills under solid canopy. The
+  extra 8 blocks are gone, and the 4-block lift now fades out along river valleys and over the
+  swamp class. Measured on seed -3604899424632918474: river columns in water went from 0-11% to
+  38-88% (vanilla on the same seed: 37-93%); mangrove swamp from 0% to 13-21% (vanilla 45%),
+  ground from about y 78 to y 65 (vanilla 62).
 - Steep rock now shades down each face, measured from that face's own peak: dark smooth basalt
   where the rock leaves the snow (or at the top of a peak too low for snow), then deepslate,
   tuff and stone, pale andesite at the foot, blended in small clumps. Replaces the large tuff

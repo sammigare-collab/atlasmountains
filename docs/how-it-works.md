@@ -37,7 +37,8 @@ Technical notes on the terrain generator. For installing and playing, see the [R
 - *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Temperature, vegetation
   and erosion noises run at half vanilla's frequency (biomes twice vanilla size); the ridge noise
   is left alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring its erosion at
-  -0.1, and its inland lowlands are lifted a few blocks to stop kilometre-wide pooling at sea level.
+  -0.1, and its inland lowlands are lifted about 4 blocks to stop kilometre-wide pooling at sea level,
+  except along river valleys and in the swamp class, which keep vanilla's height and their water.
   Vanilla's terrain splines read `minecraft:overworld/continents` and `/erosion` by name, so the
   preset ships repointed copies (`vanilla_*` density functions) that read the mod's continents and
   the floored erosion.

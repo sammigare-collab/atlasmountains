@@ -1498,26 +1498,8 @@
     }
   },
   "right": {
-    "type": "minecraft:add",
+    "type": "minecraft:mul",
     "left": {
-      "type": "minecraft:spline",
-      "spline": {
-        "coordinate": "atlasmountains:overworld/continents",
-        "points": [
-          {
-            "location": -0.05,
-            "value": 0.0,
-            "derivative": 0.0
-          },
-          {
-            "location": 0.25,
-            "value": 0.03,
-            "derivative": 0.0
-          }
-        ]
-      }
-    },
-    "right": {
       "type": "minecraft:mul",
       "left": {
         "type": "minecraft:spline",
@@ -1530,8 +1512,8 @@
               "derivative": 0.0
             },
             {
-              "location": 0.15,
-              "value": 1.0,
+              "location": 0.25,
+              "value": 0.03,
               "derivative": 0.0
             }
           ]
@@ -1540,20 +1522,38 @@
       "right": {
         "type": "minecraft:spline",
         "spline": {
-          "coordinate": "atlasmountains:overworld/erosion",
+          "coordinate": "minecraft:overworld/ridges_folded",
           "points": [
             {
-              "location": 0.35,
+              "location": -0.9,
               "value": 0.0,
               "derivative": 0.0
             },
             {
-              "location": 0.6,
-              "value": 0.06,
+              "location": -0.5,
+              "value": 1.0,
               "derivative": 0.0
             }
           ]
         }
+      }
+    },
+    "right": {
+      "type": "minecraft:spline",
+      "spline": {
+        "coordinate": "atlasmountains:overworld/erosion",
+        "points": [
+          {
+            "location": 0.4,
+            "value": 1.0,
+            "derivative": 0.0
+          },
+          {
+            "location": 0.55,
+            "value": 0.0,
+            "derivative": 0.0
+          }
+        ]
       }
     }
   }

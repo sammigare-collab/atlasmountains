@@ -225,21 +225,30 @@ def repoint(obj):
         obj = rename(obj, f'minecraft:overworld/{n}', f'{NS}:overworld/vanilla_{n}')
     return obj
 # The erosion noise runs larger than vanilla's (twice vanilla now; it was 4x, Large Biomes scale,
-# when this was added), so its flattest, lowest class comes in wide patches that sit at y 62-64 and pool everywhere. Vanilla's offset
-# is lifted by LOWLAND_LIFT (in offset units, 128 blocks each) from the coast band inland so those
-# flats stand a few blocks clear of sea level; the shore and the sea are untouched.
-LOWLAND_LIFT = 0.03        # everywhere inland: about 4 blocks
-SWAMP_LIFT = 0.06          # extra in vanilla's flattest class (erosion above ~0.45), which otherwise sits under water for kilometres: about 8 blocks
-LOWLAND_RAMP = add(
+# when this was added), so its flatter classes come in wide patches that sit at y 62-64 and pool.
+# Vanilla's offset is lifted by LOWLAND_LIFT (in offset units, 128 blocks each) from the coast band
+# inland so those flats stand a few blocks clear of sea level; the shore and the sea are untouched.
+# The lift is faded out along vanilla's river valleys (folded ridges near -1, the same band that gets
+# the river biome), so river beds stay at vanilla's depth and keep their water. There used to be an
+# extra 8-block lift in the flattest class too (erosion above ~0.45); that is vanilla's swamp class,
+# so it left swamps and mangrove swamps as dry hills about 12 blocks above the sea (Nov 2026), and
+# it was removed, and the 4-block lift is now faded out over that class as well: swamps are meant to
+# be wet, and even 4 blocks left a mangrove swamp at a median y 70, under a fifth of it in water.
+LOWLAND_LIFT = 0.03        # inland except river valleys and swamps: about 4 blocks
+RIDGES_FOLDED = 'minecraft:overworld/ridges_folded'   # vanilla's own, unchanged (weirdness is vanilla)
+LOWLAND_RAMP = mul(mul(
     {'type': 'minecraft:spline', 'spline': {'coordinate': CONTINENTS, 'points': [
         {'location': -0.05, 'value': 0.0, 'derivative': 0.0},
         {'location': 0.25, 'value': LOWLAND_LIFT, 'derivative': 0.0}]}},
-    mul({'type': 'minecraft:spline', 'spline': {'coordinate': CONTINENTS, 'points': [
-            {'location': -0.05, 'value': 0.0, 'derivative': 0.0},
-            {'location': 0.15, 'value': 1.0, 'derivative': 0.0}]}},
-        {'type': 'minecraft:spline', 'spline': {'coordinate': f'{NS}:overworld/erosion', 'points': [
-            {'location': 0.35, 'value': 0.0, 'derivative': 0.0},
-            {'location': 0.6, 'value': SWAMP_LIFT, 'derivative': 0.0}]}}))
+    # 0 in the valley floor (river biome is |weirdness| < 0.05, folded ridges below -0.85), full
+    # lift by -0.5, so the valley sides ease up instead of stepping
+    {'type': 'minecraft:spline', 'spline': {'coordinate': RIDGES_FOLDED, 'points': [
+        {'location': -0.9, 'value': 0.0, 'derivative': 0.0},
+        {'location': -0.5, 'value': 1.0, 'derivative': 0.0}]}}),
+    # and 0 in vanilla's swamp class (erosion above 0.55 gets swamp and mangrove swamp), fading from 0.4
+    {'type': 'minecraft:spline', 'spline': {'coordinate': f'{NS}:overworld/erosion', 'points': [
+        {'location': 0.4, 'value': 1.0, 'derivative': 0.0},
+        {'location': 0.55, 'value': 0.0, 'derivative': 0.0}]}})
 for n in VANILLA_SHAPE:
     body = repoint(load(f'worldgen/density_function/overworld/{n}.json'))
     if n == 'offset':
