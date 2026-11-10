@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:sequence",
+  "sequence": [
+    "atlasmountains:vanilla_twins/powder_snow_under_surface",
+    {
+      "type": "minecraft:block",
+      "result_state": "minecraft:dirt"
+    }
+  ]
+}

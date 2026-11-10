@@ -18,6 +18,11 @@
 - Fixed straight strips of mountain biome running out of mountain areas into open country,
   and the walls and bare grass slopes along them: outside a mountain area, ridges are now
   measured to their real, finite length instead of as endless lines.
+- Mountains now match the land around them: below the snow line each mountain takes the
+  surrounding biome (grass colour, temperature, weather, mobs, trees, and ground: sand in
+  deserts, podzol in old taigas, terracotta in badlands, snow in snowy biomes), with an
+  automatically generated treeless twin of that biome above the treeline. Our own cold biome
+  is used only above the snow line. Worlds made with older builds keep the old behaviour.
 - Fixed the white fringe of snow along the edge of cold mountain areas: the cold mountain biome
   now only counts as freezing above about y 200, where the mountains' own snow starts.
 - New debug commands: `/atlasmountains climate` (the biome and six climate values where you stand), `/atlasmountains biomes <km> <step>` (a map of the real biomes) and
