@@ -348,7 +348,9 @@ def rock(mixed):
     ]}
 def snow_cover(mixed):   # patchy snow on ledges below the snow line (see SnowCoverCondition)
     return {'type': f'{NS}:snow_cover', 'snow_line': SNOW_LINE, 'lowest': SNOW_PATCH_LOWEST,
-            'ledge_slope': 38.0, 'steep_penalty': 0.45, 'mixed': mixed}
+            'ledge_slope': 38.0, 'steep_penalty': 0.45,
+            'crest_width': 6.0, 'crest_bonus': 1.6,   # snow runs down ridges and spurs (convex ground)
+            'mixed': mixed}
 def mountain_rules(mixed): return seq(
     cond(top_block, seq(
         cond(snow, block('minecraft:snow_block')),

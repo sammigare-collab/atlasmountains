@@ -51,16 +51,20 @@ import java.util.function.DoubleSupplier;
  * @param ledgeSlope   the slope, in degrees, at which the slope has no effect either way
  * @param steepPenalty the largest shift of the threshold from slope, either way (noise units;
  *                     the noise runs roughly from -1 to 1)
+ * @param crestWidth   radius, in blocks, of the ring used to measure how far ground stands above its surroundings (0 = off)
+ * @param crestBonus   the largest drop in the threshold on crests and spurs, so snow runs further down them
  * @param mixed        which preset's terrain cache to read
  */
-public record SnowCoverCondition(int snowLine, int lowest, float ledgeSlope, float steepPenalty, boolean mixed)
-        implements MaterialCondition {
+public record SnowCoverCondition(int snowLine, int lowest, float ledgeSlope, float steepPenalty,
+                                 float crestWidth, float crestBonus, boolean mixed) implements MaterialCondition {
 
     public static final MapCodec<SnowCoverCondition> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.INT.fieldOf("snow_line").forGetter(SnowCoverCondition::snowLine),
             Codec.INT.fieldOf("lowest").forGetter(SnowCoverCondition::lowest),
             Codec.FLOAT.optionalFieldOf("ledge_slope", 38.0f).forGetter(SnowCoverCondition::ledgeSlope),
             Codec.FLOAT.optionalFieldOf("steep_penalty", 0.45f).forGetter(SnowCoverCondition::steepPenalty),
+            Codec.FLOAT.optionalFieldOf("crest_width", 0f).forGetter(SnowCoverCondition::crestWidth),
+            Codec.FLOAT.optionalFieldOf("crest_bonus", 0f).forGetter(SnowCoverCondition::crestBonus),
             Codec.BOOL.optionalFieldOf("mixed", true).forGetter(SnowCoverCondition::mixed)
     ).apply(i, SnowCoverCondition::new));
 
@@ -76,6 +80,31 @@ public record SnowCoverCondition(int snowLine, int lowest, float ledgeSlope, flo
 
     @Override
     public MapCodec<? extends MaterialCondition> codec() { return CODEC; }
+
+    /** Last column's crestness, per thread (asked for every block of a column in turn). */
+    private static final ThreadLocal<double[]> LAST = ThreadLocal.withInitial(() -> new double[]{Double.NaN, 0, 0});
+    /** Crestness, in blocks, at which the full crestBonus applies. */
+    private static final double CREST_FULL = 3.0;
+
+    /**
+     * How far, in blocks, the terrain at (x, z) stands above the average of eight points
+     * crestWidth blocks around it. Positive on ridges and spurs (convex ground), near 0 on plain
+     * faces, negative in gullies. Read from our eroded terrain height, so it finds the crests
+     * erosion actually left, not only the layout's ridge lines.
+     */
+    private double crestness(int x, int z) {
+        double[] last = LAST.get();
+        if (last[1] == x && last[2] == z && !Double.isNaN(last[0])) return last[0];
+        com.atlasmountains.core.RegionCache cache = AtlasMountainsMod.cache(mixed);
+        double r = crestWidth, d = crestWidth * 0.7071;
+        double ring = cache.maskedHeight(x + r, z) + cache.maskedHeight(x - r, z)
+                + cache.maskedHeight(x, z + r) + cache.maskedHeight(x, z - r)
+                + cache.maskedHeight(x + d, z + d) + cache.maskedHeight(x - d, z - d)
+                + cache.maskedHeight(x + d, z - d) + cache.maskedHeight(x - d, z + d);
+        double c = cache.maskedHeight(x, z) - ring / 8;
+        last[0] = c; last[1] = x; last[2] = z;
+        return c;
+    }
 
     @Override
     public ConditionEvaluator compile(MaterialRuleContext context) {
@@ -95,6 +124,14 @@ public record SnowCoverCondition(int snowLine, int lowest, float ledgeSlope, flo
             // down), 15 degrees steeper gives the full penalty (only a dusting).
             double steepness = (AtlasMountainsMod.cache(mixed).slopeDegrees(x, z) - ledgeSlope) / SLOPE_RAMP;
             threshold += steepPenalty * Math.max(-1, Math.min(1, steepness));
+            // Along crests snow settles further down: where the ground stands above its
+            // surroundings (a main ridge or a spur between two gullies) the threshold drops by up
+            // to crestBonus, so white lines run down the ridges from the snow line, thinning out
+            // towards lowest.
+            if (crestWidth > 0 && crestBonus > 0) {
+                double c = crestness(x, z);
+                if (c > 0) threshold -= crestBonus * Math.min(1, c / CREST_FULL);
+            }
             double jitter = (randoms.at(x, y, z).nextFloat() * 2 - 1) * JITTER;
             return patches.getAsDouble() + jitter > threshold;
         };
