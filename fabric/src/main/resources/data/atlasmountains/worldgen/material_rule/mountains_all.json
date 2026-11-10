@@ -68,14 +68,22 @@
                     "stops": [
                       {
                         "state": "minecraft:andesite",
-                        "y": 110
+                        "y": 105
                       },
                       {
                         "state": "minecraft:stone",
-                        "y": 160
+                        "y": 130
                       },
                       {
                         "state": "minecraft:tuff",
+                        "y": 155
+                      },
+                      {
+                        "state": "minecraft:deepslate",
+                        "y": 180
+                      },
+                      {
+                        "state": "minecraft:smooth_basalt",
                         "y": 205
                       }
                     ]
@@ -127,14 +135,22 @@
                     "stops": [
                       {
                         "state": "minecraft:andesite",
-                        "y": 110
+                        "y": 105
                       },
                       {
                         "state": "minecraft:stone",
-                        "y": 160
+                        "y": 130
                       },
                       {
                         "state": "minecraft:tuff",
+                        "y": 155
+                      },
+                      {
+                        "state": "minecraft:deepslate",
+                        "y": 180
+                      },
+                      {
+                        "state": "minecraft:smooth_basalt",
                         "y": 205
                       }
                     ]

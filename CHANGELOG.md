@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Steep rock now shades with height: dark tuff just under the snow, stone in the middle, pale
-  andesite at the foot of the faces, blended in small clumps. Replaces the large tuff and
+- Steep rock now shades with height: dark smooth basalt just under the snow, then deepslate,
+  tuff and stone, pale andesite at the foot of the faces, blended in small clumps. Replaces the large tuff and
   packed-mud blotches.
 - Below the snow line, snow settles in patches on ledges and gentle ground down to y 160, so the
   white of the summits frays downwards instead of ending at one height.

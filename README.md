@@ -24,8 +24,8 @@ otherwise normal vanilla world.
 - **Snow line and treeline.** Snow starts at a height that rises with the climate, so it wraps the
   summits as a ragged contour, and below it snow lies in patches on ledges and gentle ground.
   Trees thin out and stop at the treeline.
-- **Weathered rock.** Under the snow, steep faces start dark (tuff) and lighten through stone
-  to pale andesite at their foot, blended in small clumps rather than bands.
+- **Weathered rock.** Under the snow, steep faces start dark (smooth basalt) and lighten
+  through deepslate, tuff and stone to pale andesite at their foot, blended in small clumps rather than bands.
 - **Blended edges.** Mountain provinces have ragged outlines and their foothills ease into the
   surrounding vanilla terrain rather than ending in a wall.
 - **Continents.** Land comes in large, irregular continents and islands surrounded by ocean, with

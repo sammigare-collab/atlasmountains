@@ -28,8 +28,8 @@ import java.util.function.DoubleSupplier;
  *
  * <h2>How a block is chosen</h2>
  * <ol>
- *   <li><b>Stops.</b> {@code stops} lists rocks by height, lowest first, e.g. andesite at y 110,
- *       stone at y 160, tuff at y 205. Below the first stop the first rock is used, above the
+ *   <li><b>Stops.</b> {@code stops} lists rocks by height, lowest first, e.g. andesite at y 105,
+ *       stone at y 130, tuff at y 155, deepslate at y 180, smooth basalt at y 205. Below the first stop the first rock is used, above the
  *       last the last one.</li>
  *   <li><b>Wobble.</b> The height is shifted by {@code wobble} blocks times a slow 2D noise
  *       ({@code atlasmountains:rock_wobble}), so the change from one rock to the next happens
