@@ -9,6 +9,9 @@ A Fabric world-generation mod that swaps vanilla's mountains for sharp, angular 
 horn-peak ridges with snow-capped summits, bare rock faces and small walled-in valleys, set into an
 otherwise normal vanilla world.
 
+Built entirely by prompting [Claude](https://claude.ai): every line of code was written by Claude,
+and the design, direction and in-game testing were mine (see [How this was made](#how-this-was-made)).
+
 ![Snow-capped ridges either side of a forested valley](docs/images/hero.jpg)
 
 ## Features
@@ -99,6 +102,15 @@ python3 tools/build_datapack.py    # regenerates the mod's datapack
 
 How the terrain is put together, the code layout and the diagnostic tools are described in
 [docs/how-it-works.md](docs/how-it-works.md). Version history is in [CHANGELOG.md](CHANGELOG.md).
+
+## How this was made
+
+I made this without writing any code myself. The whole mod, from the first heightmap experiments
+to the Minecraft 26.3 port, was built through conversations with Claude, Anthropic's AI model.
+My part was the design and the judgement. I set the look I wanted from reference images, played
+every build, said what was wrong ("too organised", "way too big", "too stripy") and decided what
+stayed. Claude wrote and tested the code, explained the options, and made the changes. That is why
+most commits are authored by Claude.
 
 ## License
 
