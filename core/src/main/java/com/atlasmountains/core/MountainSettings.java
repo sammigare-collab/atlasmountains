@@ -10,6 +10,31 @@ public final class MountainSettings {
     // ---- Region grid -------------------------------------------------------------
     /** Side of one region in blocks. */
     public int regionSizeBlocks = 2048;
+    /**
+     * Field layout: our mountains fill vanilla's mountain footprint 1:1, ridges from a noise
+     * field (see FieldLayout). Overrides chainLayout when true.
+     */
+    public boolean fieldLayout = true;
+    /** Voronoi cell size: ridges enclose cells about this big, so neighbouring ridges sit about this far apart. */
+    public double fieldCellSize = 500;
+    /** Site jitter as a fraction of the cell (0 = square grid, 1 = anywhere in the cell). */
+    public double fieldJitter = 0.9;
+    /** Domain warp of the diagram, so the ridges curve: amplitude in blocks and wavelength. */
+    public double fieldWarpAmplitude = 110;
+    public double fieldWarpWavelength = 700;
+    /**
+     * Field layout mask: a cell is in the mountains when vanilla's footprint is on at its site, so
+     * the mountain edge follows whole cells and the last ridge stands at full height; the mask
+     * then runs one flank beyond the last ridge and fades over this many blocks into vanilla.
+     */
+    public double fieldEdgeFade = 120;
+    /** How far below the valley floor our surface sinks where the mask is 0 (see RegionCache.maskedHeight). */
+    public double maskSink = 24;
+    /** Average summit relief multiplier in the field layout (1.2 = 20% taller than the design summit). */
+    public double fieldHeightBoost = 1.2;
+    /** Relief varies by this fraction either side of the boost, over fieldHeightWavelength blocks. */
+    public double fieldHeightVariation = 0.2;
+    public double fieldHeightWavelength = 1800;
     /** Blocks per heightmap sample. */
     public int sampleSpacing = 4;
     /** Extra samples generated on every side so neighbouring regions agree. */
@@ -28,6 +53,12 @@ public final class MountainSettings {
     public double rangeSpacing = 760;
     /** Random offset applied to each spine, +/- this, so spacing varies. */
     public double rangeSpacingJitter = 60;
+    /** Fraction of spine pairs that are pulled together back to back (parallel layout). */
+    public double pairTightChance = 0.7;
+    /** How far each spine of a tight pair moves towards the other, blocks. With rangeSpacing 760 and pull 150 the gap inside the pair is 460 and between pairs 1060. */
+    public double pairPull = 150;
+    /** Fraction of the remaining (wide) gaps that are flat valleys with lakes; the rest are filled by vanilla terrain. */
+    public double valleyChance = 0.4;
     /** Amplitude of the gentle curve of each spine. */
     public double spineCurveAmplitude = 72;
     /** Wavelength of that curve along the spine. */
@@ -54,11 +85,11 @@ public final class MountainSettings {
 
     // ---- Cross profile (step 3) --------------------------------------------------
     /** Face slope on rock, as tan. 1.0 is 45 degrees. Also the thermal critical angle on rock. */
-    public double faceSlope = 1.0;
+    public double faceSlope = 1.15;
     /** Flank slope just below the rock line, as tan. 0.7 is 35 degrees. */
-    public double flankTopSlope = 0.70;
+    public double flankTopSlope = 0.90;
     /** Concavity exponent of the grass flank. 1 is straight, higher is more concave. */
-    public double flankConcavity = 1.5;
+    public double flankConcavity = 1.3;
 
     // ---- Detail noise (step 4) ---------------------------------------------------
     /** Peak-to-trough amplitude of the ridged detail noise at the summits, blocks. Seasoning, not shape. */
@@ -119,7 +150,125 @@ public final class MountainSettings {
     /** Erosion brush radius in samples. */
     public int dropletRadius = 1;
 
-    // ---- Mountain mask (mixed world) ---------------------------------------------
+    // ---- Layout mode -------------------------------------------------------------
+    /**
+     * true: mountain chains ({@link ChainLayout}; the mixed "Atlas Mountains" preset).
+     * false: parallel spines over the whole world ({@link RangeLayout}; the "everywhere" preset and the diagnostics).
+     */
+    public boolean chainLayout = false;
+
+    // ---- Mountain chains (chainLayout = true) ------------------------------------
+    /** Cell size of the chain lattice, blocks. One chain per cell at most; sets how far apart chains are. */
+    public double chainCellSize = 4500;
+    /** Probability that a cell has a chain (before the erosion gate). */
+    public double chainChance = 0.95;
+    /**
+     * Biome-layer gate: a chain is placed with full chainChance where the world's erosion noise at
+     * its origin is below this minus half chainErosionBand, with no chance above this plus half the
+     * band. Vanilla: erosion below about -0.375 is its mountain range, -0.375..0.05 hills, above that flat.
+     */
+    public double chainErosionBelow = 2.0;      // gate off: the mountain footprint mask decides where chains show
+    public double chainErosionBand = 0.4;
+    /** Chain length, blocks, uniform between these two. */
+    public double chainLengthMin = 2500;
+    public double chainLengthMax = 5500;
+    /** A chain is at least this many times longer than its zone is wide, so multi-range chains are long massifs rather than blobs. */
+    public double chainMinAspect = 3.5;
+    /** Lateral curve of the chain centreline: amplitude and wavelength, blocks. */
+    public double chainCurveAmplitude = 700;
+    public double chainCurveWavelength = 3500;
+    /** Spines (ranges) per chain: bounds, and the relative weights of 1, 2, 3 and 4 spines. */
+    public int chainRangesMin = 1;
+    public int chainRangesMax = 4;
+    public double[] chainRangesWeights = {15, 35, 32, 18};
+    /** Width of the inner-mask fade outside the outermost spine, blocks (see ChainLayout.inner). */
+    public double innerFade = 120;
+    /**
+     * Gap between neighbouring spines in a chain, blocks. A tight gap (less than two range half-widths,
+     * about 650) makes the ranges meet back to back in a col; a wide gap leaves a flat valley with lakes.
+     */
+    public double spineGapTightMin = 260;
+    public double spineGapTightMax = 400;
+    public double spineGapWideMin = 620;
+    public double spineGapWideMax = 740;
+    /**
+     * Enclosed valleys: a gap is tight along the chain (ranges back to back in a col) except for
+     * pockets where it swells to a wide gap and closes again, so the flat valley with its lakes is
+     * walled in by the two ranges at both ends. Each valleyPocketSpacing blocks of each gap has this
+     * chance of one pocket, valleyPocketHalfMin..Max blocks long each way from its centre.
+     */
+    public double spineGapWideChance = 0.35;
+    public double valleyPocketSpacing = 1600;
+    public double valleyPocketHalfMin = 350;
+    public double valleyPocketHalfMax = 550;
+    /** Probability that a chain forks once; a child forks again with 0.6 of this, up to chainMaxBranchDepth. */
+    public double chainBranchChance = 0.7;
+    public int chainMaxBranchDepth = 2;
+    /** Angle between a child chain and its parent, degrees, uniform between these two. */
+    public double chainBranchAngleMin = 35;
+    public double chainBranchAngleMax = 65;
+    /** Child length as a fraction of the parent's, uniform between these two. */
+    public double chainBranchLengthMin = 0.45;
+    public double chainBranchLengthMax = 0.8;
+    /** Each chain's summits are scaled by a factor uniform between these two (whole chains differ in height). */
+    public double chainHeightScaleMin = 0.85;
+    public double chainHeightScaleMax = 1.2;
+    /** Outer spines of a chain are this fraction lower than the middle one (foothills building up to the main range). */
+    public double foothillDrop = 0.3;
+    /** One summit per chain, on the middle spine, is up to this fraction taller than its neighbours, over +/- dominantSummitLength blocks. */
+    public double dominantSummitBoost = 0.3;
+    public double dominantSummitLength = 150;
+    /** Summits within junctionBoostLength (blocks, along the spine) of a fork are up to this fraction taller. */
+    public double junctionBoost = 0.18;
+    public double junctionBoostLength = 450;
+    /** Zone capsule extends this far beyond the outer spine's valley edge before the mask starts to fade. */
+    public double chainZoneMargin = 0;
+    /** Width of the mask fade at the chain sides and ends, blocks (relief tapers to vanilla over it). */
+    public double chainEdgeWidth = 500;
+    /**
+     * Disorganising the spines of a chain. Each gap between neighbouring spines swells and shrinks
+     * along the chain by up to this fraction (wavelength spineGapWavelength blocks), so the ranges
+     * converge and diverge instead of running parallel; each spine also wanders on its own with a
+     * second, shorter wave (spineWiggleAmplitude / spineWiggleWavelength) on top of spineCurve*.
+     */
+    public double spineGapVariation = 0.35;
+    public double spineGapWavelength = 1800;
+    public double spineWiggleAmplitude = 90;
+    public double spineWiggleWavelength = 450;
+    /**
+     * Outer spines start and stop part-way along the chain: each end of an outer spine is pulled in
+     * by up to this fraction of the chain length (the middle spine always runs the full length).
+     */
+    public double spineStaggerMax = 0.2;
+    /**
+     * With the footprint installed, a chain is trimmed to the stretch of its centreline that lies
+     * inside vanilla's mountain footprint, sampled every chainTrimStep blocks, so chains end with
+     * their own tapered ends inside the mountain biome instead of being sliced by its edge. Chains
+     * shorter than chainTrimMinLength after trimming are dropped.
+     */
+    public boolean chainTrimToFootprint = true;
+    public double chainTrimStep = 100;
+    public double chainTrimMinLength = 900;
+    /** A fork of a fork (depth 2 and deeper) left shorter than this by trimming is dropped: short stubs at a junction read as odd connectors. */
+    public double chainTrimMinGrandchildLength = 1800;
+    /** After trimming a chain keeps its spines as long as it is still at least this many times longer than its zone is wide. */
+    public double chainTrimMinAspect = 1.0;
+
+    // ---- Mountain mask from vanilla's mountain footprint (chainLayout = false, mixed world) ------
+    /** Zones are where the world's erosion is below this (vanilla's peaks sit below about -0.375), fading over erosionMaskBand. */
+    public double erosionMountainBelow = -0.375;
+    public double erosionMaskBand = 0.15;
+    /**
+     * The footprint edge is domain-warped: the erosion is read at a point displaced by up to
+     * footprintWarpAmplitude blocks with noise of wavelength footprintWarpWavelength, so the
+     * biome edge wanders instead of following one smooth contour.
+     */
+    public double footprintWarpAmplitude = 90;
+    public double footprintWarpWavelength = 420;
+    /** The erosion noise is stretched by this ratio along the range direction, so mountain provinces are elongated. */
+    public double erosionStretch = 1.0;
+
+    // ---- Mountain mask: stretched zone noise (fallback when no erosion field is supplied) ------
     /** Wavelength of the mask noise along the range direction, blocks. Zones are long this way. */
     public double maskWavelengthAlong = 6000;
     /** Wavelength across the range direction, blocks. Zones are narrow this way. */
@@ -130,10 +279,66 @@ public final class MountainSettings {
     public double maskThreshold = 0.16;
     /** Width of the zone edge in noise units; the terrain blends from vanilla to ours over it. */
     public double maskEdgeWidth = 0.16;
-    /** Vanilla continentalness at and below which mountains are fully faded out (coast is -0.19..-0.11). */
+    /** Continentalness at and below which mountains are fully faded out (coast is -0.19..-0.11; -0.15 is the shoreline). */
     public double maskInlandStart = -0.15;
-    /** Vanilla continentalness at and above which mountains are fully on. */
+    /** Continentalness at and above which mountains are fully on. */
     public double maskInlandFull = 0.05;
+
+    // ---- Continents (mixed world; replaces vanilla continentalness) ------------------
+    /** true: noise continents ({@link NoiseContinents}, Continents-mod style). false: Voronoi plates ({@link PlateContinents}). */
+    public boolean noiseContinents = true;
+    /** Wavelength of the largest continent noise octave, blocks. Sets continent and ocean size. */
+    public double continentWavelength = 36000;
+    /** Octaves of continent noise; each halves the wavelength. More = finer coastal detail. */
+    public int continentOctaves = 7;
+    /** Amplitude falloff per octave (0.5 = rough coasts, 0.65 = rougher, 0.4 = smooth blobs). */
+    public double continentGain = 0.5;
+    /** Noise value above which there is land. Higher = less land. About 0.1 gives a third land. */
+    public double continentLandThreshold = 0.18;
+    /** Spawn island: the noise is raised by this at the origin, fading out over continentSpawnRadius blocks. */
+    public double continentSpawnBoost = 0.4;
+    public double continentSpawnRadius = 12000;
+    /** Land is guaranteed within this radius of the origin (a dome of at least this noise value above the threshold at the centre). */
+    public double continentSpawnGuaranteedRadius = 5000;
+    public double continentSpawnGuaranteedValue = 0.25;
+
+    // ---- Plate continents (noiseContinents = false). The distance ramp fields at the end apply to both models. ----
+    /** Lattice spacing of the Voronoi plates, blocks. A continent is a cluster of a few plates. */
+    public double plateSizeBlocks = 15000;
+    /** Fraction of plates that are land; adjacent land plates merge. Above about 0.55 the land joins up. The origin plate is always land. */
+    public double plateLandFraction = 0.46;
+    /** The coast is pulled this far inside the land plates, blocks (widens the sea between continents). */
+    public double coastInset = 1000;
+    /** Cell-centre jitter as a fraction of the lattice spacing (0 = square grid, 1 = anywhere in the cell). */
+    public double plateJitter = 0.8;
+    /** Domain-warp amplitude, blocks: how far plate edges bend away from straight lines. */
+    public double plateWarpAmplitude = 4500;
+    /** Wavelength of that warp, blocks. */
+    public double plateWarpWavelength = 14000;
+    /** Second, medium-scale warp: breaks the remaining straight edges into lobes and inlets. Amplitude, blocks. */
+    public double plateWarp2Amplitude = 1500;
+    /** Wavelength of the medium warp, blocks. */
+    public double plateWarp2Wavelength = 4500;
+    /** Each plate is stretched along a random direction by a ratio between 1 and this, so continents are elongated. */
+    public double plateStretchMax = 1.5;
+    /** Amplitude of the kilometre-scale coast shape noise, blocks: bays, peninsulas, offshore islets. */
+    public double coastShapeAmplitude = 1300;
+    /** Wavelength of the coast shape noise, blocks. */
+    public double coastShapeWavelength = 6500;
+    /** Amplitude of the small coastal noise added to the coast distance, blocks (bays and headlands). */
+    public double coastNoiseAmplitude = 160;
+    /** Wavelength of the coastal noise, blocks. */
+    public double coastNoiseWavelength = 900;
+    /** Half-width of the coast band, blocks: continentalness runs -0.25..-0.05 over +/- this around the shoreline. */
+    public double coastHalfWidth = 100;
+    /** Blocks inland at which continentalness reaches 0.05 (near inland ends, mountains fully on). */
+    public double nearInlandDistance = 250;
+    /** Blocks inland at which continentalness reaches 0.45 (far inland). */
+    public double farInlandDistance = 1200;
+    /** Blocks offshore at which continentalness reaches -0.5 (ocean). */
+    public double oceanDistance = 700;
+    /** Blocks offshore at which continentalness reaches -1.0 (deep ocean). */
+    public double deepOceanDistance = 3000;
 
     // ---- Derived helpers ---------------------------------------------------------
     public double relief() { return summitHeight - valleyFloorHeight; }

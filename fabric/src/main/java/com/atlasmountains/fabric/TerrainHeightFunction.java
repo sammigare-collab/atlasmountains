@@ -19,14 +19,17 @@ import net.minecraft.world.gen.densityfunction.DensityFunction;
  * {@code mask_relief: true} scales the relief by the mountain mask (mixed world), so ranges fade
  * into hills at the zone edges rather than meeting vanilla terrain as a cliff.
  * <p>
+ * {@code chains: true} (default) uses the chain layout; {@code false} the parallel spines of the "everywhere" preset.
+ * <p>
  * Has no arguments and no y dependence, so DensityFunction.Base's default fill and apply are
  * correct.
  */
-public record TerrainHeightFunction(boolean eroded, boolean maskRelief) implements DensityFunction.Base {
+public record TerrainHeightFunction(boolean eroded, boolean maskRelief, boolean chains) implements DensityFunction.Base {
 
     public static final MapCodec<TerrainHeightFunction> MAP_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.BOOL.optionalFieldOf("eroded", true).forGetter(TerrainHeightFunction::eroded),
-            Codec.BOOL.optionalFieldOf("mask_relief", false).forGetter(TerrainHeightFunction::maskRelief)
+            Codec.BOOL.optionalFieldOf("mask_relief", false).forGetter(TerrainHeightFunction::maskRelief),
+            Codec.BOOL.optionalFieldOf("chains", true).forGetter(TerrainHeightFunction::chains)
     ).apply(i, TerrainHeightFunction::new));
     public static final CodecHolder<TerrainHeightFunction> CODEC_HOLDER = CodecHolder.of(MAP_CODEC);
 
@@ -34,7 +37,7 @@ public record TerrainHeightFunction(boolean eroded, boolean maskRelief) implemen
 
     @Override
     public double sample(NoisePos pos) {
-        var cache = AtlasMountainsMod.cache();
+        var cache = AtlasMountainsMod.cache(chains);
         if (maskRelief) {
             return eroded ? cache.maskedHeight(pos.blockX(), pos.blockZ())
                           : cache.maskedBaseHeight(pos.blockX(), pos.blockZ(), SCRATCH.get());

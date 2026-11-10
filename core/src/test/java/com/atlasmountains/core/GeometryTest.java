@@ -9,6 +9,7 @@ class GeometryTest {
     @Test
     void generationIsDeterministic() {
         MountainSettings s = new MountainSettings();
+        s.fieldLayout = false;   // the geometry tests check the design on the parallel layout
         RegionHeightmap a = new RegionPipeline(s, 42).eroded(1, -2);
         RegionHeightmap b = new RegionPipeline(s, 42).eroded(1, -2);
         assertArrayEquals(a.height, b.height);
@@ -17,6 +18,7 @@ class GeometryTest {
     @Test
     void summitIsAPointThatFallsAtTheFaceAngle() {
         MountainSettings s = new MountainSettings();
+        s.fieldLayout = false;   // the geometry tests check the design on the parallel layout
         HeightmapGenerator gen = new HeightmapGenerator(s, 7);
         RangeLayout.Sample sc = new RangeLayout.Sample();
         // summit 0 of range 0 sits on the spine at along = summitAlong(0, 0); find its world position by search
@@ -31,7 +33,7 @@ class GeometryTest {
                 double h = gen.baseHeightAt(bx + dx, bz + dz, sc);
                 if (h > best) { best = h; bx += dx; bz += dz; }
             }
-        double[] across = gen.layout().alongDirection();
+        double[] across = ((RangeLayout) gen.layout()).alongDirection();
         double cx = across[1], cz = -across[0];
         double drop3 = best - gen.baseHeightAt(bx + 3 * cx, bz + 3 * cz, sc);
         assertTrue(drop3 >= 2.0, "should fall at least 2 blocks over 3 across the range, fell " + drop3);
@@ -43,6 +45,7 @@ class GeometryTest {
     @Test
     void valleyFloorIsFlatAndRangesAreLinear() {
         MountainSettings s = new MountainSettings();
+        s.fieldLayout = false;   // the geometry tests check the design on the parallel layout
         RegionHeightmap m = new RegionPipeline(s, 3).eroded(0, 0);
         int flat = 0, total = m.size * m.size;
         float min = Float.MAX_VALUE, max = -Float.MAX_VALUE;
@@ -58,6 +61,7 @@ class GeometryTest {
     @Test
     void settingsOverridesByName() {
         MountainSettings s = new MountainSettings();
+        s.fieldLayout = false;   // the geometry tests check the design on the parallel layout
         SettingsOverrides.apply(s, "peakSpacing=250");
         SettingsOverrides.apply(s, "dropletsPerRegion=10");
         assertEquals(250, s.peakSpacing);

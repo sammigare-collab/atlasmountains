@@ -4,7 +4,11 @@
   "argument2": {
     "type": "minecraft:add",
     "argument1": {
-      "type": "atlasmountains:terrain_height"
+      "type": "minecraft:cache_2d",
+      "argument": {
+        "type": "atlasmountains:terrain_height",
+        "chains": false
+      }
     },
     "argument2": {
       "type": "minecraft:mul",

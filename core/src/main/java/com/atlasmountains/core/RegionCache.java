@@ -31,6 +31,7 @@ public final class RegionCache {
     private final Map<Long, CompletableFuture<RegionHeightmap>> regions = new ConcurrentHashMap<>();
     private final ExecutorService executor;
     private final long noiseSeed;
+    private final Continents continents;
     private final MountainMask mask;
     private final ThreadLocal<double[]> maskScratch = ThreadLocal.withInitial(() -> new double[2]);
     public Consumer<String> log = msg -> {};
@@ -46,7 +47,8 @@ public final class RegionCache {
         this.pipeline = new RegionPipeline(settings, seed);
         this.diskDir = diskDir;
         this.noiseSeed = Hash.hash(seed, 909);
-        this.mask = new MountainMask(settings, pipeline.generator().layout(), seed);
+        this.continents = Continents.create(settings, seed);
+        this.mask = new MountainMask(settings, pipeline.generator().layout(), continents, seed);
         int threads = Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
         this.executor = Executors.newFixedThreadPool(threads, r -> {
             Thread t = new Thread(r, "atlasmountains-erosion");
@@ -58,6 +60,11 @@ public final class RegionCache {
     public MountainSettings settings() { return s; }
     public long seed() { return seed; }
     public MountainMask mountainMask() { return mask; }
+    public Continents continents() { return continents; }
+    /** The chain layout, or null when this cache uses parallel spines. */
+    public SpineLayout layout() { return pipeline.generator().layout(); }
+
+    public ChainLayout chainLayout() { return pipeline.generator().layout() instanceof ChainLayout c ? c : null; }
 
     private final ThreadLocal<ColumnCache> maskColumnCache = ThreadLocal.withInitial(ColumnCache::new);
 
@@ -74,23 +81,65 @@ public final class RegionCache {
         return v;
     }
 
+    private final ThreadLocal<ColumnCache> innerColumnCache = ThreadLocal.withInitial(ColumnCache::new);
+
+    /**
+     * Inner mask 0..1: the zone mask, further limited to the ground between a chain's spines
+     * (valley floors). 0 under the outer flanks, where vanilla terrain carries on beneath ours.
+     * Always equals the zone mask for the parallel layout.
+     */
+    public double innerMask(double x, double z) {
+        int bx = (int) Math.floor(x), bz = (int) Math.floor(z);
+        long key = ((long) bx << 32) ^ (bz & 0xffffffffL);
+        ColumnCache c = innerColumnCache.get();
+        int i = (int) (Hash.mix(key) & ((1 << COLUMN_CACHE_BITS) - 1));
+        if (c.keys[i] == key) return c.values[i];
+        double m = mask(bx, bz);
+        SpineLayout layout = pipeline.generator().layout();
+        double v = m <= 0 ? 0
+                 : layout instanceof ChainLayout chains ? m * chains.inner(bx, bz)
+                 : layout instanceof RangeLayout rl ? m * rl.valley(bx, bz)
+                 : m;
+        c.keys[i] = key;
+        c.values[i] = v;
+        return v;
+    }
+
+    /**
+     * True where this column is "ours": on the valley floor between spines (inner mask), or on
+     * our flank (the masked analytic height stands above the valley floor by more than
+     * {@code aboveFloor} blocks). Used by the surface rules and the biome source so the foot of
+     * an outer flank hands over to vanilla's surface and biome.
+     */
+    public boolean onOurSlope(double x, double z, double aboveFloor, RangeLayout.Sample scratch) {
+        if (innerMask(x, z) >= 0.5) return true;
+        if (mask(x, z) <= 0) return false;
+        return maskedBaseHeight(x, z, scratch) >= s.valleyFloorHeight + aboveFloor;
+    }
+
     /**
      * Height with the relief scaled by the mountain mask, so at a zone edge the range tails off
      * into hills instead of standing as a cliff against vanilla terrain. Equals height() inside a zone.
      */
     public double maskedHeight(double x, double z) {
         double m = mask(x, z);
-        if (m <= 0) return s.valleyFloorHeight;
+        if (m <= 0) return s.valleyFloorHeight - s.maskSink;
         double h = height(x, z);
-        return s.valleyFloorHeight + m * (h - s.valleyFloorHeight);
+        return s.valleyFloorHeight + m * (h - s.valleyFloorHeight) - (1 - m) * s.maskSink;
     }
 
-    /** Same for the analytic model. */
+    /**
+     * Same for the analytic model. Both sink the result below the valley floor as the mask fades
+     * (by maskSink at mask 0), so in the fade band our surface drops under vanilla's and vanilla
+     * takes over by height; without this the valley-floor plate at y 64 stayed solid out to the
+     * last quart with any mask at all and ended in a vertical face wherever vanilla was lower, such
+     * as every shoreline.
+     */
     public double maskedBaseHeight(double x, double z, RangeLayout.Sample scratch) {
         double m = mask(x, z);
-        if (m <= 0) return s.valleyFloorHeight;
+        if (m <= 0) return s.valleyFloorHeight - s.maskSink;
         double h = generator().heightAt(x, z, scratch);
-        return s.valleyFloorHeight + m * (h - s.valleyFloorHeight);
+        return s.valleyFloorHeight + m * (h - s.valleyFloorHeight) - (1 - m) * s.maskSink;
     }
 
     /** The un-eroded analytic generator (cheap, no region needed). */
@@ -214,9 +263,19 @@ public final class RegionCache {
                 wsum += w;
             }
         }
+        // start eroding the regions the player is heading for before they reach the overlap
+        double margin = prefetchMargin;
+        double lx = x - rx * size, lz = z - rz * size;
+        if (lx < margin) prefetch(rx - 1, rz);
+        if (lx > size - margin) prefetch(rx + 1, rz);
+        if (lz < margin) prefetch(rx, rz - 1);
+        if (lz > size - margin) prefetch(rx, rz + 1);
         if (wsum == 0) return region(rx, rz).sample(x, z);
         return sum / wsum;
     }
+
+    /** Neighbouring regions start computing when the sampled position is within this many blocks of the edge. */
+    public double prefetchMargin = 700;
 
     private double fineNoise(double x, double z) {
         double f = 1.0 / upsampleNoiseWavelength;

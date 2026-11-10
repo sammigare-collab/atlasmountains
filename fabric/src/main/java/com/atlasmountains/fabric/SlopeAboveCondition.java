@@ -12,10 +12,11 @@ import net.minecraft.world.gen.surfacebuilder.MaterialRules;
  * triggers at about 63 degrees, which is useless for 45-degree faces.
  * Needs the access widener for MaterialRuleContext.blockX/blockZ and BooleanSupplier.
  */
-public record SlopeAboveCondition(float degrees) implements MaterialRules.MaterialCondition {
+public record SlopeAboveCondition(float degrees, boolean chains) implements MaterialRules.MaterialCondition {
 
     public static final MapCodec<SlopeAboveCondition> MAP_CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-            Codec.FLOAT.fieldOf("degrees").forGetter(SlopeAboveCondition::degrees)
+            Codec.FLOAT.fieldOf("degrees").forGetter(SlopeAboveCondition::degrees),
+            Codec.BOOL.optionalFieldOf("chains", true).forGetter(SlopeAboveCondition::chains)
     ).apply(i, SlopeAboveCondition::new));
     public static final CodecHolder<SlopeAboveCondition> CODEC_HOLDER = CodecHolder.of(MAP_CODEC);
 
@@ -26,6 +27,6 @@ public record SlopeAboveCondition(float degrees) implements MaterialRules.Materi
 
     @Override
     public MaterialRules.BooleanSupplier apply(MaterialRules.MaterialRuleContext context) {
-        return () -> AtlasMountainsMod.cache().slopeDegrees(context.blockX, context.blockZ) >= degrees;
+        return () -> AtlasMountainsMod.cache(chains).slopeDegrees(context.blockX, context.blockZ) >= degrees;
     }
 }
