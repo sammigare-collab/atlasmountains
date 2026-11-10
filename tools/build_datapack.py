@@ -308,7 +308,7 @@ def make_preliminary(mask, sc, terrain_height, vanilla_density, vanilla_upper):
 # surface; the first result reached wins. Ours, for a block on our slopes (mountain_rules below):
 #   top block    snow above the snow line, patchy snow below it on gentle ground, rock (gradient)
 #                on steep ground, grass where water can't reach, gravel otherwise
-#   just below   rock on steep ground, dirt otherwise
+#   just below   snow above the snow line, rock on steep ground, dirt otherwise
 # Anything deeper falls through to vanilla's underground rules (stone, deepslate, ores).
 def block(name, props=None):
     if props:
@@ -326,20 +326,26 @@ snow = {'type': 'minecraft:y_above', 'anchor': {'absolute': SNOW_LINE}, 'surface
 def steep(mixed): return {'type': f'{NS}:slope_above', 'degrees': ROCK_SLOPE_DEG, 'mixed': mixed}
 in_mountains = {'type': f'{NS}:on_our_slope', 'above_floor': 6.0}   # valley floors and our flanks; not the foot where vanilla shows
 
-# Exposed rock: a gradient by height (atlasmountains:rock_gradient, see RockGradientRule): snow on
-# top, the darkest rock (smooth basalt) directly under the snow line, lightening step by step
-# through deepslate, tuff and stone to pale andesite at the foot of the faces. The rocks are in
-# order of their average texture brightness (about 72, 80, 108, 125, 136 of 255); tuff alone
-# under the snow was too close to stone to see. (Sammi: "snow to dark to light"). Mixed in small
-# clumps between stops and wobbled up and down by a slow noise so it never follows one contour.
-# (Tried and dropped: noise blotches of tuff and packed mud, then horizontal strata, "too stripy".)
-rock = {'type': f'{NS}:rock_gradient', 'wobble': 16.0, 'blend_width': 1.0, 'stops': [
-    {'state': 'minecraft:andesite',      'y': 105},
-    {'state': 'minecraft:stone',         'y': 130},
-    {'state': 'minecraft:tuff',          'y': 155},
-    {'state': 'minecraft:deepslate',     'y': 180},
-    {'state': 'minecraft:smooth_basalt', 'y': SNOW_LINE},
-]}
+# Exposed rock: a gradient down each column's own face (atlasmountains:rock_gradient, see
+# RockGradientRule), so every peak shades the same way whatever its height (Sammi: "from each
+# peak, not a universal height", and "snow to dark to light"). Stop y values are percentages of
+# the face: 100 where the rock begins (the summit, or the snow line if the summit is above it),
+# 0 at the valley floor. Darkest (smooth basalt) at the top, lightening step by step through
+# deepslate, tuff and stone to pale andesite near the foot. The rocks are in order of their
+# average texture brightness (about 72, 80, 108, 125, 136 of 255). Mixed in small clumps between
+# stops and wobbled up and down by a slow noise so the change never follows one contour.
+# (Tried and dropped: noise blotches of tuff and packed mud, horizontal strata ("too stripy"),
+# calcite seams ("too messy"), the gradient at fixed heights, and the gradient in blocks below
+# the summit, whose dark band hid under the snow.)
+def rock(mixed):
+    return {'type': f'{NS}:rock_gradient', 'wobble': 8.0, 'blend_width': 1.0,
+            'relative_to_peak': True, 'top_cap': SNOW_LINE, 'floor': int(VALLEY_FLOOR), 'mixed': mixed, 'stops': [
+        {'state': 'minecraft:andesite',      'y': 20},
+        {'state': 'minecraft:stone',         'y': 40},
+        {'state': 'minecraft:tuff',          'y': 60},
+        {'state': 'minecraft:deepslate',     'y': 78},
+        {'state': 'minecraft:smooth_basalt', 'y': 94},
+    ]}
 def snow_cover(mixed):   # patchy snow on ledges below the snow line (see SnowCoverCondition)
     return {'type': f'{NS}:snow_cover', 'snow_line': SNOW_LINE, 'lowest': SNOW_PATCH_LOWEST,
             'ledge_slope': 38.0, 'steep_penalty': 0.45, 'mixed': mixed}
@@ -347,12 +353,16 @@ def mountain_rules(mixed): return seq(
     cond(top_block, seq(
         cond(snow, block('minecraft:snow_block')),
         cond(snow_cover(mixed), block('minecraft:snow_block')),
-        cond(steep(mixed), rock),
+        cond(steep(mixed), rock(mixed)),
         cond(above_water, block('minecraft:grass_block')),
         block('minecraft:gravel'),
     )),
     cond(surface_layer, seq(
-        cond(steep(mixed), rock),
+        # snow a few blocks deep above the snow line, not only on top: on steep ground most of what
+        # you see is the sides of the voxel steps, which are surface-layer blocks, and with only a
+        # top block of snow the summits read as dark rock with white specks
+        cond(snow, block('minecraft:snow_block')),
+        cond(steep(mixed), rock(mixed)),
         block('minecraft:dirt'),
     )),
 )

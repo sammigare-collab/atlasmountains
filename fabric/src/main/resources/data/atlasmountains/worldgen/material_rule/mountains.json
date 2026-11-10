@@ -72,28 +72,32 @@
                         },
                         "then_run": {
                           "type": "atlasmountains:rock_gradient",
-                          "wobble": 16.0,
+                          "wobble": 8.0,
                           "blend_width": 1.0,
+                          "relative_to_peak": true,
+                          "top_cap": 205,
+                          "floor": 64,
+                          "mixed": true,
                           "stops": [
                             {
                               "state": "minecraft:andesite",
-                              "y": 105
+                              "y": 20
                             },
                             {
                               "state": "minecraft:stone",
-                              "y": 130
+                              "y": 40
                             },
                             {
                               "state": "minecraft:tuff",
-                              "y": 155
+                              "y": 60
                             },
                             {
                               "state": "minecraft:deepslate",
-                              "y": 180
+                              "y": 78
                             },
                             {
                               "state": "minecraft:smooth_basalt",
-                              "y": 205
+                              "y": 94
                             }
                           ]
                         }
@@ -133,34 +137,53 @@
                       {
                         "type": "minecraft:condition",
                         "if_true": {
+                          "type": "minecraft:y_above",
+                          "anchor": {
+                            "absolute": 205
+                          },
+                          "surface_depth_multiplier": 3,
+                          "add_stone_depth": false
+                        },
+                        "then_run": {
+                          "type": "minecraft:block",
+                          "result_state": "minecraft:snow_block"
+                        }
+                      },
+                      {
+                        "type": "minecraft:condition",
+                        "if_true": {
                           "type": "atlasmountains:slope_above",
                           "degrees": 35,
                           "mixed": true
                         },
                         "then_run": {
                           "type": "atlasmountains:rock_gradient",
-                          "wobble": 16.0,
+                          "wobble": 8.0,
                           "blend_width": 1.0,
+                          "relative_to_peak": true,
+                          "top_cap": 205,
+                          "floor": 64,
+                          "mixed": true,
                           "stops": [
                             {
                               "state": "minecraft:andesite",
-                              "y": 105
+                              "y": 20
                             },
                             {
                               "state": "minecraft:stone",
-                              "y": 130
+                              "y": 40
                             },
                             {
                               "state": "minecraft:tuff",
-                              "y": 155
+                              "y": 60
                             },
                             {
                               "state": "minecraft:deepslate",
-                              "y": 180
+                              "y": 78
                             },
                             {
                               "state": "minecraft:smooth_basalt",
-                              "y": 205
+                              "y": 94
                             }
                           ]
                         }

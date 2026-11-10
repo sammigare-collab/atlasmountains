@@ -53,7 +53,7 @@ public final class HeightmapGenerator {
     public double baseHeightAt(double x, double z, RidgeSample scratch) {
         scratch.scale = 1.0;
         layout.sample(x, z, scratch);
-        double c = crest.height(scratch.ridge, scratch.along);
+        double c = Math.max(crest.height(scratch.ridge, scratch.along), junctionCrest(scratch.distance2, scratch));
         // the height scale stretches the relief above the valley floor, not the absolute height,
         // so a small massif is a lower mountain on the same floor, not a sunken one
         if (scratch.scale != 1.0) c = s.valleyFloorHeight + (c - s.valleyFloorHeight) * scratch.scale;
@@ -62,12 +62,53 @@ public final class HeightmapGenerator {
         // junction): the union of the two mountains is continuous where either alone would show
         // a seam. Across a valley the second ridge is too far away and adds nothing.
         if (scratch.distance2 < s.halfWidth() && (scratch.ridge2 != scratch.ridge || scratch.along2 != scratch.along)) {
-            double c2 = crest.height(scratch.ridge2, scratch.along2);
+            double c2 = Math.max(crest.height(scratch.ridge2, scratch.along2), junctionCrest(scratch.distance, scratch));
             if (scratch.scale != 1.0) c2 = s.valleyFloorHeight + (c2 - s.valleyFloorHeight) * scratch.scale;
             double h2 = cross.height(c2, scratch.distance2);
             if (h2 > h) h = h2;
         }
         return h;
+    }
+
+    /**
+     * The crest of the junction summit, seen from a ridge at distance {@code other} from the other
+     * ridge that meets it there (unscaled, like {@link CrestProfile#height}). Near a junction the
+     * distance to the other ridge is roughly the distance along this ridge from the junction
+     * (times sin 60 degrees for the usual three-way meeting at 120 degrees, hence the 1.15), so
+     * this is a tent with its apex at the junction, falling at crestFallSlope, the same as an
+     * ordinary summit. Returns -infinity where there is no other ridge close enough for it to
+     * matter (deep inside a cell the second ridge is the far side of a valley).
+     */
+    private double junctionCrest(double other, RidgeSample scratch) {
+        if (s.junctionPeakBoost <= 0 || scratch.ridge2 == scratch.ridge) return Double.NEGATIVE_INFINITY;
+        double apex = s.summitHeight + s.junctionPeakBoost * s.relief();
+        double c = apex - s.crestFallSlope * 1.15 * other;
+        return c > s.valleyFloorHeight ? c : Double.NEGATIVE_INFINITY;
+    }
+
+    /**
+     * Height of the summit this column belongs to: the nearest summit along the nearest ridge,
+     * with the same height scale as {@link #baseHeightAt}. Used to shade rock by how far below its
+     * own peak it is, so every peak, large or small, gets the same run from dark to light.
+     * This is the design height of that summit; erosion trims real summits by a few blocks.
+     */
+    public double peakHeightAt(double x, double z, RidgeSample scratch) {
+        scratch.scale = 1.0;
+        layout.sample(x, z, scratch);
+        long i0 = Math.round(scratch.along / s.peakSpacing);
+        long best = i0;
+        double bestGap = Double.MAX_VALUE;
+        for (long i = i0 - 1; i <= i0 + 1; i++) {   // jitter is under half a spacing, so the nearest is one of these
+            double gap = Math.abs(crest.summitAlong(scratch.ridge, i) - scratch.along);
+            if (gap < bestGap) { bestGap = gap; best = i; }
+        }
+        double c = crest.summitHeight(scratch.ridge, best);
+        // near a junction the column belongs to the junction summit if that stands higher
+        double apex = s.summitHeight + s.junctionPeakBoost * s.relief();
+        if (s.junctionPeakBoost > 0 && scratch.ridge2 != scratch.ridge
+                && apex - s.crestFallSlope * 1.15 * scratch.distance2 > crest.height(scratch.ridge, scratch.along)) c = apex;
+        if (scratch.scale != 1.0) c = s.valleyFloorHeight + (c - s.valleyFloorHeight) * scratch.scale;
+        return c;
     }
 
     /**

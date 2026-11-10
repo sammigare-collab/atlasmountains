@@ -17,8 +17,8 @@ import java.util.function.DoubleSupplier;
 
 /**
  * Material rule "atlasmountains:rock_gradient": exposed rock that shades from one stone to the
- * next with height (in the shipped datapack: dark just under the snow, lighter towards the foot
- * of the face), with no stripes and no hard lines.
+ * next with depth below its own peak (in the shipped datapack: dark near each summit, lighter
+ * towards the foot of the face), with no stripes and no hard lines.
  *
  * <h2>Why</h2>
  * Two looks were tried before this and rejected. A per-column noise choice gave large flat
@@ -28,9 +28,15 @@ import java.util.function.DoubleSupplier;
  *
  * <h2>How a block is chosen</h2>
  * <ol>
- *   <li><b>Stops.</b> {@code stops} lists rocks by height, lowest first, e.g. andesite at y 105,
- *       stone at y 130, tuff at y 155, deepslate at y 180, smooth basalt at y 205. Below the first stop the first rock is used, above the
- *       last the last one.</li>
+ *   <li><b>Stops.</b> {@code stops} lists rocks by height, lowest first. Below the first stop the
+ *       first rock is used, above the last the last one. With {@code relative_to_peak} (the
+ *       shipped setting) a stop's y is a percentage of the height of this column's own face:
+ *       0 at the valley floor ({@code floor}), 100 at the top of the face's rock, which is the
+ *       summit the column belongs to ({@link com.atlasmountains.core.RegionCache#maskedPeakHeight})
+ *       or {@code top_cap} (the snow line) if the summit stands above it. Every peak, large or
+ *       small, then shades through the whole gradient from where its rock begins, so the dark
+ *       band always sits directly under the snow (or at the top of a peak with no snow),
+ *       instead of all peaks sharing one set of heights. Without it, y is absolute.</li>
  *   <li><b>Wobble.</b> The height is shifted by {@code wobble} blocks times a slow 2D noise
  *       ({@code atlasmountains:rock_wobble}), so the change from one rock to the next happens
  *       higher on some faces than others instead of along one contour.</li>
@@ -50,8 +56,13 @@ import java.util.function.DoubleSupplier;
  * @param wobble      the largest up or down shift of the gradient, in blocks
  * @param blendWidth  the fraction of each interval over which the two rocks are mixed, centred
  *                    on the middle (1 = mixed across the whole interval)
+ * @param relativeToPeak measure the stops as a percentage of each column's own face height instead of as y
+ * @param topCap      with relativeToPeak: the highest the face's top can be (the snow line), since rock above it is under snow
+ * @param floor       with relativeToPeak: the height counted as 0 percent (the valley floor)
+ * @param mixed       which preset's terrain cache to read the summit from (as in TerrainHeightFunction)
  */
-public record RockGradientRule(List<Stop> stops, float wobble, float blendWidth) implements MaterialRule {
+public record RockGradientRule(List<Stop> stops, float wobble, float blendWidth, boolean relativeToPeak,
+                               int topCap, int floor, boolean mixed) implements MaterialRule {
 
     /**
      * One rock and the height at which it is pure.
@@ -69,8 +80,18 @@ public record RockGradientRule(List<Stop> stops, float wobble, float blendWidth)
     public static final MapCodec<RockGradientRule> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Stop.CODEC.listOf().fieldOf("stops").forGetter(RockGradientRule::stops),
             Codec.FLOAT.optionalFieldOf("wobble", 16.0f).forGetter(RockGradientRule::wobble),
-            Codec.FLOAT.optionalFieldOf("blend_width", 0.7f).forGetter(RockGradientRule::blendWidth)
+            Codec.FLOAT.optionalFieldOf("blend_width", 0.7f).forGetter(RockGradientRule::blendWidth),
+            Codec.BOOL.optionalFieldOf("relative_to_peak", false).forGetter(RockGradientRule::relativeToPeak),
+            Codec.INT.optionalFieldOf("top_cap", 10000).forGetter(RockGradientRule::topCap),
+            Codec.INT.optionalFieldOf("floor", 64).forGetter(RockGradientRule::floor),
+            Codec.BOOL.optionalFieldOf("mixed", true).forGetter(RockGradientRule::mixed)
     ).apply(i, RockGradientRule::new));
+
+    /** Scratch for the peak lookup, one per thread. */
+    private static final ThreadLocal<com.atlasmountains.core.RidgeSample> SCRATCH =
+            ThreadLocal.withInitial(com.atlasmountains.core.RidgeSample::new);
+    /** Last column's peak height, per thread: the rule is asked for several blocks of one column in a row. */
+    private static final ThreadLocal<double[]> LAST_PEAK = ThreadLocal.withInitial(() -> new double[]{Double.NaN, 0, 0});
 
     /** Slow 2D noise that moves the gradient up and down; data/atlasmountains/worldgen/noise/rock_wobble.json. */
     private static final ResourceKey<NormalNoise> WOBBLE_NOISE =
@@ -88,6 +109,15 @@ public record RockGradientRule(List<Stop> stops, float wobble, float blendWidth)
     @Override
     public MapCodec<? extends MaterialRule> codec() { return CODEC; }
 
+    /** This column's summit height (see RegionCache.maskedPeakHeight), cached for the last column asked. */
+    private double peakHeight(int x, int z) {
+        double[] last = LAST_PEAK.get();
+        if (last[1] == x && last[2] == z && !Double.isNaN(last[0])) return last[0];
+        double p = AtlasMountainsMod.cache(mixed).maskedPeakHeight(x, z, SCRATCH.get());
+        last[0] = p; last[1] = x; last[2] = z;
+        return p;
+    }
+
     @Override
     public RuleEvaluator compile(MaterialRuleContext context) {
         DoubleSupplier wobbleNoise = context.getNoiseSampler(WOBBLE_NOISE, false);   // per column
@@ -97,6 +127,12 @@ public record RockGradientRule(List<Stop> stops, float wobble, float blendWidth)
         return (x, y, z) -> {
             if (n == 1) return stops.get(0).state();
             double h = y + wobble * wobbleNoise.getAsDouble();
+            if (relativeToPeak) {
+                // percent of the way from the valley floor (0) up to the top of this face's rock
+                // (100): the summit, or the snow line if the summit stands above it
+                double top = Math.min(peakHeight(x, z), topCap);
+                h = 100 * (h - floor) / Math.max(8, top - floor);
+            }
             if (h <= stops.get(0).y()) return stops.get(0).state();
             if (h >= stops.get(n - 1).y()) return stops.get(n - 1).state();
             int k = 0;

@@ -27,8 +27,11 @@ and the design, direction and in-game testing were mine (see [How this was made]
 - **Snow line and treeline.** Snow starts at a height that rises with the climate, so it wraps the
   summits as a ragged contour, and below it snow lies in patches on ledges and gentle ground.
   Trees thin out and stop at the treeline.
-- **Weathered rock.** Under the snow, steep faces start dark (smooth basalt) and lighten
-  through deepslate, tuff and stone to pale andesite at their foot, blended in small clumps rather than bands.
+- **Weathered rock.** Every face shades from dark rock where it leaves the snow (or at the top of
+  a peak too low for snow) through deepslate, tuff and stone to pale andesite at its foot, measured
+  from that peak, not from fixed heights, and blended in small clumps rather than bands.
+- **Junction summits.** Where ridges meet, the meeting point rises into its own summit, taller
+  than the peaks along the ridges leading into it.
 - **Blended edges.** Mountain provinces have ragged outlines and their foothills ease into the
   surrounding vanilla terrain rather than ending in a wall.
 - **Continents.** Land comes in large, irregular continents and islands surrounded by ocean, with

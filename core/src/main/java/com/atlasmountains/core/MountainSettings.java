@@ -139,6 +139,15 @@ public final class MountainSettings {
     public double peakSpacing = 72;
     /** Peak position jitter as a fraction of peakSpacing, so the row of summits is not evenly spaced. */
     public double peakSpacingJitter = 0.25;
+    /**
+     * Extra height of the summit where ridges meet (a junction of the field layout), as a fraction
+     * of the relief above the design summit. Without it a junction is wherever the ridges' own
+     * summit rows happen to cross, usually a saddle, so the meeting of three ranges reads as a
+     * flattened corner rather than the peak it should be. 0.15 makes it about 25 blocks taller than
+     * a normal summit (before the height scale). Its faces fall away along each ridge at
+     * crestFallSlope, like any other summit.
+     */
+    public double junctionPeakBoost = 0.15;
     /** Summit-to-summit height variation along a crest, as a fraction either side of the mean. */
     public double peakHeightVariation = 0.075;
     /**

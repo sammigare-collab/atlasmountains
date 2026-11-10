@@ -166,8 +166,23 @@ public final class RegionCache {
         return s.valleyFloorHeight + m * (h - s.valleyFloorHeight) - (1 - m) * s.maskSink;
     }
 
+    /**
+     * The height of this column's own summit ({@link HeightmapGenerator#peakHeightAt}), with the
+     * relief scaled by the mask the same way as {@link #maskedHeight}, so it agrees with the
+     * terrain at province edges where the mountains are scaled down.
+     */
+    public double maskedPeakHeight(double x, double z, RidgeSample scratch) {
+        double m = mask(x, z);
+        if (m <= 0) return s.valleyFloorHeight - s.maskSink;
+        double h = generator().peakHeightAt(x, z, scratch);
+        return s.valleyFloorHeight + m * (h - s.valleyFloorHeight) - (1 - m) * s.maskSink;
+    }
+
     /** The un-eroded analytic generator (cheap, no region needed). */
     public HeightmapGenerator generator() { return pipeline.generator(); }
+
+    /** Bumped whenever a change alters the generated terrain: 2 = junction summits (Nov 2026). */
+    public static final int TERRAIN_VERSION = 2;
 
     /** Packs region coordinates into one map key: rx in the high 32 bits, rz in the low. */
     private static long key(int rx, int rz) { return ((long) rx << 32) ^ (rz & 0xffffffffL); }
@@ -190,7 +205,9 @@ public final class RegionCache {
 
     /** The disk cache file of a region: raw little-endian floats, the whole padded grid. */
     private Path file(int rx, int rz) {
-        return diskDir.resolve("r." + rx + "." + rz + ".f32");
+        // TERRAIN_VERSION is in the name so a world never mixes regions eroded from an older
+        // terrain model with the analytic model of a newer build (that showed as seams)
+        return diskDir.resolve("r" + TERRAIN_VERSION + "." + rx + "." + rz + ".f32");
     }
 
     /**

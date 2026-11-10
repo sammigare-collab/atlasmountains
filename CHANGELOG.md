@@ -2,9 +2,15 @@
 
 ## Unreleased
 
-- Steep rock now shades with height: dark smooth basalt just under the snow, then deepslate,
-  tuff and stone, pale andesite at the foot of the faces, blended in small clumps. Replaces the large tuff and
-  packed-mud blotches.
+- Steep rock now shades down each face, measured from that face's own peak: dark smooth basalt
+  where the rock leaves the snow (or at the top of a peak too low for snow), then deepslate,
+  tuff and stone, pale andesite at the foot, blended in small clumps. Replaces the large tuff
+  and packed-mud blotches.
+- Snow above the snow line is a few blocks deep, so steep summits read white rather than dark
+  rock with white specks.
+- Ridge junctions rise into their own summit, taller than the peaks around them
+  (`junctionPeakBoost`). This changes the terrain: region caches are versioned, so a world made
+  with an older build regenerates its regions rather than mixing two terrain models.
 - Below the snow line, snow settles in patches on ledges and gentle ground down to y 160, so the
   white of the summits frays downwards instead of ending at one height.
 - Much more detailed comments throughout the code.
