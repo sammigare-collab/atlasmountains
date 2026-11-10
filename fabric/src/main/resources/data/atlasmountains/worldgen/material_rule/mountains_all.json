@@ -87,11 +87,6 @@
                         "state": "minecraft:dripstone_block",
                         "weight": 1.0,
                         "max_thickness": 2
-                      },
-                      {
-                        "state": "minecraft:calcite",
-                        "weight": 0.8,
-                        "max_thickness": 2
                       }
                     ]
                   }
@@ -160,11 +155,6 @@
                       {
                         "state": "minecraft:dripstone_block",
                         "weight": 1.0,
-                        "max_thickness": 2
-                      },
-                      {
-                        "state": "minecraft:calcite",
-                        "weight": 0.8,
                         "max_thickness": 2
                       }
                     ]

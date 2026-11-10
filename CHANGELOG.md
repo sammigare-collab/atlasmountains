@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Steep rock is now layered: beds of stone, andesite, tuff, dripstone and thin calcite seams,
-  bent gently along the ridges. Replaces the large tuff and packed-mud blotches.
+- Steep rock is now layered: beds of stone, andesite, tuff and dripstone, bent gently along
+  the ridges. Replaces the large tuff and packed-mud blotches.
 - Below the snow line, snow settles in patches on ledges and gentle ground down to y 160, so the
   white of the summits frays downwards instead of ending at one height.
 - Much more detailed comments throughout the code.

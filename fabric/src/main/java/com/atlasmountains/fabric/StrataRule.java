@@ -70,8 +70,8 @@ public record StrataRule(List<Layer> layers, int minThickness, int period, float
      * @param state         the block placed
      * @param weight        relative chance that a new bed is this layer (any positive number;
      *                      only the ratios between layers matter)
-     * @param maxThickness  the thickest bed of this layer, in blocks; pale accent rocks such as
-     *                      calcite are kept thin so they read as seams, not as walls
+     * @param maxThickness  the thickest bed of this layer, in blocks; keep accent rocks small so
+     *                      they read as seams, not as walls
      */
     public record Layer(BlockState state, float weight, int maxThickness) {
         public static final Codec<Layer> CODEC = RecordCodecBuilder.create(i -> i.group(

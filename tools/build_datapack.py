@@ -328,14 +328,14 @@ in_mountains = {'type': f'{NS}:on_our_slope', 'above_floor': 6.0}   # valley flo
 def layer(name, weight, max_thickness):
     return {'state': name, 'weight': weight, 'max_thickness': max_thickness}
 # Exposed rock: horizontal beds of several stone types (atlasmountains:strata, see StrataRule).
-# Grey stone and andesite carry the faces; tuff and dripstone add darker and warmer beds; thin
-# calcite seams give the pale lines that make strata read from a distance. Weights are relative.
+# Grey stone and andesite carry the faces; tuff and dripstone add darker and warmer beds.
+# Weights are relative. (Thin calcite seams were tried and dropped: too busy, and they read as
+# streaks of snow.)
 rock = {'type': f'{NS}:strata', 'min_thickness': 1, 'period': 192, 'warp': 12.0, 'speckle': 0.18, 'layers': [
     layer('minecraft:stone',           5.0, 6),
     layer('minecraft:andesite',        3.0, 5),
     layer('minecraft:tuff',            2.0, 4),
     layer('minecraft:dripstone_block', 1.0, 2),
-    layer('minecraft:calcite',         0.8, 2),
 ]}
 def snow_cover(mixed):   # patchy snow on ledges below the snow line (see SnowCoverCondition)
     return {'type': f'{NS}:snow_cover', 'snow_line': SNOW_LINE, 'lowest': SNOW_PATCH_LOWEST,
