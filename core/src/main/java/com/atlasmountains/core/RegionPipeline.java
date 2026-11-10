@@ -10,6 +10,20 @@ import java.util.Locale;
  * The full per-region pipeline: generate (steps 1 to 4), thermal, hydraulic, valley fill,
  * thermal again. This is what the mod runs once per region and caches; the diagnostic tool
  * runs exactly the same thing.
+ *
+ * <h2>Why this order</h2>
+ * <ol>
+ *   <li><b>Generate</b> the analytic mountain ({@link HeightmapGenerator}).</li>
+ *   <li><b>Thermal</b> first, so the spikes of the detail noise are knocked down before water
+ *       runs over them; otherwise droplets get trapped in single-sample pits.</li>
+ *   <li><b>Hydraulic</b> carves the gullies and deposits the sediment lower down.</li>
+ *   <li><b>Valley fill</b> restores the flat floors and lakes: deposition would otherwise
+ *       leave lumpy sediment fans across them.</li>
+ *   <li><b>Thermal</b> again, to bring the gully walls back to the face angle, and a second
+ *       fill to undo what that pass spilled onto the floors.</li>
+ * </ol>
+ * Every step is deterministic from the seed and the region coordinates, so a region eroded on
+ * one machine is identical to the same region eroded on another; the disk cache relies on this.
  */
 public final class RegionPipeline {
 
@@ -19,6 +33,7 @@ public final class RegionPipeline {
     private final ThermalErosion thermal;
     private final HydraulicErosion hydraulic;
     private final ValleyFill fill;
+    /** Print per-step timings to stdout (the diagnostic tool turns this on). */
     public boolean verbose = false;
 
     public RegionPipeline(MountainSettings settings, long seed) {
@@ -33,10 +48,12 @@ public final class RegionPipeline {
     public HeightmapGenerator generator() { return generator; }
     public MountainSettings settings() { return s; }
 
+    /** The region before any erosion: for previews comparing before and after. */
     public RegionHeightmap raw(int rx, int rz) {
         return generator.generate(rx, rz);
     }
 
+    /** The region after the whole pipeline; see the class comment for the order and why. */
     public RegionHeightmap eroded(int rx, int rz) {
         long t0 = System.nanoTime();
         RegionHeightmap m = generator.generate(rx, rz);

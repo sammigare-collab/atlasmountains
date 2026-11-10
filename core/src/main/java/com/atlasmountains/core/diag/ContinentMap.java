@@ -30,6 +30,7 @@ import java.io.IOException;
  */
 public final class ContinentMap {
 
+    /** Command-line entry; see the class comment for the arguments. Positional arguments may be mixed with name=value settings overrides. */
     public static void main(String[] args) throws IOException {
         long seed = args.length > 0 ? Long.parseLong(args[0]) : 1;
         int span = args.length > 1 ? Integer.parseInt(args[1]) : 64000;
@@ -94,6 +95,7 @@ public final class ContinentMap {
         return info;
     }
 
+    /** Colour for a continentalness value: blues at sea, sand on the coast band, greens darkening inland. */
     public static int landColour(double c) {
         if (c <= -0.455) return lerpColour(0x0b1f4d, 0x14407a, (c + 1.0) / (1.0 - 0.455));         // deep ocean
         if (c <= -0.19) return lerpColour(0x14407a, 0x3f86c2, (c + 0.455) / (0.455 - 0.19));      // ocean, shallowing
@@ -103,11 +105,13 @@ public final class ContinentMap {
         return lerpColour(0x4e8a3a, 0x3a6b2e, Math.min(1, (c - 0.3) / 0.4));                      // far inland
     }
 
+    /** Per-channel linear interpolation between two RGB colours. */
     static int lerpColour(int a, int b, double t) {
         t = Math.max(0, Math.min(1, t));
         return blend(a, b, t);
     }
 
+    /** Blends colour b over a with opacity t (0..1); used to lay the mountain mask over the land. */
     public static int blend(int a, int b, double t) {
         int r = (int) Math.round(((a >> 16) & 255) * (1 - t) + ((b >> 16) & 255) * t);
         int gg = (int) Math.round(((a >> 8) & 255) * (1 - t) + ((b >> 8) & 255) * t);

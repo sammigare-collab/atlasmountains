@@ -13,6 +13,26 @@ checks them.
 Two world presets are produced:
   atlasmountains:atlasmountains  "Atlas Mountains"              noise continents, our ridges filling vanilla's mountain footprint, vanilla elsewhere
   atlasmountains:all             "Atlas Mountains (everywhere)" the same ridges over the whole world, no footprint (for testing the mountains)
+
+How the script is laid out, top to bottom:
+  1. parameters         heights, lines and limits shared with the Java side
+  2. helpers            JSON loading and writing, and small builders for density-function nodes
+  3. noises             climate noises at twice vanilla's wavelength, plus the material noises
+  4. density functions  our terrain, the continents, and copies of vanilla's terrain shape
+                        re-pointed at them
+  5. final density      vanilla's, and ours with caves gated off near the summits
+  6. material rules     rock strata, snow, gravel and grass on our slopes; vanilla elsewhere
+  7. biomes             three climate bands with sparse spruce, and treeless twins above the treeline
+  8. presets            build_variant() puts it all together, once per preset
+
+Vocabulary used in the comments:
+  density        Minecraft's terrain is solid where a 3D "final density" is positive and air
+                 where it is negative. A height h becomes density (h - y) * DENSITY_PER_BLOCK.
+  mask           0..1, how much of our terrain applies (atlasmountains:mountain_mask): 1 in our
+                 mountain provinces, 0 in vanilla terrain, a soft fade between.
+  router         the noise settings' table of named density functions vanilla reads for terrain,
+                 biomes, aquifers and spawn.
+  material rules the 26.x name for surface rules: which block goes where near the surface.
 """
 import json, os, copy
 
@@ -23,7 +43,7 @@ if not os.path.isdir(VAN):
 OUT = os.path.join(ROOT, 'fabric', 'src', 'main', 'resources', 'data')
 NS = 'atlasmountains'
 
-# ---- parameters (keep in step with MountainSettings) -------------------------------
+# ---- 1. parameters (keep in step with MountainSettings) -------------------------------
 VALLEY_FLOOR = 64          # MountainSettings.valleyFloorHeight (one above vanilla sea level)
 SUMMIT = 232               # MountainSettings.summitHeight (design summit, before the field layout's height scale)
 ROCK_FRACTION = 0.5        # MountainSettings.rockFraction
@@ -65,11 +85,13 @@ def write(rel, obj):
 def rename(obj, old, new):
     return json.loads(json.dumps(obj).replace(f'"{old}"', f'"{new}"'))
 
-# Our 2D functions are wrapped in cache_2d: the chunk filler walks each column top to bottom, so
-# the eroded height and the mask are then computed once per column instead of once per block
-# (576 times per column without it). flat_cache would be cheaper still but samples at 4-block
-# resolution, which would terrace the surface.
-def cache2d(f): return {'type': 'minecraft:cache', 'input': f}   # 26.x: one generic cache; our column functions fill a volume once per column anyway
+# Our 2D functions are wrapped in a cache node. In 26.x there is one generic "minecraft:cache"
+# (the old cache_2d, flat_cache and cache_once are gone); it stores a compiled sampler's results
+# so that several parents reading the same function (the blend height is read by the terrain,
+# the preliminary surface and the vanilla push-down) compute it once. Our column functions
+# already compute one value per column and copy it down (ColumnFunction), so this is about
+# sharing between parents, not about y.
+def cache2d(f): return {'type': 'minecraft:cache', 'input': f}
 TERRAIN = cache2d({'type': f'{NS}:terrain_height', 'mixed': False})                 # "everywhere" preset's cache
 TERRAIN_FAST = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mixed': False})   # analytic model, no erosion; for biome depth only
 MASK = cache2d({'type': f'{NS}:mountain_mask'})
@@ -77,7 +99,8 @@ SC = f'{NS}:overworld/sloped_cheese'
 TERRAIN_MIXED = cache2d({'type': f'{NS}:terrain_height', 'mixed': True})       # raw eroded height, no mask: the blend below applies the mask
 # Edge blend (mixed world). In the mask's fade band the surface is a true blend of heights,
 # h = vanilla_h + mask * (ours - vanilla_h), where vanilla_h is vanilla's jaggedness-free surface
-# found with find_top_surface. Vanilla's own 3D density is shifted down by VANILLA_SLOPE per block
+# 128 + 128 * offset (computed analytically in build_variant; find_top_surface was tried and sits
+# 6-12 blocks too low, which flooded rings round every province). Vanilla's own 3D density is shifted down by VANILLA_SLOPE per block
 # of (vanilla_h - h) so its surface follows the blend, and is faded out by the mask; so a
 # vanilla hill inside a mountain cell ramps down to our valley floor across the band instead of
 # standing in it as a wall, and nothing is hollow. VANILLA_SLOPE is vanilla's final density per
@@ -90,6 +113,7 @@ EDGE_PUSH = 12             # blocks vanilla is pushed under the blend at mask 1
 PSL_SLOPE = 0.4            # the same for the jaggedness-free preliminary-surface density
 TERRAIN_FAST_MASKED = cache2d({'type': f'{NS}:terrain_height', 'eroded': False, 'mask_relief': True, 'mixed': True})
 
+# ---- 2. helpers: density-function nodes as Python dicts (26.x keys: left/right) ----------------
 def mul(a, b): return {'type': 'minecraft:mul', 'left': a, 'right': b}
 def sub(a, b): return {'type': 'minecraft:sub', 'left': a, 'right': b}
 def add(a, b): return {'type': 'minecraft:add', 'left': a, 'right': b}
@@ -147,13 +171,15 @@ def fix_top(node):
     elif isinstance(node, list):
         for v in node: fix_top(v)
 
-# ---- climate noises ------------------------------------------------------------------
+# ---- 3. climate noises ------------------------------------------------------------------
+# Copies of vanilla's noises with the first octave moved one step lower (twice the wavelength),
+# so every biome is twice vanilla's size. Only base_octave changes; amplitudes stay vanilla's.
 for name, octave in CLIMATE.items():
     n = load(f'worldgen/noise/{name}.json')
     n['base_octave'] = octave
     write(f'{NS}/worldgen/noise/{name}.json', n)
 
-# ---- material noises -----------------------------------------------------------------
+# ---- 3b. material noises -----------------------------------------------------------------
 # Two small noises read by our own material rules (see StrataRule and SnowCoverCondition).
 # 26.x noise files give the first octave, the octave count and base_amplitude, a normalising
 # factor that depends only on the octave count; the values below are copied from vanilla noises
@@ -165,7 +191,9 @@ def material_noise(name, base_octave, octaves):
 material_noise('strata_warp', -8, 2)    # wavelength about 256 blocks: beds rise and dip slowly along a ridge
 material_noise('snow_patches', -4, 3)   # wavelength about 16 blocks, with finer detail: blobs a dozen blocks across
 
-# ---- density functions ---------------------------------------------------------------
+# ---- 4. density functions ---------------------------------------------------------------
+# Our terrain as density: (terrain height - y) * DENSITY_PER_BLOCK, so the surface is where it
+# crosses 0. This is the "everywhere" preset's; the mixed preset builds a blended one per variant.
 write(f'{NS}/worldgen/density_function/overworld/sloped_cheese.json',
       mul(DENSITY_PER_BLOCK, add(TERRAIN, mul(-1.0, 'minecraft:y'))))
 # biome depth inside the zones: 0 at the terrain surface, +1 at 128 blocks down
@@ -195,8 +223,8 @@ def repoint(obj):
     for n in VANILLA_SHAPE:
         obj = rename(obj, f'minecraft:overworld/{n}', f'{NS}:overworld/vanilla_{n}')
     return obj
-# The erosion noise runs 4x larger than vanilla's (Large Biomes scale), so its flattest, lowest
-# class comes in kilometre-wide patches that sit at y 62-64 and pool everywhere. Vanilla's offset
+# The erosion noise runs larger than vanilla's (twice vanilla now; it was 4x, Large Biomes scale,
+# when this was added), so its flattest, lowest class comes in wide patches that sit at y 62-64 and pool everywhere. Vanilla's offset
 # is lifted by LOWLAND_LIFT (in offset units, 128 blocks each) from the coast band inland so those
 # flats stand a few blocks clear of sea level; the shore and the sea are untouched.
 LOWLAND_LIFT = 0.03        # everywhere inland: about 4 blocks
@@ -222,7 +250,7 @@ noodle = load('worldgen/density_function/overworld/caves/noodle.json')
 gate_interpolated(noodle, VANILLA_TOP, 0.0)      # its own outer range_choice already returns 64 above y 321
 write(f'{NS}/worldgen/density_function/overworld/caves/noodle.json', noodle)
 
-# ---- vanilla final density, trimmed to vanilla's height -------------------------------------
+# ---- 5. vanilla final density, trimmed to vanilla's height -------------------------------------
 # 26.x: final_density is its own file, add(min(squeeze(interpolated(...)), noodle), beardifier).
 vanilla_ns = load('worldgen/noise_settings/overworld.json')
 vanilla_final = rename(load('worldgen/density_function/overworld/final_density.json'), 'minecraft:overworld/caves/noodle', NOODLE)
@@ -230,6 +258,9 @@ fix_top(vanilla_final)
 gate_interpolated(vanilla_final, VANILLA_TOP, -64.0)   # air above vanilla's own ceiling, computed for free
 
 def make_our_final(sc):
+    """Our final density: vanilla's final_density with its sloped_cheese replaced by ours, caves
+    switched off at and above CAVE_TOP, and the surface taken from the exact (un-interpolated)
+    terrain density so the faces do not show vanilla's 4x8 cell grid."""
     ours = rename(load('worldgen/density_function/overworld/final_density.json'), 'minecraft:overworld/sloped_cheese', sc)
     ours = rename(ours, 'minecraft:overworld/caves/noodle', NOODLE)
     fix_top(ours)
@@ -271,7 +302,13 @@ def make_preliminary(mask, sc, terrain_height, vanilla_density, vanilla_upper):
     psl['upper_bound'] = dmax(vanilla_upper, add(terrain_height, 16.0)) if mask != 1.0 else add(terrain_height, 16.0)
     return psl
 
-# ---- material rules (26.x name for surface rules) ------------------------------------------
+# ---- 6. material rules (26.x name for surface rules) ------------------------------------------
+# A rule is a tree of conditions and results, evaluated top to bottom for each block near the
+# surface; the first result reached wins. Ours, for a block on our slopes (mountain_rules below):
+#   top block    snow above the snow line, patchy snow below it on gentle ground, rock (strata)
+#                on steep ground, grass where water can't reach, gravel otherwise
+#   just below   rock on steep ground, dirt otherwise
+# Anything deeper falls through to vanilla's underground rules (stone, deepslate, ores).
 def block(name, props=None):
     if props:
         return {'type': 'minecraft:block', 'result_state': {'id': name, 'properties': props}}
@@ -325,7 +362,7 @@ assert len(_surface_idx) == 1, vanilla_rule
 SURFACE_IDX = _surface_idx[0]
 vanilla_surface_run = vanilla_rule['sequence'][SURFACE_IDX]['then_run']      # "minecraft:overworld/surface"
 
-# ---- biomes: three climate bands, vanilla copies with vegetation replaced by sparse spruce ----
+# ---- 7. biomes: three climate bands, vanilla copies with vegetation replaced by sparse spruce ----
 VEGETATION = [f'{NS}:sparse_spruce', 'minecraft:patch_grass_plain']
 BIOMES = {   # our id: (vanilla template, temperature range in multi-noise units)
     'cold':      ('snowy_taiga', [-1.0, -0.2]),
@@ -359,15 +396,19 @@ for ours_id, (template, trange) in BIOMES.items():
         'temperature': trange, 'humidity': [-1.0, 1.0], 'continentalness': [-1.0, 1.0],
         'erosion': [-1.0, 1.0], 'weirdness': [-1.0, 1.0], 'depth': [-1.0, 1.0], 'offset': 0.0}})
 
-# ---- dimension type ------------------------------------------------------------------------
+# ---- dimension type: vanilla's overworld, made taller so the summits fit ------------------------
 dt = load('dimension_type/overworld.json')
 dt['min_y'] = DIM_MIN_Y
 dt['height'] = DIM_HEIGHT
 dt['logical_height'] = DIM_HEIGHT
 write(f'{NS}/dimension_type/mountains.json', dt)
 
-# ---- noise settings + world preset, per variant ---------------------------------------------
+# ---- 8. noise settings + world preset, per variant ---------------------------------------------
 def build_variant(settings_name, preset_name, mixed):
+    """Writes one preset's noise settings, material rules, blended density functions and world
+    preset. mixed=True is the player preset (our mountains in vanilla's footprint, blended into
+    vanilla terrain at the edges); mixed=False is the test preset (our mountains everywhere, the
+    mask a constant 1, so every blend collapses to ours)."""
     mask = MASK if mixed else 1.0
     ns = copy.deepcopy(vanilla_ns)
     ns['noise'] = {'min_y': DIM_MIN_Y, 'height': DIM_HEIGHT}

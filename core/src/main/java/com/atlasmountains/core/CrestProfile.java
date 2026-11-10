@@ -1,34 +1,41 @@
 package com.atlasmountains.core;
 
 /**
- * Height along a ridge. A row of summits at jittered spacing, each with its own height, joined
+ * Height along a ridge: the skyline of one range. A row of summits at jittered spacing, each with its own height, joined
  * by straight ridgelines that fall away from each apex at crestFallSlope. The crest at any point
  * is a smooth maximum of the nearby summit "tents": every apex stays a sharp point, saddles
  * between summits further apart than saddleRoundingMinGap are rounded by up to saddleRounding
  * blocks, and saddles between closer summits stay a sharp V.
+ * <p>
+ * Summit i of a ridge sits near {@code i * peakSpacing} along it. Its exact position and height
+ * come from hashes of (seed, ridge id, i), so they need no storage and every thread agrees. A
+ * "tent" is the summit's height minus crestFallSlope times the distance from it; the crest is
+ * the maximum of the nearby tents, softened at the saddles. Seen from the valley this gives the
+ * row of pointed, roughly evenly spaced peaks along a continuous ridge of the reference image.
  */
 public final class CrestProfile {
 
     private final MountainSettings s;
     private final long seed;
+
     public CrestProfile(MountainSettings settings, long seed) {
         this.s = settings;
         this.seed = seed;
     }
 
-    /** Position along the ridge of summit i on ridge k. */
+    /** Position along the ridge of summit i on ridge k: the regular spacing plus a hashed jitter. */
     public double summitAlong(int ridge, long i) {
         double jitter = Hash.signed(Hash.hash(seed, 404, ridge, i)) * s.peakSpacingJitter * s.peakSpacing;
         return i * s.peakSpacing + jitter;
     }
 
-    /** Height of summit i on ridge k. */
+    /** Height of summit i on ridge k: the design summit plus or minus peakHeightVariation. */
     public double summitHeight(int ridge, long i) {
         double var = Hash.signed(Hash.hash(seed, 505, ridge, i)) * s.peakHeightVariation;
         return s.summitHeight * (1 + var);
     }
 
-    /** Rounding for the saddle between two summits this far apart. */
+    /** Rounding for the saddle between two summits this far apart: 0 up to the min gap, smoothstep to full at the max gap. */
     private double roundingForGap(double gap) {
         double t = (gap - s.saddleRoundingMinGap) / (s.saddleRoundingMaxGap - s.saddleRoundingMinGap);
         t = Math.max(0, Math.min(1, t));
@@ -61,6 +68,7 @@ public final class CrestProfile {
      * sharp points (the abs() is never smoothed); only the saddle is rounded.
      */
     public double height(int ridge, double v) {
+        // the two summits either side, plus one more each way in case jitter has moved them
         long i0 = Math.round(v / s.peakSpacing);
         double best = -Double.MAX_VALUE;
         double[] tents = new double[5];
@@ -72,7 +80,8 @@ public final class CrestProfile {
         }
         double k = roundingAt(ridge, v);
         if (k < 1e-3) return best;
-        // smooth maximum over all nearby tents. At a summit the others are far below, so this adds
+        // smooth maximum over all nearby tents: k * log(sum exp(tent / k)), written relative to the
+        // best tent so the exponentials cannot overflow. At a summit the others are far below, so this adds
         // only a small constant with almost no slope; the abs() apex stays sharp.
         double sum = 0;
         for (int j = 0; j < n; j++) sum += Math.exp((tents[j] - best) / k);

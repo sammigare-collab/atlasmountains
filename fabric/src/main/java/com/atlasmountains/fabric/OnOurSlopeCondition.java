@@ -12,6 +12,11 @@ import net.minecraft.world.level.levelgen.material.condition.MaterialCondition;
  * Material condition "atlasmountains:on_our_slope": true on our valley floors and where our
  * terrain stands more than {@code above_floor} blocks over the valley floor, i.e. on our flanks.
  * False at the foot of an outer flank, where vanilla's surface takes over.
+ * <p>
+ * The material rules use it to decide whether our surface rules (rock, snow, gravel, grass) or
+ * vanilla's apply to a column. Without it, the lowest few blocks of a flank that has already
+ * blended into vanilla terrain would still get our gravel and rock, which showed as a grey ring
+ * around every province.
  */
 public record OnOurSlopeCondition(float aboveFloor) implements MaterialCondition {
 

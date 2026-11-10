@@ -23,10 +23,25 @@ import java.util.Locale;
 /**
  * The /atlasmountains debug commands: info, df, scan, continents, fields and heightmap (see the
  * README for what each prints or writes).
+ * <ul>
+ *   <li>{@code info}: region, cache state, continentalness, mask, terrain height and slope at
+ *       the player. The first thing to ask for with a screenshot of a fault.</li>
+ *   <li>{@code df <id>}: any registered density function sampled at the player's column at
+ *       several heights, for checking the datapack's blend by number.</li>
+ *   <li>{@code scan}: an 8 km text map of the mask written to the log.</li>
+ *   <li>{@code continents <km>}: a PNG of the continents and mountain provinces.</li>
+ *   <li>{@code fields <km> <erosion> <ridges>}: a PNG of the raw biome noises, for choosing the
+ *       footprint thresholds.</li>
+ *   <li>{@code heightmap <size> <step>}: a hillshaded PNG of the real surface around the player,
+ *       generated off-thread.</li>
+ * </ul>
+ * Image commands write to {@code <world>/atlasmountains/}. All are read-only: none changes the
+ * world or the caches beyond computing regions they look at.
  */
 public final class InfoCommand {
     private InfoCommand() {}
 
+    /** Registers the command tree; called from the mod's command registration callback. */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("atlasmountains")
                 .then(Commands.literal("info").executes(ctx -> {

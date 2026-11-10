@@ -18,9 +18,15 @@ import java.util.Locale;
  * Standalone PNG diagnostic. Usage: Diagnostics <seed> <regionX> <regionZ> [outDir] [overviewSpan] [raw]
  * Writes hillshade.png, contour.png, slope.png and section.csv for the region, and prints stats.
  * Uses exactly the same generator code as the mod.
+ * <p>
+ * Settings can be overridden with name=value arguments anywhere on the line (see
+ * {@link SettingsOverrides}), which is how a change is previewed before it goes into the mod.
+ * The raw (un-eroded) region is always written too, so the effect of erosion can be compared.
+ * Every image is one pixel per sample (4 blocks), so a region is 640x640 with the overlap.
  */
 public final class Diagnostics {
 
+    /** Command-line entry; see the class comment for the arguments. */
     public static void main(String[] args) throws IOException {
         java.util.List<String> pos = new java.util.ArrayList<>();
         MountainSettings s = new MountainSettings();
@@ -111,6 +117,7 @@ public final class Diagnostics {
     }
 
     // ---- Slope map: classes with 35 and 45 degree boundaries ----------------------
+    /** Slope class colour: under 35 degrees (grass), 35 to 45 (steep), over 45 (rock face). */
     static int slopeColour(double deg) {
         if (deg < 5) return 0x1A4D1A;      // dark green: flat floor
         if (deg < 10) return 0x2E7D32;
@@ -123,6 +130,7 @@ public final class Diagnostics {
         return 0xD500F9;                   // magenta: steeper than 50
     }
 
+    /** One pixel per sample, coloured by slopeColour. */
     static BufferedImage slopeMap(RegionHeightmap m) {
         BufferedImage img = new BufferedImage(m.size, m.size, BufferedImage.TYPE_INT_RGB);
         for (int gz = 0; gz < m.size; gz++) {
@@ -226,6 +234,7 @@ public final class Diagnostics {
     }
 
     // ---- Numbers ------------------------------------------------------------------
+    /** Prints height range, mean and the share of samples in each slope class, for comparing settings by number. */
     static void stats(RegionHeightmap m, MountainSettings s) {
         int o = s.overlapSamples, n = s.samplesPerRegion();
         double min = Double.MAX_VALUE, max = -Double.MAX_VALUE;

@@ -15,13 +15,18 @@ import com.atlasmountains.core.RegionHeightmap;
 public final class ValleyFill {
 
     private final MountainSettings s;
-    /** Sediment is allowed to build this high above the floor before being flattened. */
+    /** Sediment is allowed to build this high above the floor before being flattened, blocks. Keeps a hint of fans at the foot of gullies. */
     public double maxFanHeight = 2.0;
 
     public ValleyFill(MountainSettings settings) {
         this.s = settings;
     }
 
+    /**
+     * Clamps every floor-zone sample to [model, model + maxFanHeight]. Uses the generator's
+     * floorModel when present (one array read per sample), otherwise re-samples the model, which
+     * is slower but gives the same answer.
+     */
     public void run(RegionHeightmap m, HeightmapGenerator gen) {
         RidgeSample sc = new RidgeSample();
         float[] fm = m.floorModel;

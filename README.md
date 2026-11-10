@@ -22,7 +22,10 @@ otherwise normal vanilla world.
 - **Enclosed valleys.** Where two ridges part, a small flat valley floor with a lake is walled in
   between them.
 - **Snow line and treeline.** Snow starts at a height that rises with the climate, so it wraps the
-  summits as a ragged contour; trees thin out and stop at the treeline, and steep faces are rock.
+  summits as a ragged contour, and below it snow lies in patches on ledges and gentle ground.
+  Trees thin out and stop at the treeline.
+- **Layered rock.** Steep faces show beds of stone, andesite, tuff, dripstone and thin calcite
+  seams that bend gently along the ridges, like strata on a real mountain.
 - **Blended edges.** Mountain provinces have ragged outlines and their foothills ease into the
   surrounding vanilla terrain rather than ending in a wall.
 - **Continents.** Land comes in large, irregular continents and islands surrounded by ocean, with

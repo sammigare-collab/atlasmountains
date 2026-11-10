@@ -20,14 +20,15 @@ import java.util.function.DoubleSupplier;
  * Above the snow line every top block is snow; that rule is unchanged and keeps the summits
  * white. Real mountains do not stop being white along one contour, though: below the line,
  * snow lies on ledges, shoulders and gentle slopes, and slides off steep faces. This condition
- * is true for exactly those top blocks, in a band from {@code lowest} up to {@code snow_line},
+ * is true for exactly those top blocks, from {@code lowest} upwards,
  * so the white of the summits frays downwards into patches instead of ending in a straight edge.
  *
  * <h2>The test, for a top block at height y</h2>
  * <ol>
  *   <li>{@code t = (y - lowest) / (snow_line - lowest)}: 0 at the bottom of the band, 1 at the
- *       snow line. Outside the band the condition is false (above it, the snow line rule has
- *       already placed snow).</li>
+ *       snow line, and more than 1 above it. Below {@code lowest} the condition is false. Above
+ *       the snow line the snow line rule usually places snow first; where its jitter leaves a
+ *       block uncovered, this condition is all but certain to cover it.</li>
  *   <li>A patch value: the 2D noise {@code atlasmountains:snow_patches} (blobs about a dozen
  *       blocks across, defined in the datapack) plus a small per-block jitter, so patch edges
  *       are ragged rather than smooth curves.</li>
@@ -45,7 +46,7 @@ import java.util.function.DoubleSupplier;
  * the same one that decides where rock shows, so snow and rock agree about which ground is steep.
  * {@code mixed} picks the preset's terrain cache as in {@link TerrainHeightFunction}.
  *
- * @param snowLine     the height above which everything is snow already (the top of this band)
+ * @param snowLine     the height of the snow line rule, where the patches reach full cover
  * @param lowest       the lowest height a patch can reach
  * @param ledgeSlope   the slope, in degrees, at which the slope has no effect either way
  * @param steepPenalty the largest shift of the threshold from slope, either way (noise units;
@@ -83,7 +84,10 @@ public record SnowCoverCondition(int snowLine, int lowest, float ledgeSlope, flo
         float span = Math.max(1, snowLine - lowest);
         return () -> {
             int y = context.blockY();
-            if (y < lowest || y >= snowLine) return false;
+            if (y < lowest) return false;
+            // t is not capped at 1: the snow line rule above this one jitters its line a dozen or
+            // so blocks upwards, and in that strip this condition carries on, ever more certain,
+            // so there is no bare band between the patches and the solid cover
             float t = (y - lowest) / span;
             int x = context.blockX(), z = context.blockZ();
             double threshold = 0.9 - 1.6 * t;

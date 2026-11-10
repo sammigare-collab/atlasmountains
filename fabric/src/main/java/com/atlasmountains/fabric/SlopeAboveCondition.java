@@ -12,6 +12,9 @@ import net.minecraft.world.level.levelgen.material.condition.MaterialCondition;
  * the column is at least the given number of degrees. Vanilla's "steep" only triggers at about
  * 63 degrees, which is useless for 45-degree faces. {@code mixed} picks the preset's cache as in
  * {@link TerrainHeightFunction}.
+ * <p>
+ * The slope comes from our smooth terrain height, not from the placed blocks, so a face reads as
+ * one slope however its voxel steps fall; see {@link com.atlasmountains.core.RegionCache#slopeDegrees}.
  */
 public record SlopeAboveCondition(float degrees, boolean mixed) implements MaterialCondition {
 

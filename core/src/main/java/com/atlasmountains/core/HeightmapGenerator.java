@@ -1,9 +1,21 @@
 package com.atlasmountains.core;
 
 /**
- * Steps 1 to 4: builds a region heightmap from the analytic range model, adds ridged detail
- * noise on the upper slopes and dips the valley floor where lakes sit.
- * Deterministic from (seed, regionX, regionZ). Erosion is applied afterwards by RegionPipeline.
+ * The un-eroded mountain: steps 1 to 4 of the pipeline.
+ * <ol>
+ *   <li>Ask the layout where the nearest ridges are ({@link FieldLayout#sample}).</li>
+ *   <li>Read the crest height there ({@link CrestProfile}: a row of pointed summits along the
+ *       ridge), scaled by the layout's height field so some massifs are bigger than others.</li>
+ *   <li>Turn the distance from the ridge into a height ({@link CrossProfile}: rock face down to
+ *       the rock line, then a concave grass flank to the valley floor). At a junction the
+ *       higher of the two nearest ridges wins.</li>
+ *   <li>Season it: ridged detail noise on the upper faces, and lake beds dipped into the valley
+ *       floors.</li>
+ * </ol>
+ * The result is deterministic from the seed and the position, so any thread can ask for any
+ * point and get the same answer. Erosion is applied afterwards, per region, by
+ * {@link RegionPipeline}; {@link #heightAt} is also used directly where an eroded value is not
+ * needed (the mask's flank test, the biome source).
  */
 public final class HeightmapGenerator {
 
@@ -14,10 +26,12 @@ public final class HeightmapGenerator {
     private final CrossProfile cross;
     private final long detailSeed, lakeSeed;
 
+    /** A generator with its own field layout (tests, the diagnostic tool). */
     public HeightmapGenerator(MountainSettings settings, long seed) {
         this(settings, seed, new FieldLayout(settings, seed));
     }
 
+    /** A generator around a given layout, so the mod can install the world's erosion on that layout. */
     public HeightmapGenerator(MountainSettings settings, long seed, FieldLayout layout) {
         this.s = settings;
         this.seed = seed;
@@ -32,11 +46,16 @@ public final class HeightmapGenerator {
     public CrestProfile crest() { return crest; }
     public MountainSettings settings() { return s; }
 
-    /** Un-noised analytic shape: ridge, crest and cross profile only. */
+    /**
+     * Un-noised analytic shape: ridge, crest and cross profile only (steps 1 to 3). Leaves the
+     * ridge sample in {@code scratch}, which {@link #heightFromBase} reads for the lake test.
+     */
     public double baseHeightAt(double x, double z, RidgeSample scratch) {
         scratch.scale = 1.0;
         layout.sample(x, z, scratch);
         double c = crest.height(scratch.ridge, scratch.along);
+        // the height scale stretches the relief above the valley floor, not the absolute height,
+        // so a small massif is a lower mountain on the same floor, not a sunken one
         if (scratch.scale != 1.0) c = s.valleyFloorHeight + (c - s.valleyFloorHeight) * scratch.scale;
         double h = cross.height(c, scratch.distance);
         // The second ridge matters only where it is within a half-width (two ridges meeting at a
@@ -51,7 +70,11 @@ public final class HeightmapGenerator {
         return h;
     }
 
-    /** Ridged multifractal in [0,1], sharp ridges at 1. */
+    /**
+     * Ridged multifractal in [0,1], sharp ridges at 1: each octave is 1 - |noise|, which folds the
+     * noise's zero crossings into sharp creases. Octaves halve in amplitude and double in
+     * frequency, and the sum is normalised by the total amplitude.
+     */
     private double ridged(double x, double z) {
         double sum = 0, amp = 1, norm = 0, freq = 1.0 / s.detailWavelength;
         for (int o = 0; o < s.detailOctaves; o++) {
@@ -64,6 +87,7 @@ public final class HeightmapGenerator {
         return sum / norm;
     }
 
+    /** 3t^2 - 2t^3 on t clamped to 0..1: an S-curve with zero slope at both ends. */
     private static double smoothstep(double t) {
         t = Math.max(0, Math.min(1, t));
         return t * t * (3 - 2 * t);
@@ -74,18 +98,24 @@ public final class HeightmapGenerator {
         return heightFromBase(baseHeightAt(x, z, sc), x, z, sc);
     }
 
-    /** heightAt given the base height already sampled into sc at (x, z). */
+    /**
+     * heightAt given the base height already sampled into sc at (x, z): step 4. Above the valley
+     * floor this adds detail noise; on the floor it may dip a lake.
+     */
     private double heightFromBase(double h, double x, double z, RidgeSample sc) {
         double floor = s.valleyFloorHeight;
 
         if (h > floor + 1e-6) {
             // detail noise, scaled by height above the valley so flanks stay smooth
             double w = Math.pow(Math.max(0, (h - floor) / s.relief()), s.detailHeightPower);
-            h += s.detailAmplitude * (ridged(x, z) - 0.5) * w;
+            h += s.detailAmplitude * (ridged(x, z) - 0.5) * w;   // centred, so the mean height is unchanged
             return h;
         }
 
-        // valley floor: dip a lake bed along the centre of the valley where the lake mask is on
+        // valley floor: dip a lake bed along the centre of the valley where the lake mask is on.
+        // The floor between two ridges is (distance + distance2 - 2 half-widths) wide; the lake
+        // takes the middle lakeWidthFraction of it, with a smoothstep cross-section, and an on/off
+        // noise along the valley decides which stretches have water.
         double half = s.halfWidth();
         double width = sc.distance + sc.distance2 - 2 * half;   // flat floor width here
         if (width <= 1) return h;
@@ -94,10 +124,18 @@ public final class HeightmapGenerator {
         double lakeHalf = s.lakeWidthFraction * width / 2;
         double shape = smoothstep(1 - fromCentre / lakeHalf);
         double n = Hash.value1(lakeSeed, sc.along / s.lakeWavelength);  // -1..1 along the valley
+        // shift the noise so about lakeCoverage of the valley length is "on", with a soft
+        // 0.4-wide transition so a lake tapers out instead of ending in a wall of water
         double mask = smoothstep((n + (2 * s.lakeCoverage - 1)) / 0.4 + 0.5);
         return floor - s.lakeDepth * shape * mask;
     }
 
+    /**
+     * The heightmap of one region, overlap included, on the sample grid. Also records
+     * {@code floorModel}: the model height where a sample is valley floor and NaN where it is
+     * mountain, so the valley fill after erosion can restore flat floors and lakes exactly
+     * (see {@link com.atlasmountains.core.erosion.ValleyFill}).
+     */
     public RegionHeightmap generate(int regionX, int regionZ) {
         RegionHeightmap map = new RegionHeightmap(s, regionX, regionZ);
         map.floorModel = new float[map.size * map.size];

@@ -20,6 +20,10 @@ import net.minecraft.world.level.levelgen.densityfunction.DensityFunction;
  * into hills at the zone edges rather than meeting vanilla terrain as a cliff.
  * <p>
  * {@code mixed: true} (default) uses the mixed preset's cache; {@code false} the "everywhere" preset's.
+ * <p>
+ * The value is a height in blocks (y), not a density. The datapack turns it into density with
+ * {@code (height - y) * 0.15}, which is positive (solid) below the surface and negative (air)
+ * above, the same convention as vanilla's sloped_cheese.
  */
 public record TerrainHeightFunction(boolean eroded, boolean maskRelief, boolean mixed) implements ColumnFunction {
 
@@ -29,6 +33,7 @@ public record TerrainHeightFunction(boolean eroded, boolean maskRelief, boolean 
             Codec.BOOL.optionalFieldOf("mixed", true).forGetter(TerrainHeightFunction::mixed)
     ).apply(i, TerrainHeightFunction::new));
 
+    /** Scratch for the analytic model, one per thread (chunk generation is multi-threaded). */
     private static final ThreadLocal<RidgeSample> SCRATCH = ThreadLocal.withInitial(RidgeSample::new);
 
     @Override
@@ -40,6 +45,7 @@ public record TerrainHeightFunction(boolean eroded, boolean maskRelief, boolean 
         return eroded ? cache.height(x, z) : cache.generator().heightAt(x, z, SCRATCH.get());
     }
 
+    /** Generous bounds on any height we produce: below the masked sink, above the tallest summit. */
     @Override
     public Interval range() { return Interval.of(-128, 1024); }
 

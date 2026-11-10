@@ -44,7 +44,11 @@ Technical notes on the terrain generator. For installing and playing, see the [R
 - *Biomes and surface*: inside the mountains, three biomes (`cold`, `temperate`, `warm`), copies of
   vanilla snowy_taiga, meadow and savanna with sparse spruce and short grass, plus treeless twins
   (`*_high`) above the treeline (y 92). The cold biome starts at a snow line that rises with
-  temperature. Steep ground is stone. Outside the mountains, vanilla's biomes and surface.
+  temperature. Steep ground is layered rock (`atlasmountains:strata`: horizontal beds of stone,
+  andesite, tuff, dripstone and calcite, bent by a slow noise and speckled at the edges). Above
+  the snow line every top block is snow; below it, down to y 160, snow settles in patches
+  (`atlasmountains:snow_cover`), more on gentle ground and less on steep faces. Outside the
+  mountains, vanilla's biomes and surface.
 
 **Atlas Mountains (everywhere)** (`atlasmountains:all`): the same field-layout ridges over the
 whole world with no footprint, for looking at the mountain design itself. Its mask is 1
@@ -59,7 +63,7 @@ that folder.
 ## Heights
 
 Valley floor y 64 (vanilla sea level 63), design summit y 232, rock line y 148, snow surface from
-y 205, density-function caves stop at y 135, treeline y 92, dimension -64..512. With the field
+y 205 (patches down to y 160), density-function caves stop at y 135, treeline y 92, dimension -64..512. With the field
 height scale typical summits are about y 212 and the tallest about y 286. The height parameters
 live in `MountainSettings`; the surface and dimension ones in `tools/build_datapack.py`.
 

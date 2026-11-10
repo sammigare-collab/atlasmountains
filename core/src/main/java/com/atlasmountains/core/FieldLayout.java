@@ -1,7 +1,10 @@
 package com.atlasmountains.core;
 
 /**
- * Where the ridges are. Ridges everywhere, as the edges of a warped Voronoi diagram: a connected network of ridges
+ * Where the ridges are: the layout used by the mixed preset (the one players use).
+ *
+ * <h2>The idea</h2>
+ * Ridges everywhere, as the edges of a warped Voronoi diagram: a connected network of ridges
  * meeting at three-way junctions, enclosing cells. Where the mountain mask is on (vanilla's
  * mountain footprint) every column is on one of these ridges or on the flank below it, so the
  * footprint fills with ranges back to back; a cell wider than two flanks leaves a small
@@ -13,14 +16,44 @@ package com.atlasmountains.core;
  * at a junction. Summit heights are scaled by a slow 2-D field
  * ({@link MountainSettings#fieldHeightBoost} on average, plus or minus
  * {@link MountainSettings#fieldHeightVariation}), so some massifs are big and some small.
+ *
+ * <h2>Steps for one position</h2>
+ * <ol>
+ *   <li><b>Warp.</b> The position is shifted by a smooth 2-octave noise ({@link #warp}), so the
+ *       straight Voronoi edges come out curved. Everything below uses the warped point.</li>
+ *   <li><b>Sites.</b> The plane is divided into squares of {@link MountainSettings#fieldCellSize};
+ *       each square holds one site at a hashed, jittered position. The 5x5 squares around the
+ *       warped point are examined ({@link #nearest}). Three-by-three is not enough: with a large
+ *       jitter the second-nearest site can lie two squares away, and when it fell outside the
+ *       searched set the ridge jumped, leaving a 64-block wall in the terrain.</li>
+ *   <li><b>Ridges.</b> The ridge between the nearest site A and another site B is their
+ *       perpendicular bisector. The distance from the point to it is
+ *       {@code (|P-B|^2 - |P-A|^2) / (2 |B-A|)}, exact for a Voronoi edge, so no approximation
+ *       error builds up near junctions.</li>
+ *   <li><b>Footprint.</b> Once the world's erosion noise is installed ({@link #setErosion}), each
+ *       site's cell is "inside" the mountains or not, and only ridges bounding an inside cell
+ *       are used. {@link #zone} turns the same test into the mask.</li>
+ * </ol>
+ *
+ * <h2>Thread safety</h2>
+ * Called from many chunk-generation threads. The only shared state is the per-site inside cache,
+ * a concurrent map; everything else is computed from hashes of the seed and the position, so
+ * every thread gets identical answers.
  */
 public final class FieldLayout {
 
     private final MountainSettings s;
     private final long siteSeed, warpSeed, heightSeed;
+    /** (x, z) -> vanilla-scale erosion; null until the world's noise is installed (see setErosion). */
     private volatile java.util.function.DoubleBinaryOperator erosion;
+    /**
+     * Inside-the-footprint answer per site id. Each answer costs a noise evaluation and every block
+     * asks about 25 sites, so caching is what makes the footprint affordable. Cleared when it
+     * grows past 200 000 entries (a few MB) and whenever the erosion field changes.
+     */
     private final java.util.Map<Long, Boolean> siteInside = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** The seed is split into independent sub-seeds for site positions, the warp and the height field. */
     public FieldLayout(MountainSettings settings, long seed) {
         this.s = settings;
         this.siteSeed = Hash.hash(seed, 9001);
@@ -53,7 +86,12 @@ public final class FieldLayout {
      */
     public void setErosion(java.util.function.DoubleBinaryOperator erosion) { this.erosion = erosion; siteInside.clear(); }
 
-    /** Whether the cell of this site is in the mountains: vanilla's footprint is on at the site. */
+    /**
+     * Whether the cell of this site is in the mountains: vanilla's footprint is on at the site.
+     * The test is {@code erosion(site) + footprintRagged * n(site) < erosionMountainBelow}, with n
+     * a slow noise that roughens the province outline. The answer is a property of the site, not
+     * of the block, so a whole cell is in or out together.
+     */
     private boolean inside(long id, double sx, double sz) {
         Boolean b = siteInside.get(id);
         if (b == null) {
@@ -80,18 +118,28 @@ public final class FieldLayout {
             if (k == n.i1 || !inside(n.ids[k], n.xs[k], n.zs[k])) continue;
             d = Math.min(d, bisectorDistance(n, n.i1, k));
         }
+        // d is the distance to the nearest ridge that bounds an inside cell. The mask is 1 within
+        // one flank's width of it (halfWidth), then falls to 0 over fieldEdgeFade blocks with a
+        // smoothstep, so there is no kink where the fade starts or ends.
         double t = (s.halfWidth() + s.fieldEdgeFade - d) / s.fieldEdgeFade;
         t = Math.max(0, Math.min(1, t));
         return t * t * (3 - 2 * t);
     }
 
-    /** Distance from the sample point to the bisector of sites a and b (a is the nearest site). */
+    /**
+     * Distance from the sample point to the bisector of sites a and b (a is the nearest site).
+     * ds holds squared distances, so this is (db^2 - da^2) / (2 |ab|): positive, and exact.
+     */
     private static double bisectorDistance(Sites n, int a, int b) {
         double len = Math.max(1e-9, Math.hypot(n.xs[b] - n.xs[a], n.zs[b] - n.zs[a]));
         return (n.ds[b] - n.ds[a]) / (2 * len);
     }
 
-    /** The warped sample point and the 5x5 neighbourhood of sites (squared distances), with the nearest marked. */
+    /**
+     * The warped sample point and the 5x5 neighbourhood of sites (squared distances), with the
+     * nearest marked. Arrays are indexed by the order squares were visited; ids are the site hashes,
+     * which identify a site globally (for the inside cache and to seed each ridge's crest).
+     */
     private static final class Sites {
         static final int N = 25;
         double px, pz;
@@ -100,6 +148,7 @@ public final class FieldLayout {
         int i1;
     }
 
+    /** Warps (x, z) and collects the 25 sites around it; see the class comment, step 2. */
     private Sites nearest(double x, double z) {
         Sites n = new Sites();
         n.px = x + warp(1, x, z); n.pz = z + warp(2, x, z);
@@ -109,7 +158,8 @@ public final class FieldLayout {
         double best = Double.MAX_VALUE;
         for (long i = cx - 2; i <= cx + 2; i++) {
             for (long j = cz - 2; j <= cz + 2; j++, k++) {
-                long h = Hash.hash(siteSeed, i, j);
+                long h = Hash.hash(siteSeed, i, j);   // the site's identity: same square, same site, on every thread
+                // site = square centre + jitter, the jitter uniform in +/- fieldJitter/2 of a cell
                 double sx = (i + 0.5 + (Hash.unit(Hash.hash(h, 1)) - 0.5) * s.fieldJitter) * c;
                 double sz = (j + 0.5 + (Hash.unit(Hash.hash(h, 2)) - 0.5) * s.fieldJitter) * c;
                 double d = (n.px - sx) * (n.px - sx) + (n.pz - sz) * (n.pz - sz);
@@ -120,7 +170,13 @@ public final class FieldLayout {
         return n;
     }
 
-    /** The nearest two ridges to (x, z) and the height scale there, written into out. */
+    /**
+     * The nearest two ridges to (x, z) and the height scale there, written into out. Two ridges,
+     * because near a junction the terrain is the union of both (the higher of the two profiles),
+     * which gives clean three-way meetings instead of a crease where the nearest ridge switches.
+     * With no qualifying ridge (deep outside the footprint) the distance is set to three
+     * half-widths, which the generator turns into flat valley floor.
+     */
     public void sample(double x, double z, RidgeSample out) {
         Sites n = nearest(x, z);
         int a = n.i1;
@@ -145,7 +201,13 @@ public final class FieldLayout {
         out.scale = heightScale(x, z);
     }
 
-    /** Distance to, and position along, the bisector of sites a and b; written as the first or second ridge of out. */
+    /**
+     * Distance to, and position along, the bisector of sites a and b; written as the first or second
+     * ridge of out. "Along" is the coordinate along the ridge, measured from the midpoint of the two
+     * sites, which the crest profile uses to place summits. Its direction is fixed by the order of
+     * the two site ids, so both cells beside a ridge see the same summits in the same places. The
+     * ridge id hashes the two site ids in sorted order for the same reason.
+     */
     private static void edge(double px, double pz, double da, double ax, double az, long ida, double db, double bx, double bz, long idb,
                              RidgeSample out, boolean second) {
         double ex = bx - ax, ez = bz - az;

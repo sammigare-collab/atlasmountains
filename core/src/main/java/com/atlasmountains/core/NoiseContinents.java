@@ -10,8 +10,11 @@ package com.atlasmountains.core;
 public final class NoiseContinents implements Continents {
 
     private final MountainSettings s;
+    /** One seed per octave, so octaves are independent noises rather than rescaled copies. */
     private final long[] octaveSeeds;
+    /** Sum of the octave amplitudes, so the summed noise stays in about -1..1 whatever the gain. */
     private final double norm;
+    /** Seed of the noise that bends the guaranteed spawn island's outline. */
     private final long domeSeed;
 
     public NoiseContinents(MountainSettings settings, long seed) {
@@ -38,7 +41,7 @@ public final class NoiseContinents implements Continents {
             freq *= 2;
         }
         double n = sum / norm;
-        // spawn island
+        // spawn island: a smoothstep bump, continentSpawnBoost at the origin, 0 at continentSpawnRadius
         double r = Math.sqrt(x * x + z * z) / s.continentSpawnRadius;
         if (r < 1) {
             double t = 1 - r;
@@ -74,7 +77,7 @@ public final class NoiseContinents implements Continents {
      * noise is flat.
      */
     public double signedDistance(double x, double z) {
-        double h = 48;
+        double h = 48;   // finite-difference step: small against the continent scale, large against noise jitter
         double v = landValue(x, z);
         double gx = (landValue(x + h, z) - landValue(x - h, z)) / (2 * h);
         double gz = (landValue(x, z + h) - landValue(x, z - h)) / (2 * h);

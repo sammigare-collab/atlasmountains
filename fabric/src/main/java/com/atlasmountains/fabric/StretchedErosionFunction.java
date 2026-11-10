@@ -15,7 +15,13 @@ public enum StretchedErosionFunction implements ColumnFunction {
 
     public static final MapCodec<StretchedErosionFunction> CODEC = MapCodec.unit(INSTANCE);
 
+    /**
+     * The world's erosion noise (atlasmountains:erosion, twice vanilla's wavelength), set when the
+     * overworld loads. Static because density functions are created from JSON with no access to
+     * the world; volatile because chunk threads read what the server thread wrote.
+     */
     private static volatile Noise sampler;
+    /** The frame: cos and sin of the seed-chosen angle, and the stretch ratio along it. */
     private static volatile double cos = 1, sin = 0, stretch = 1;
 
     /**
@@ -31,6 +37,7 @@ public enum StretchedErosionFunction implements ColumnFunction {
         sampler = s;
     }
 
+    /** True once install has run for the current world. */
     public static boolean installed() { return sampler != null; }
 
     /** Erosion at a block position, on vanilla's scale. 0 (flat) until installed. */
@@ -39,7 +46,7 @@ public enum StretchedErosionFunction implements ColumnFunction {
         if (s == null) return 0;
         double along = x * cos + z * sin;      // along the ranges: stretched
         double across = -x * sin + z * cos;
-        return s.get(along / stretch * 0.25, 0, across * 0.25);
+        return s.get(along / stretch * 0.25, 0, across * 0.25);   // 0.25 = vanilla's xz_scale for erosion
     }
 
     @Override

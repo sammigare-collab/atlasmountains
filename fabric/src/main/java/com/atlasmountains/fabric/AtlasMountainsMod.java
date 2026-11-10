@@ -18,6 +18,28 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 
+/**
+ * The mod's entry point: registers our worldgen types, manages the terrain caches, and connects
+ * them to the running server.
+ *
+ * <h2>What is registered</h2>
+ * Density functions (terrain_height, mountain_mask, continents, stretched_erosion), material
+ * conditions and rules (on_our_slope, slope_above, snow_cover, strata), the biome source (mask),
+ * and the /atlasmountains command. The datapack in resources/data refers to these by id.
+ *
+ * <h2>Lifecycle</h2>
+ * <ol>
+ *   <li>SERVER_STARTING: remember the world seed and folder; drop any caches of a previous world
+ *       (a single-player client can open several worlds in one session).</li>
+ *   <li>First terrain request: the cache for that preset is created lazily, with the world's seed
+ *       and its own folder under {@code <world>/atlasmountains/}.</li>
+ *   <li>Overworld LOAD: the world's erosion noise exists now, so it is handed to the field
+ *       layout, which from then on decides mountain cells from vanilla's footprint.</li>
+ *   <li>SERVER_STOPPED: erosion threads are shut down.</li>
+ * </ol>
+ * Everything is static because density functions and material rules are created from JSON by
+ * the game and have no other way to reach the mod.
+ */
 public final class AtlasMountainsMod implements ModInitializer {
 
     public static final String MOD_ID = "atlasmountains";
@@ -29,9 +51,12 @@ public final class AtlasMountainsMod implements ModInitializer {
      * has started.
      */
     private static volatile RegionCache[] caches;
+    /** The running world's seed, set at SERVER_STARTING. */
     private static volatile long seed;
+    /** The running world's cache folder, {@code <world>/atlasmountains}. */
     private static volatile Path dir;
 
+    /** An identifier in the mod's namespace, e.g. id("strata") = atlasmountains:strata. */
     public static Identifier id(String path) {
         return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }

@@ -11,10 +11,12 @@ import java.util.Locale;
 public final class SettingsOverrides {
     private SettingsOverrides() {}
 
+    /** True for a command-line argument of the form name=value. */
     public static boolean isOverride(String arg) {
         return arg.indexOf('=') > 0;
     }
 
+    /** Sets one field from "name=value". Supports double, int and boolean fields. */
     public static void apply(MountainSettings s, String arg) {
         int eq = arg.indexOf('=');
         String name = arg.substring(0, eq), value = arg.substring(eq + 1);
@@ -31,6 +33,7 @@ public final class SettingsOverrides {
         }
     }
 
+    /** Every setting as "name=value ", for logging the exact configuration a preview was made with. */
     public static String describe(MountainSettings s) {
         StringBuilder sb = new StringBuilder();
         for (Field f : MountainSettings.class.getFields()) {

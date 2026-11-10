@@ -4,6 +4,10 @@ package com.atlasmountains.core;
  * Where the mountains are, 0..1: the field layout's zone (the cells inside vanilla's mountain
  * footprint plus a fade), multiplied by an inland ramp on the continentalness so mountains fade
  * out at the coast instead of marching into the sea.
+ * <p>
+ * 1 means our terrain applies in full, 0 means vanilla's applies, and in between the two are
+ * blended in the datapack (see tools/build_datapack.py, "mixed blend"). The "everywhere" preset
+ * bypasses this class: {@link RegionCache#mask} returns 1 there.
  */
 public final class MountainMask {
 
@@ -19,6 +23,7 @@ public final class MountainMask {
 
     public Continents continents() { return continents; }
 
+    /** 3t^2 - 2t^3 on t clamped to 0..1. */
     private static double smoothstep(double t) {
         t = Math.max(0, Math.min(1, t));
         return t * t * (3 - 2 * t);
@@ -38,6 +43,7 @@ public final class MountainMask {
         return smoothstep((continentalnessAt(x, z) - s.maskInlandStart) / (s.maskInlandFull - s.maskInlandStart));
     }
 
+    /** The mask, 0..1: zone times inland ramp. The ramp is skipped where the zone is 0, which is most of the map. */
     public double mask(double x, double z) {
         double m = zone(x, z);
         if (m <= 0) return m;
@@ -46,7 +52,9 @@ public final class MountainMask {
 
     // ---- coarse, cached continentalness ------------------------------------------------
     // The continentalness has a wavelength of kilometres and the mask is asked for per
-    // block. Sample it on a grid and interpolate.
+    // block. Sample it on a grid and interpolate. Each grid value costs seven noise octaves and
+    // four neighbours for the gradient (see NoiseContinents.signedDistance), so the cache matters;
+    // it is per thread and direct-mapped, like RegionCache's column cache.
     private static final int GRID = 32;
     private static final int CACHE_BITS = 12;
     private static final class Cache {

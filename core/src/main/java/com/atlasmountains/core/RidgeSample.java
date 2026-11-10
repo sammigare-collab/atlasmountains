@@ -4,6 +4,9 @@ package com.atlasmountains.core;
  * What {@link FieldLayout#sample} reports for one column: the nearest ridge and the next one.
  * The crest and cross profiles only ever see this, so the mountain design does not depend on how
  * the ridges are laid out. Reused per thread as scratch, so it is mutable.
+ * <p>
+ * The older layouts (plate continents, parallel ranges, chains) filled the same fields, which is
+ * how the layout could be swapped three times without touching the crest or the cross profile.
  */
 public final class RidgeSample {
     /** Relief multiplier for the crest at this column (the field layout's height scale). */
