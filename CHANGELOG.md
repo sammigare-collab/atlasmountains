@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Ridge lines after Sammi's sketch: a main ridge about 1500 blocks long (a free end runs on
+  500 blocks past its site) in straight stretches with an elbow about every 280 blocks, side
+  ridges leaving the elbows at 40 to 75 degrees with an elbow of their own and descending to a
+  low tip, and a summit of its own height on every elbow and fork. Every spine in reach is
+  unioned, not only the nearest two. Footprint threshold back to -0.62 (about 6% of land).
+- No springs in the mountain biomes: they poured down steep faces as wide sheets of water.
+- New `/atlasmountains spines <blocks>`: the ridge skeleton drawn over the un-eroded terrain.
 - New mountain layout: a ridge skeleton instead of cell edges. Ranges are spines that wander and
   branch like a tree and never close into a ring, with free ends that taper down and legs (side
   ridges with small peaks) branching off the summits at varied angles. No more rings or

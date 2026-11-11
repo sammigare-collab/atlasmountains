@@ -262,6 +262,44 @@ public final class InfoCommand {
                             "erosion below %.3f: mountains %.1f%% of land (%d of %d samples)", below, 100.0 * m / Math.max(1, l), m, l)), false);
                     return 1;
                 }))))
+                .then(Commands.literal("spines")
+                        .then(Commands.argument("blocks", IntegerArgumentType.integer(256, 8192)).executes(ctx -> {
+                    // The ridge skeleton around the player, drawn over the un-eroded terrain: main spines
+                    // in purple, side ridges in blue, the terrain as grey by height (black outside the
+                    // mask). Lines are in the layout's warped space, so they sit up to a warp away from
+                    // the crests they make. One pixel is two blocks.
+                    CommandSourceStack src = ctx.getSource();
+                    ServerLevel world = src.getLevel();
+                    Vec3 p = src.getPosition();
+                    int span = IntegerArgumentType.getInteger(ctx, "blocks"), n = span / 2;
+                    int cx = (int) Math.floor(p.x), cz = (int) Math.floor(p.z);
+                    RegionCache cache = AtlasMountainsMod.cacheFor(world);
+                    java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(n, n, java.awt.image.BufferedImage.TYPE_INT_RGB);
+                    com.atlasmountains.core.RidgeSample sc = new com.atlasmountains.core.RidgeSample();
+                    for (int j = 0; j < n; j++) for (int i = 0; i < n; i++) {
+                        double x = cx + (i - n / 2) * 2.0, z = cz + (j - n / 2) * 2.0;
+                        double m = cache.layout().zone(x, z);
+                        if (!(m > 0)) continue;
+                        double h = cache.generator().baseHeightAt(x, z, sc);
+                        int v = (int) Math.max(30, Math.min(255, 30 + (h - 64) * 1.1));
+                        img.setRGB(i, j, (v << 16) | (v << 8) | v);
+                    }
+                    java.awt.Graphics2D g = img.createGraphics();
+                    java.util.Set<String> seen = new java.util.HashSet<>();
+                    for (double x = cx - span / 2.0 - 800; x <= cx + span / 2.0 + 800; x += 400)
+                        for (double z = cz - span / 2.0 - 800; z <= cz + span / 2.0 + 800; z += 400)
+                            for (double[] q : cache.layout().spinesForDebug(x, z)) {
+                                if (!seen.add(q[0] + "," + q[1] + "," + q[2] + "," + q[3])) continue;
+                                g.setColor(q[4] >= 1 ? new java.awt.Color(170, 90, 255) : new java.awt.Color(80, 170, 255));
+                                g.drawLine((int) ((q[0] - cx) / 2 + n / 2), (int) ((q[1] - cz) / 2 + n / 2), (int) ((q[2] - cx) / 2 + n / 2), (int) ((q[3] - cz) / 2 + n / 2));
+                            }
+                    Path dir = src.getServer().getWorldPath(LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                    File out = dir.resolve("spines_" + cx + "_" + cz + "_" + span + ".png").toFile();
+                    try { out.getParentFile().mkdirs(); javax.imageio.ImageIO.write(img, "png", out); }
+                    catch (IOException ex) { src.sendFailure(Component.literal("could not write: " + ex.getMessage())); return 0; }
+                    src.sendSuccess(() -> Component.literal("spines written to " + out.getPath()), false);
+                    return 1;
+                })))
                 .then(Commands.literal("climate").executes(ctx -> {
                     // The biome at the player's position and the six climate values it was chosen from
                     // (temperature, humidity, continentalness, erosion, depth, weirdness), as the world's

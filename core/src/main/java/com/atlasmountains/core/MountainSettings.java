@@ -57,17 +57,18 @@ public final class MountainSettings {
      */
     public double fieldJitter = 0.9;
     /** Half-length of the spine of a mountain cell with no mountain neighbour, in cells. */
-    public double loneSpineHalfLength = 0.4;
+    public double spineExtend = 500;
+    public double loneSpineHalfLength = 0.6;   // 0.4 at first: a lone cell made a 340-block stub; Sammi wants a main ridge about one scaled-up biome long (~1500)
     /** A spine's free end drops by this share of its relief over spineTaperLength blocks, so ranges tail off instead of ending at full height. */
     public double spineEndDrop = 0.8;       // 0.45 at first: ends were blunt full-width lobes
     public double spineTaperLength = 260;
-    /** Elbows per spine and how far each is pushed sideways, as a share of the spine's length. */
-    public int spineKinks = 2;
-    public double spineKinkOffset = 0.16;
+    /** Distance between elbows along a spine (blocks) and how far each is pushed sideways, as a share of one stretch. */
+    public double spineKinkSpacing = 280;
+    public double spineKinkOffset = 0.45;
     /** Side ridges off the elbows: chance per elbow, angle off the spine (degrees), length of each of their two stretches (blocks), turn at their own elbow (degrees), height relative to the main spine. */
     public double branchChance = 0.45;
     public double branchAngleMin = 40, branchAngleMax = 75;
-    public double branchLengthMin = 130, branchLengthMax = 240;
+    public double branchLengthMin = 180, branchLengthMax = 340;
     public double branchTurn = 50;
     public double branchHeight = 0.85;
     /** Height of a side ridge at its tip, relative to the main spine (it descends evenly from branchHeight). */
@@ -340,7 +341,7 @@ public final class MountainSettings {
      * footprintErosionScale 2.08 gives about 9 to 10% (-0.72 with 2.5 gave 5 to 8%, and -0.32 with
      * 2.5, the value before that, about 40%).
      */
-    public double erosionMountainBelow = -0.5;   // -0.62 with the cell-edge layout; the ridge skeleton covers less ground per cell, so the threshold was raised to keep about 7% of land
+    public double erosionMountainBelow = -0.62;   // -0.62 with the cell-edge layout; the ridge skeleton covers less ground per cell, so the threshold was raised to keep about 7% of land
     /**
      * Province edges are roughened: a cell counts as mountain when erosion + footprintRagged * n
      * (n in -1..1, wavelength footprintRaggedWavelength) is below the threshold, so the edge breaks

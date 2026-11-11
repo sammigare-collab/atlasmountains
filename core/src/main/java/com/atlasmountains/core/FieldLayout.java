@@ -196,7 +196,7 @@ public final class FieldLayout {
 
     /**
      * A spine from a to b as a kinked line, plus its side ridges, added to out. The line gets
-     * spineKinks elbows, each pushed sideways by up to spineKinkOffset of the length, so it runs
+     * an elbow about every spineKinkSpacing blocks, each pushed sideways by up to spineKinkOffset of a stretch, so it runs
      * in straight stretches with corners (Sammi's sketch, Nov 2026) instead of one straight line.
      * Every stretch is a ridge of its own, so the generator puts a junction summit on each elbow.
      * From each elbow, with probability branchChance, a side ridge leaves at branchAngleMin..Max
@@ -206,14 +206,22 @@ public final class FieldLayout {
      */
     private void addSpine(java.util.ArrayList<Spine> out, double ax, double az, boolean aLeaf,
                           double bx, double bz, boolean bLeaf, long h) {
-        int n = Math.max(0, s.spineKinks);
+        // a free end runs on past its site by spineExtend, so even a one- or two-cell footprint
+        // carries a main ridge about 1500 blocks long (a scaled-up biome across)
+        {
+            double ux = bx - ax, uz = bz - az, ul = Math.max(1e-9, Math.hypot(ux, uz));
+            ux /= ul; uz /= ul;
+            if (aLeaf) { double e = s.spineExtend * (0.7 + 0.6 * Hash.unit(Hash.hash(h, 5))); ax -= ux * e; az -= uz * e; }
+            if (bLeaf) { double e = s.spineExtend * (0.7 + 0.6 * Hash.unit(Hash.hash(h, 6))); bx += ux * e; bz += uz * e; }
+        }
         double ex = bx - ax, ez = bz - az, len = Math.max(1e-9, Math.hypot(ex, ez));
+        int n = Math.max(1, (int) Math.round(len / s.spineKinkSpacing) - 1);   // an elbow about every spineKinkSpacing blocks
         double tx = ex / len, tz = ez / len, nx = -tz, nz = tx;
         double[] px = new double[n + 2], pz = new double[n + 2];
         px[0] = ax; pz[0] = az; px[n + 1] = bx; pz[n + 1] = bz;
         for (int k = 1; k <= n; k++) {
             double f = (k + (Hash.unit(Hash.hash(h, 10 + k)) - 0.5) * 0.5) / (n + 1);
-            double off = Hash.signed(Hash.hash(h, 20 + k)) * s.spineKinkOffset * len;
+            double off = Hash.signed(Hash.hash(h, 20 + k)) * s.spineKinkOffset * len / (n + 1);
             px[k] = ax + ex * f + nx * off; pz[k] = az + ez * f + nz * off;
         }
         for (int k = 0; k <= n; k++) {
@@ -253,8 +261,8 @@ public final class FieldLayout {
             java.util.ArrayList<Spine> all = new java.util.ArrayList<>();
             // a spine between neighbouring squares is at most 2.1 squares long and a branch adds
             // under one more, so everything in reach has its child site within 4 squares
-            for (long i = ci - 4; i <= ci + 4; i++) {
-                for (long j = cj - 4; j <= cj + 4; j++) {
+            for (long i = ci - 6; i <= ci + 6; i++) {
+                for (long j = cj - 6; j <= cj + 6; j++) {
                     Site c = site(i, j);
                     if (!c.in) continue;
                     int p = parent(i, j);
