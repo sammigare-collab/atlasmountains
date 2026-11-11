@@ -177,10 +177,7 @@
       "minecraft:disk_gravel"
     ],
     [],
-    [
-      "minecraft:spring_water",
-      "minecraft:spring_lava"
-    ],
+    [],
     [
       "atlasmountains:sparse_spruce",
       "minecraft:patch_grass_plain"

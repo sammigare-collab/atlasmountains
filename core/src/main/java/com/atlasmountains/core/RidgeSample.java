@@ -31,4 +31,25 @@ public final class RidgeSample {
      */
     public double alongRaw, perp, half, alongRaw2, perp2, half2;
     public boolean leafLo, leafHi, leafLo2, leafHi2;
+    /** Relief of each spine relative to a main one (1 for a main spine, less for a side ridge). */
+    public double rel = 1, rel2 = 1;
+    /**
+     * Every spine within a half-width, for the generator's union (the two-nearest fields above
+     * are not enough where three or more meet, at an elbow with a side ridge): count and, per
+     * spine, ridge id, distance, clamped along, half-length, relief, free ends.
+     */
+    public int n;
+    public int[] nRidge = new int[32];
+    public double[] nDist = new double[32], nAlong = new double[32], nHalf = new double[32], nRel = new double[32];
+    public boolean[] nLeafLo = new boolean[32], nLeafHi = new boolean[32];
+
+    void push(int ridge, double dist, double along, double half, double rel, boolean lo, boolean hi) {
+        if (n == nRidge.length) {
+            int m = n * 2;
+            nRidge = java.util.Arrays.copyOf(nRidge, m); nDist = java.util.Arrays.copyOf(nDist, m);
+            nAlong = java.util.Arrays.copyOf(nAlong, m); nHalf = java.util.Arrays.copyOf(nHalf, m);
+            nRel = java.util.Arrays.copyOf(nRel, m); nLeafLo = java.util.Arrays.copyOf(nLeafLo, m); nLeafHi = java.util.Arrays.copyOf(nLeafHi, m);
+        }
+        nRidge[n] = ridge; nDist[n] = dist; nAlong[n] = along; nHalf[n] = half; nRel[n] = rel; nLeafLo[n] = lo; nLeafHi[n] = hi; n++;
+    }
 }

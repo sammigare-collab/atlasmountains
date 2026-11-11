@@ -420,6 +420,9 @@ for ours_id, (template, trange) in BIOMES.items():
         b['temperature'] = 0.3
         b['effects']['grass_color'] = '#80b497'
         b['effects']['foliage_color'] = '#60a17b'
+    # no springs: a spring high on a steep face pours down it as a fan of flowing water tens of
+    # blocks wide (the "water sheets" on the rock, Nov 2026)
+    b['features'] = [[f for f in step if f not in ('minecraft:spring_water', 'minecraft:spring_lava')] for step in b['features']]
     write(f'{NS}/worldgen/biome/{ours_id}.json', b)
     # treeless twin for above the treeline (biomes are 3D, so the biome source can switch by height)
     high = copy.deepcopy(b)

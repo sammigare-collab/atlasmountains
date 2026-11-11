@@ -177,31 +177,84 @@ public final class FieldLayout {
      */
     private static final class Spine {
         double mx, mz, tx, tz, half;
+        /** Relief of this spine relative to a main one (side ridges are lower). */
+        double rel = 1, relEnd = 1;   // at the low end and at the high end; linear between
         int ridge;
         boolean leafLo, leafHi;
     }
 
-    private Spine between(Site a, boolean aLeaf, Site b, boolean bLeaf) {
-        if (a.id > b.id) { Site t = a; a = b; b = t; boolean l = aLeaf; aLeaf = bLeaf; bLeaf = l; }
+    private static Spine piece(double ax, double az, double bx, double bz, boolean aLeaf, boolean bLeaf, long id, double rel, double relEnd) {
         Spine sp = new Spine();
-        double ex = b.x - a.x, ez = b.z - a.z, len = Math.max(1e-9, Math.hypot(ex, ez));
-        sp.mx = (a.x + b.x) * 0.5; sp.mz = (a.z + b.z) * 0.5;
+        double ex = bx - ax, ez = bz - az, len = Math.max(1e-9, Math.hypot(ex, ez));
+        sp.mx = (ax + bx) * 0.5; sp.mz = (az + bz) * 0.5;
         sp.tx = ex / len; sp.tz = ez / len; sp.half = len * 0.5;
-        sp.ridge = (int) Hash.hash(a.id, b.id);
+        sp.ridge = (int) id;
         sp.leafLo = aLeaf; sp.leafHi = bLeaf;
+        sp.rel = rel; sp.relEnd = relEnd;
         return sp;
     }
 
-    /** Every spine with an end in the 7x7 squares around square (ci, cj). */
+    /**
+     * A spine from a to b as a kinked line, plus its side ridges, added to out. The line gets
+     * spineKinks elbows, each pushed sideways by up to spineKinkOffset of the length, so it runs
+     * in straight stretches with corners (Sammi's sketch, Nov 2026) instead of one straight line.
+     * Every stretch is a ridge of its own, so the generator puts a junction summit on each elbow.
+     * From each elbow, with probability branchChance, a side ridge leaves at branchAngleMin..Max
+     * degrees, runs branchLengthMin..Max blocks, turns by up to branchTurn degrees at an elbow
+     * of its own and runs the same again; it is branchHeight as tall as the main line and its
+     * tip is a free end. h seeds everything, so both sides of a cell boundary build the same.
+     */
+    private void addSpine(java.util.ArrayList<Spine> out, double ax, double az, boolean aLeaf,
+                          double bx, double bz, boolean bLeaf, long h) {
+        int n = Math.max(0, s.spineKinks);
+        double ex = bx - ax, ez = bz - az, len = Math.max(1e-9, Math.hypot(ex, ez));
+        double tx = ex / len, tz = ez / len, nx = -tz, nz = tx;
+        double[] px = new double[n + 2], pz = new double[n + 2];
+        px[0] = ax; pz[0] = az; px[n + 1] = bx; pz[n + 1] = bz;
+        for (int k = 1; k <= n; k++) {
+            double f = (k + (Hash.unit(Hash.hash(h, 10 + k)) - 0.5) * 0.5) / (n + 1);
+            double off = Hash.signed(Hash.hash(h, 20 + k)) * s.spineKinkOffset * len;
+            px[k] = ax + ex * f + nx * off; pz[k] = az + ez * f + nz * off;
+        }
+        for (int k = 0; k <= n; k++) {
+            out.add(piece(px[k], pz[k], px[k + 1], pz[k + 1], k == 0 && aLeaf, k == n && bLeaf, Hash.hash(h, 40 + k), 1.0, 1.0));
+        }
+        for (int k = 1; k <= n; k++) {
+            long hb = Hash.hash(h, 60 + k);
+            if (Hash.unit(hb) >= s.branchChance) continue;
+            double deg = s.branchAngleMin + Hash.unit(Hash.hash(hb, 1)) * (s.branchAngleMax - s.branchAngleMin);
+            // leave on the outside of the elbow (the side it was pushed to), so branches spread
+            double side = Hash.signed(Hash.hash(h, 20 + k)) >= 0 ? 1 : -1;
+            double fwd = Hash.unit(Hash.hash(hb, 2)) < 0.5 ? 1 : -1;
+            double ang = Math.atan2(tz * fwd, tx * fwd) + side * fwd * Math.toRadians(deg);
+            double l1 = s.branchLengthMin + Hash.unit(Hash.hash(hb, 3)) * (s.branchLengthMax - s.branchLengthMin);
+            double l2 = s.branchLengthMin + Hash.unit(Hash.hash(hb, 4)) * (s.branchLengthMax - s.branchLengthMin);
+            double cx = px[k] + Math.cos(ang) * l1, cz = pz[k] + Math.sin(ang) * l1;
+            double ang2 = ang + Hash.signed(Hash.hash(hb, 5)) * Math.toRadians(s.branchTurn);
+            double dx = cx + Math.cos(ang2) * l2, dz = cz + Math.sin(ang2) * l2;
+            // a side ridge descends all the way along, so it narrows to a point instead of ending as a blunt lobe
+            double mid = (s.branchHeight + s.branchTipHeight) * 0.5;
+            out.add(piece(px[k], pz[k], cx, cz, false, false, Hash.hash(hb, 6), s.branchHeight, mid));
+            out.add(piece(cx, cz, dx, dz, false, true, Hash.hash(hb, 7), mid, s.branchTipHeight));
+        }
+    }
+
+    private static double relAt(Spine sp, double along) {
+        return sp.rel + (sp.relEnd - sp.rel) * (along + sp.half) / (2 * sp.half);
+    }
+
+    /** Every spine piece that can come within reach of a point in square (ci, cj). */
     private Spine[] spinesNear(long ci, long cj) {
         Object[] last = lastSquare.get();
         Long k = key(ci, cj);
         if (k.equals(last[0]) && last[2] == erosion) return (Spine[]) last[1];
         Spine[] list = spineLists.get(k);
         if (list == null) {
-            java.util.ArrayList<Spine> out = new java.util.ArrayList<>();
-            for (long i = ci - 3; i <= ci + 3; i++) {
-                for (long j = cj - 3; j <= cj + 3; j++) {
+            java.util.ArrayList<Spine> all = new java.util.ArrayList<>();
+            // a spine between neighbouring squares is at most 2.1 squares long and a branch adds
+            // under one more, so everything in reach has its child site within 4 squares
+            for (long i = ci - 4; i <= ci + 4; i++) {
+                for (long j = cj - 4; j <= cj + 4; j++) {
                     Site c = site(i, j);
                     if (!c.in) continue;
                     int p = parent(i, j);
@@ -209,18 +262,25 @@ public final class FieldLayout {
                     if (p >= 0) {
                         long pi = i + DI[p], pj = j + DJ[p];
                         boolean parentFree = parent(pi, pj) < 0 && children(pi, pj) == 1;
-                        out.add(between(c, kids == 0, site(pi, pj), parentFree));
+                        Site q = site(pi, pj);
+                        addSpine(all, c.x, c.z, kids == 0, q.x, q.z, parentFree, Hash.hash(c.id, q.id));
                     } else if (kids == 0) {
                         // a mountain cell on its own: a short spine through the site, in a hashed direction
                         double ang = Hash.unit(Hash.hash(c.id, 32)) * Math.PI;
-                        Spine sp = new Spine();
-                        sp.mx = c.x; sp.mz = c.z; sp.tx = Math.cos(ang); sp.tz = Math.sin(ang);
-                        sp.half = s.loneSpineHalfLength * s.fieldCellSize;
-                        sp.ridge = (int) Hash.hash(c.id, c.id ^ 0x5bd1e995L);
-                        sp.leafLo = sp.leafHi = true;
-                        out.add(sp);
+                        double hl = s.loneSpineHalfLength * s.fieldCellSize;
+                        double ux = Math.cos(ang) * hl, uz = Math.sin(ang) * hl;
+                        addSpine(all, c.x - ux, c.z - uz, true, c.x + ux, c.z + uz, true, Hash.hash(c.id, c.id ^ 0x5bd1e995L));
                     }
                 }
+            }
+            // keep only the pieces that can be within reach of some point of this square
+            double c = s.fieldCellSize, qx = (ci + 0.5) * c, qz = (cj + 0.5) * c;
+            double lim = s.spurReach * s.halfWidth() + s.halfWidth() + s.fieldEdgeFade + 0.75 * c;
+            java.util.ArrayList<Spine> out = new java.util.ArrayList<>();
+            for (Spine sp : all) {
+                double rx = qx - sp.mx, rz = qz - sp.mz;
+                double pe = Math.abs(rz * sp.tx - rx * sp.tz), over = Math.abs(rx * sp.tx + rz * sp.tz) - sp.half;
+                if ((over > 0 ? Math.hypot(pe, over) : pe) <= lim) out.add(sp);
             }
             list = out.toArray(new Spine[0]);
             if (spineLists.size() > 50_000) spineLists.clear();
@@ -241,33 +301,36 @@ public final class FieldLayout {
         Spine[] list = spinesNear((long) Math.floor(px / c), (long) Math.floor(pz / c));
         Spine b1 = null, b2 = null;
         double d1 = Double.MAX_VALUE, d2 = Double.MAX_VALUE, d3 = Double.MAX_VALUE;
+        double hw = s.halfWidth();
+        out.n = 0;
         for (Spine sp : list) {
             double rx = px - sp.mx, rz = pz - sp.mz;
             double al = rx * sp.tx + rz * sp.tz, pe = Math.abs(rz * sp.tx - rx * sp.tz);
             double over = Math.abs(al) - sp.half;
             double d = over > 0 ? Math.hypot(pe, over) : pe;
+            if (d < hw) { double ac = Math.max(-sp.half, Math.min(sp.half, al)); out.push(sp.ridge, d, ac, sp.half, relAt(sp, ac), sp.leafLo, sp.leafHi); }
             if (d < d1) { d3 = d2; d2 = d1; b2 = b1; d1 = d; b1 = sp; }
             else if (d < d2) { d3 = d2; d2 = d; b2 = sp; }
             else if (d < d3) d3 = d;
         }
         double far = 3 * s.halfWidth();
         if (b1 == null) {
-            out.distance = far; out.along = 0; out.ridge = 0; out.alongRaw = 0; out.perp = far; out.half = 0; out.leafLo = out.leafHi = false;
+            out.distance = far; out.along = 0; out.ridge = 0; out.alongRaw = 0; out.perp = far; out.half = 0; out.leafLo = out.leafHi = false; out.rel = 1;
         } else {
             double rx = px - b1.mx, rz = pz - b1.mz, al = rx * b1.tx + rz * b1.tz;
             out.distance = d1; out.ridge = b1.ridge; out.half = b1.half;
             out.alongRaw = al; out.along = Math.max(-b1.half, Math.min(b1.half, al));
             out.perp = Math.abs(rz * b1.tx - rx * b1.tz);
-            out.leafLo = b1.leafLo; out.leafHi = b1.leafHi;
+            out.leafLo = b1.leafLo; out.leafHi = b1.leafHi; out.rel = relAt(b1, out.along);
         }
         if (b2 == null) {
-            out.distance2 = far; out.along2 = 0; out.ridge2 = out.ridge; out.alongRaw2 = 0; out.perp2 = far; out.half2 = 0; out.leafLo2 = out.leafHi2 = false;
+            out.distance2 = far; out.along2 = 0; out.ridge2 = out.ridge; out.alongRaw2 = 0; out.perp2 = far; out.half2 = 0; out.leafLo2 = out.leafHi2 = false; out.rel2 = 1;
         } else {
             double rx = px - b2.mx, rz = pz - b2.mz, al = rx * b2.tx + rz * b2.tz;
             out.distance2 = d2; out.ridge2 = b2.ridge; out.half2 = b2.half;
             out.alongRaw2 = al; out.along2 = Math.max(-b2.half, Math.min(b2.half, al));
             out.perp2 = Math.abs(rz * b2.tx - rx * b2.tz);
-            out.leafLo2 = b2.leafLo; out.leafHi2 = b2.leafHi;
+            out.leafLo2 = b2.leafLo; out.leafHi2 = b2.leafHi; out.rel2 = relAt(b2, out.along2);
         }
         out.distance3 = d3;
         out.scale = heightScale(x, z);
@@ -292,5 +355,17 @@ public final class FieldLayout {
         double t = (s.halfWidth() + s.fieldEdgeFade - d) / s.fieldEdgeFade;
         t = Math.max(0, Math.min(1, t));
         return t * t * (3 - 2 * t);
+    }
+
+    /** For maps and debugging: the spine pieces near (x, z) as {ax, az, bx, bz, relief} in unwarped space. */
+    public double[][] spinesForDebug(double x, double z) {
+        double c = s.fieldCellSize;
+        Spine[] list = spinesNear((long) Math.floor(x / c), (long) Math.floor(z / c));
+        double[][] out = new double[list.length][];
+        for (int i = 0; i < list.length; i++) {
+            Spine sp = list[i];
+            out[i] = new double[] { sp.mx - sp.tx * sp.half, sp.mz - sp.tz * sp.half, sp.mx + sp.tx * sp.half, sp.mz + sp.tz * sp.half, sp.rel };
+        }
+        return out;
     }
 }

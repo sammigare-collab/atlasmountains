@@ -169,10 +169,7 @@
     [
       "minecraft:ore_infested"
     ],
-    [
-      "minecraft:spring_water",
-      "minecraft:spring_lava"
-    ],
+    [],
     [
       "atlasmountains:sparse_spruce",
       "minecraft:patch_grass_plain"

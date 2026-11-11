@@ -59,8 +59,19 @@ public final class MountainSettings {
     /** Half-length of the spine of a mountain cell with no mountain neighbour, in cells. */
     public double loneSpineHalfLength = 0.4;
     /** A spine's free end drops by this share of its relief over spineTaperLength blocks, so ranges tail off instead of ending at full height. */
-    public double spineEndDrop = 0.45;
-    public double spineTaperLength = 160;
+    public double spineEndDrop = 0.8;       // 0.45 at first: ends were blunt full-width lobes
+    public double spineTaperLength = 260;
+    /** Elbows per spine and how far each is pushed sideways, as a share of the spine's length. */
+    public int spineKinks = 2;
+    public double spineKinkOffset = 0.16;
+    /** Side ridges off the elbows: chance per elbow, angle off the spine (degrees), length of each of their two stretches (blocks), turn at their own elbow (degrees), height relative to the main spine. */
+    public double branchChance = 0.45;
+    public double branchAngleMin = 40, branchAngleMax = 75;
+    public double branchLengthMin = 130, branchLengthMax = 240;
+    public double branchTurn = 50;
+    public double branchHeight = 0.85;
+    /** Height of a side ridge at its tip, relative to the main spine (it descends evenly from branchHeight). */
+    public double branchTipHeight = 0.3;
     /**
      * Domain warp of the diagram, so the ridges curve instead of running as straight Voronoi edges:
      * amplitude of the main octave in blocks (a second octave at 2.3 times the frequency adds a
@@ -179,7 +190,7 @@ public final class MountainSettings {
      * See HeightmapGenerator.spurHeight.
      */
     /** Share of summits with a leg on each side (0 turns legs off). */
-    public double spurChance = 0.4;
+    public double spurChance = 0;   // off since the skeleton grew real side ridges (branch*); 0.4 before
     /** Angle of a leg off straight down the face, degrees, chosen per summit in this range. */
     public double spurAngleMin = 15;
     public double spurAngleMax = 50;
@@ -329,7 +340,7 @@ public final class MountainSettings {
      * footprintErosionScale 2.08 gives about 9 to 10% (-0.72 with 2.5 gave 5 to 8%, and -0.32 with
      * 2.5, the value before that, about 40%).
      */
-    public double erosionMountainBelow = -0.46;   // -0.62 with the cell-edge layout; the ridge skeleton covers less ground per cell, so the threshold was raised to keep about 7% of land
+    public double erosionMountainBelow = -0.5;   // -0.62 with the cell-edge layout; the ridge skeleton covers less ground per cell, so the threshold was raised to keep about 7% of land
     /**
      * Province edges are roughened: a cell counts as mountain when erosion + footprintRagged * n
      * (n in -1..1, wavelength footprintRaggedWavelength) is below the threshold, so the edge breaks
