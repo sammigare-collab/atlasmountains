@@ -70,9 +70,15 @@ public final class MountainSettings {
     public double branchAngleMin = 40, branchAngleMax = 75;
     public double branchLengthMin = 180, branchLengthMax = 340;
     public double branchTurn = 50;
-    public double branchHeight = 0.85;
-    /** Height of a side ridge at its tip, relative to the main spine (it descends evenly from branchHeight). */
-    public double branchTipHeight = 0.6;    // 0.3 at first: low side ridges were smooth slugs, and bits of them stood alone in the grass
+    /** Relief of a main ridge's main peak relative to the rest of the ridge, and the height it is held under. */
+    public double mainPeakHeight = 1.25;
+    public double mainPeakMaxY = 308;
+    public double branchHeight = 0.9;
+    /** Relief of a side ridge's last peak, relative to the main spine. */
+    public double branchLastPeak = 0.65;
+    /** The tail after a ridge's last peak: its length (blocks) and how far it may turn (degrees). Its relief runs down to nothing. */
+    public double tailLengthMin = 200, tailLengthMax = 320;
+    public double tailTurn = 35;
     /**
      * Domain warp of the diagram, so the ridges curve instead of running as straight Voronoi edges:
      * amplitude of the main octave in blocks (a second octave at 2.3 times the frequency adds a
@@ -108,7 +114,7 @@ public final class MountainSettings {
      * blocks: with 0.88 and 0.5 that is 0.44..1.32, mostly near 0.88. These are the values tuned
      * in game, restated after a range bug in the old formula was corrected (Nov 2026).
      */
-    public double fieldHeightBoost = 0.88;
+    public double fieldHeightBoost = 0.77;   // 0.88 until 11 Nov 2026: Sammi asked for all mountains a little smaller, so they sit in a Minecraft world
     /** Relief varies by this fraction either side of fieldHeightBoost ("some big, some small"). */
     public double fieldHeightVariation = 0.35;   // 0.5 until Nov 2026: the smallest massifs came out as low dark humps with no snow
     /**

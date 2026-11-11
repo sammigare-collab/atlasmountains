@@ -36,7 +36,8 @@ class GeometryTest {
             double drop3 = best - gen.baseHeightAt(bx + 3 * cx, bz + 3 * cz, sc);
             // along a ridge the crest falls at crestFallSlope (0.6), less a little saddle rounding;
             // a rounded dome would barely fall at all over 3 blocks
-            assertTrue(drop3 >= 1.2, "should fall at least 1.2 blocks over 3 in direction " + k + ", fell " + drop3);
+            // (the bound was 1.2 when the height scale was 0.88; every slope shrinks with the scale)
+            assertTrue(drop3 >= 0.95, "should fall at least 0.95 blocks over 3 in direction " + k + ", fell " + drop3);
             int wide = 0;
             for (int d = -10; d <= 10; d++) if (gen.baseHeightAt(bx + d * cx, bz + d * cz, sc) >= best - 1) wide++;
             assertTrue(wide <= 5, "apex wider than 5 blocks in direction " + k + ": " + wide);
@@ -57,8 +58,10 @@ class GeometryTest {
         // and occasional (under 1% of a region); this only checks that they exist and stay flat
         assertTrue(flat > total * 0.002, "expected some flat valley floor, got " + (100.0 * flat / total) + "%");
         assertTrue(max - min > 100, "relief too small: " + (max - min));
-        double tallest = s.valleyFloorHeight + s.relief() * s.fieldHeightBoost * (1 + s.fieldHeightVariation)
-                * (1 + s.peakHeightVariation) + s.detailAmplitude;
+        // the tallest summit (design height, its variation, the largest junction boost), as a main
+        // peak, under the largest height scale
+        double tallest = s.valleyFloorHeight + (s.summitHeight * (1 + s.peakHeightVariation) + 1.5 * s.junctionPeakBoost * s.relief()
+                - s.valleyFloorHeight) * s.mainPeakHeight * s.fieldHeightBoost * (1 + s.fieldHeightVariation) + s.detailAmplitude;
         assertTrue(max <= tallest, "summits above the tallest the settings allow (" + tallest + "): " + max);
         assertTrue(min >= s.valleyFloorHeight - s.lakeDepth - 1, "below the lake beds: " + min);
     }

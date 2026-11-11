@@ -224,9 +224,24 @@ public final class FieldLayout {
             double off = Hash.signed(Hash.hash(h, 20 + k)) * s.spineKinkOffset * len / (n + 1);
             px[k] = ax + ex * f + nx * off; pz[k] = az + ez * f + nz * off;
         }
+        // One elbow of every main ridge is its main peak (Sammi, Nov 2026: "one clear main peak"):
+        // the ridge climbs to it from both neighbouring elbows, to mainPeakHeight times the relief
+        // of the rest. The world is only so tall, so where the mountains are big the rest of the
+        // ridge is lowered to make the room (base < 1): the main peak tops out near mainPeakMaxY
+        // and still stands mainPeakHeight above its ridge.
+        double[] rel = new double[n + 2];
+        int main = 1 + (int) Math.min(n - 1, Math.floor(Hash.unit(Hash.hash(h, 30)) * n));
+        double tallest = s.summitHeight * (1 + s.peakHeightVariation) + 1.5 * s.junctionPeakBoost * s.relief() - s.valleyFloorHeight;
+        double room = (s.mainPeakMaxY - s.valleyFloorHeight) / (tallest * heightScale(px[main], pz[main]));
+        double base = Math.min(1.0, room / s.mainPeakHeight);
+        java.util.Arrays.fill(rel, base);
+        rel[main] = base * s.mainPeakHeight;
         for (int k = 0; k <= n; k++) {
-            out.add(piece(px[k], pz[k], px[k + 1], pz[k + 1], k == 0 && aLeaf, k == n && bLeaf, Hash.hash(h, 40 + k), 1.0, 1.0));
+            out.add(piece(px[k], pz[k], px[k + 1], pz[k + 1], k == 0 && aLeaf, k == n && bLeaf, Hash.hash(h, 40 + k), rel[k], rel[k + 1]));
         }
+        // a free end of the main ridge fades out the same way, from the height its taper leaves it at
+        if (aLeaf) addTail(out, px[1], pz[1], px[0], pz[0], base * (1 - s.spineEndDrop), Hash.hash(h, 90));
+        if (bLeaf) addTail(out, px[n], pz[n], px[n + 1], pz[n + 1], base * (1 - s.spineEndDrop), Hash.hash(h, 91));
         for (int k = 1; k <= n; k++) {
             long hb = Hash.hash(h, 60 + k);
             if (Hash.unit(hb) >= s.branchChance) continue;
@@ -240,11 +255,25 @@ public final class FieldLayout {
             double cx = px[k] + Math.cos(ang) * l1, cz = pz[k] + Math.sin(ang) * l1;
             double ang2 = ang + Hash.signed(Hash.hash(hb, 5)) * Math.toRadians(s.branchTurn);
             double dx = cx + Math.cos(ang2) * l2, dz = cz + Math.sin(ang2) * l2;
-            // a side ridge descends all the way along, so it narrows to a point instead of ending as a blunt lobe
-            double mid = (s.branchHeight + s.branchTipHeight) * 0.5;
-            out.add(piece(px[k], pz[k], cx, cz, false, false, Hash.hash(hb, 6), s.branchHeight, mid));
-            out.add(piece(cx, cz, dx, dz, false, true, Hash.hash(hb, 7), mid, s.branchTipHeight));
+            // A side ridge is only slightly lower than the main one for its whole length, ends in
+            // one smaller last peak (the elbow at d), and from there a tail runs down to nothing,
+            // so it fades into the land instead of stopping (Sammi, Nov 2026).
+            out.add(piece(px[k], pz[k], cx, cz, false, false, Hash.hash(hb, 6), base * s.branchHeight, base * s.branchHeight));
+            out.add(piece(cx, cz, dx, dz, false, false, Hash.hash(hb, 7), base * s.branchHeight, base * s.branchLastPeak));
+            addTail(out, cx, cz, dx, dz, base * s.branchLastPeak, Hash.hash(hb, 8));
         }
+    }
+
+    /**
+     * The tail of a ridge that arrives at (bx, bz) from (ax, az): one more stretch, turned by up
+     * to tailTurn degrees, tailLengthMin..Max blocks long, whose relief runs from startRel down
+     * to nothing. Its crest keeps its small peaks (scaled down with it), and below the rock line
+     * the cross profile is the gentle grass flank, so the end is a grassy spur sinking into the land.
+     */
+    private void addTail(java.util.ArrayList<Spine> out, double ax, double az, double bx, double bz, double startRel, long h) {
+        double ang = Math.atan2(bz - az, bx - ax) + Hash.signed(Hash.hash(h, 1)) * Math.toRadians(s.tailTurn);
+        double len = s.tailLengthMin + Hash.unit(Hash.hash(h, 2)) * (s.tailLengthMax - s.tailLengthMin);
+        out.add(piece(bx, bz, bx + Math.cos(ang) * len, bz + Math.sin(ang) * len, false, false, Hash.hash(h, 3), startRel, 0.0));
     }
 
     private static double relAt(Spine sp, double along) {

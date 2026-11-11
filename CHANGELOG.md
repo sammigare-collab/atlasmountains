@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Side ridges are only slightly lower than the main ridge (0.9) with peaks of their own, end
+  in one smaller last peak (0.65), and then a tail 200 to 320 blocks long runs down to nothing,
+  so they fade into the land. Free ends of the main ridge get the same tail.
+- One clear main peak per main ridge: one elbow stands 1.25 times the relief of the rest, the
+  ridge climbing to it from both sides. Where that would pass y 308 the rest of the ridge is
+  lowered to make the room.
+- All mountains a little smaller: the height scale is 0.77 (was 0.88), and the snow line moved
+  down with it (y 184, patches down to 144; were 205 and 160).
 - Ridge ends and side ridges: a ridge now ends at a last peak and a steep face (end drop 0.8
   to 0.3) and side ridges stay at 0.85 to 0.6 of the main height (tip was 0.3), because the long
   low tails came out as smooth dark tongues with no peaks, some standing alone in the grass.

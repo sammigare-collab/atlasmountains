@@ -49,9 +49,9 @@ SUMMIT = 232               # MountainSettings.summitHeight (design summit, befor
 ROCK_FRACTION = 0.5        # MountainSettings.rockFraction
 ROCK_LINE = round(SUMMIT - ROCK_FRACTION * (SUMMIT - VALLEY_FLOOR))   # MountainSettings.rockLineHeight(), 148
 SEA_LEVEL = 63             # vanilla; the lake surface (floor - 1) is the same height
-SNOW_LINE = 205            # typical summits are about y 212 (design 232 x the field height scale, mostly near 0.88), the tallest about y 286
+SNOW_LINE = 184            # typical summits are about y 212 (design 232 x the field height scale, mostly near 0.88), the tallest about y 286
 SNOW_JITTER_MULT = 3       # surface_depth_multiplier on the y_above condition (jitters by a few blocks)
-SNOW_PATCH_LOWEST = 160    # patchy snow on ledges reaches down to here (atlasmountains:snow_cover)
+SNOW_PATCH_LOWEST = 144    # patchy snow on ledges reaches down to here (atlasmountains:snow_cover)
 ROCK_SLOPE_DEG = 35        # steeper than this = stone
 CAVE_TOP = 135             # no density-function cave carving at or above this y (mountain zones)
 DIM_MIN_Y = -64
