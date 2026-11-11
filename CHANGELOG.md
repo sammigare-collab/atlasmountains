@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Ridge ends and side ridges: a ridge now ends at a last peak and a steep face (end drop 0.8
+  to 0.3) and side ridges stay at 0.85 to 0.6 of the main height (tip was 0.3), because the long
+  low tails came out as smooth dark tongues with no peaks, some standing alone in the grass.
+  Low rock is shaded as the foot of a big mountain (light) instead of getting the whole run to
+  dark summit rock. `/atlasmountains heightmap` also writes the raw heights (.f32).
 - Ridge lines after Sammi's sketch: a main ridge about 1500 blocks long (a free end runs on
   500 blocks past its site) in straight stretches with an elbow about every 280 blocks, side
   ridges leaving the elbows at 40 to 75 degrees with an elbow of their own and descending to a

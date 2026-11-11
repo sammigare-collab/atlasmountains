@@ -104,6 +104,7 @@ public record RockGradientRule(List<Stop> stops, float wobble, float blendWidth,
     private static final double MOTTLE_SPREAD = 2.5;
 
     /** Weight of the per-block jitter against the mottle noise in the blend roll. */
+    private static final double MIN_FACE_SHARE = 0.75;
     private static final double JITTER = 0.25;
 
     @Override
@@ -130,7 +131,10 @@ public record RockGradientRule(List<Stop> stops, float wobble, float blendWidth,
             if (relativeToPeak) {
                 // percent of the way from the valley floor (0) up to the top of this face's rock
                 // (100): the summit, or the snow line if the summit stands above it
-                double top = Math.min(peakHeight(x, z), topCap);
+                // A low ridge is not given the whole run from light to dark: its face counts as at
+                // least MIN_FACE_SHARE of the full one (floor to the cap), so a 40-block spur is the
+                // light rock of a big mountain's foot, not a small dark slug (Nov 2026).
+                double top = Math.max(Math.min(peakHeight(x, z), topCap), floor + MIN_FACE_SHARE * (topCap - floor));
                 h = 100 * (h - floor) / Math.max(8, top - floor);
             }
             if (h <= stops.get(0).y()) return stops.get(0).state();

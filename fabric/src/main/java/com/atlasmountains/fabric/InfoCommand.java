@@ -409,6 +409,10 @@ public final class InfoCommand {
                             java.nio.file.Files.createDirectories(dir);
                             java.io.File out = dir.resolve("heightmap_" + cx + "_" + cz + "_" + size + ".png").toFile();
                             javax.imageio.ImageIO.write(img, "png", out);
+                            // the raw heights too (n x n little-endian floats, row by row), for outside tools
+                            java.nio.ByteBuffer raw = java.nio.ByteBuffer.allocate(n * n * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+                            for (float v : h) raw.putFloat(v);
+                            java.nio.file.Files.write(dir.resolve("heightmap_" + cx + "_" + cz + "_" + size + ".f32"), raw.array());
                             AtlasMountainsMod.LOGGER.info("heightmap written to {}", out);
                         } catch (Exception e) {
                             AtlasMountainsMod.LOGGER.error("heightmap failed", e);

@@ -60,8 +60,8 @@ public final class MountainSettings {
     public double spineExtend = 500;
     public double loneSpineHalfLength = 0.6;   // 0.4 at first: a lone cell made a 340-block stub; Sammi wants a main ridge about one scaled-up biome long (~1500)
     /** A spine's free end drops by this share of its relief over spineTaperLength blocks, so ranges tail off instead of ending at full height. */
-    public double spineEndDrop = 0.8;       // 0.45 at first: ends were blunt full-width lobes
-    public double spineTaperLength = 260;
+    public double spineEndDrop = 0.3;       // 0.8 for a while: the long low end came out as a smooth dark tongue with no peaks; a ridge now ends at a last peak and a steep face
+    public double spineTaperLength = 200;
     /** Distance between elbows along a spine (blocks) and how far each is pushed sideways, as a share of one stretch. */
     public double spineKinkSpacing = 280;
     public double spineKinkOffset = 0.45;
@@ -72,7 +72,7 @@ public final class MountainSettings {
     public double branchTurn = 50;
     public double branchHeight = 0.85;
     /** Height of a side ridge at its tip, relative to the main spine (it descends evenly from branchHeight). */
-    public double branchTipHeight = 0.3;
+    public double branchTipHeight = 0.6;    // 0.3 at first: low side ridges were smooth slugs, and bits of them stood alone in the grass
     /**
      * Domain warp of the diagram, so the ridges curve instead of running as straight Voronoi edges:
      * amplitude of the main octave in blocks (a second octave at 2.3 times the frequency adds a
