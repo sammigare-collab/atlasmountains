@@ -39,8 +39,8 @@ def horns(x, z, seed, base, p=P):
     wz = z + p['warp'] * fbm(x / p['warp_len'], z / p['warp_len'], seed + 2)
     cx, cz = np.floor(wx / p['cell']), np.floor(wz / p['cell'])
     best = np.full(x.shape, -1e9)
-    for dj in (-1, 0, 1):
-        for di in (-1, 0, 1):
+    for dj in (-2, -1, 0, 1, 2):
+        for di in (-2, -1, 0, 1, 2):
             ix, iz = cx + di, cz + dj
             sx = (ix + 0.5 + (h2(ix, iz, seed + 3) - 0.5) * p['jitter']) * p['cell']
             sz = (iz + 0.5 + (h2(ix, iz, seed + 4) - 0.5) * p['jitter']) * p['cell']
