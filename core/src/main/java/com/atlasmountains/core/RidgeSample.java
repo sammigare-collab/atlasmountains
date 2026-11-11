@@ -22,4 +22,6 @@ public final class RidgeSample {
     /** Id of that second ridge, and the position along it. */
     public int ridge2;
     public double along2;
+    /** Distance to the third-nearest ridge (MAX_VALUE if none): where it overtakes the second, legs of the second fade out. */
+    public double distance3 = Double.MAX_VALUE;
 }

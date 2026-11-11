@@ -167,6 +167,33 @@ public final class MountainSettings {
     /** Summits further apart than this get the full saddleRounding. */
     public double saddleRoundingMaxGap = 112;
 
+    // ---- Legs (side ridges) ---------------------------------------------
+    /*
+     * Side ridges branching off the summits at an angle and running down the faces and flanks
+     * (Nov 2026: Sammi wanted arms like those inside an area on the big plain outer walls too).
+     * See HeightmapGenerator.spurHeight.
+     */
+    /** Share of summits with a leg on each side (0 turns legs off). */
+    public double spurChance = 0.4;
+    /** Angle of a leg off straight down the face, degrees, chosen per summit in this range. */
+    public double spurAngleMin = 15;
+    public double spurAngleMax = 50;
+    /** Slope of a leg's crest as it runs out from the summit (tan). 0.5 is 27 degrees. */
+    public double spurFallSlope = 0.5;
+    /** Slope of a leg's sides (tan). 1.1 is 48 degrees: a sharp arete. */
+    public double spurSideSlope = 1.1;
+    /** Spacing of the little peaks along a leg, blocks (each leg varies it by +/- 20%). */
+    public double spurPeakSpacing = 60;
+    /** Depth of the notches between those peaks, blocks. */
+    public double spurNotchDepth = 14;
+    /** Legs fade out between these distances from their ridge, in half-widths. */
+    public double spurFadeStart = 0.8;
+    public double spurReach = 1.3;
+    /** A leg fades out over this many blocks before its ridge stops being one of the two nearest. */
+    public double spurHandover = 40;
+    /** Sideways bend of a leg at its full reach, as a fraction of the reach (sign chosen per leg). */
+    public double spurBend = 0.3;
+
     // ---- Cross profile --------------------------------------------------
     /**
      * Face slope on rock, as tan, measured straight down from the crest. 1.0 is 45 degrees, 1.35

@@ -229,8 +229,9 @@ public final class FieldLayout {
             // that touches no inside cell (or a different one): the flank and the mask stopped
             // dead along that line, which showed as a straight wall (Nov 2026).
             int[] pair = new int[4];
-            double[] dd = new double[2];
+            double[] dd = new double[3];
             outsideEdgesInto(n, pair, dd);
+            out.distance3 = dd[2];
             double far = 3 * s.halfWidth();
             if (pair[0] < 0) { out.distance = far; out.along = 0; out.ridge = 0; }
             else {
@@ -249,13 +250,15 @@ public final class FieldLayout {
         }
         // inside a mountain cell (or no footprint installed): the two nearest ridges of the cell
         int b1 = -1, b2 = -1;
-        double e1 = Double.MAX_VALUE, e2 = Double.MAX_VALUE;
+        double e1 = Double.MAX_VALUE, e2 = Double.MAX_VALUE, e3 = Double.MAX_VALUE;
         for (int k = 0; k < Sites.N; k++) {
             if (k == a) continue;
             double d = bisectorDistance(n, a, k);
-            if (d < e1) { e2 = e1; b2 = b1; e1 = d; b1 = k; }
-            else if (d < e2) { e2 = d; b2 = k; }
+            if (d < e1) { e3 = e2; e2 = e1; b2 = b1; e1 = d; b1 = k; }
+            else if (d < e2) { e3 = e2; e2 = d; b2 = k; }
+            else if (d < e3) e3 = d;
         }
+        out.distance3 = e3;
         double far = 3 * s.halfWidth();
         if (b1 < 0) { out.distance = far; out.along = 0; out.ridge = 0; }
         else edge(n.px, n.pz, n.ds[a], n.xs[a], n.zs[a], n.ids[a], n.ds[b1], n.xs[b1], n.zs[b1], n.ids[b1], out, false);
@@ -290,14 +293,15 @@ public final class FieldLayout {
     /** Distance to the nearest real edge between an outside cell and an inside cell (MAX_VALUE if none is near). */
     private double outsideEdges(Sites n) {
         int[] pair = new int[4];
-        double[] dd = new double[2];
+        double[] dd = new double[3];
         outsideEdgesInto(n, pair, dd);
         return pair[0] < 0 ? Double.MAX_VALUE : dd[0];
     }
 
     /**
      * The two nearest real Voronoi edges that separate an outside cell j from an inside cell k,
-     * measured from the sample point: pair = {j1, k1, j2, k2} (-1 if none), dd = their distances.
+     * measured from the sample point: pair = {j1, k1, j2, k2} (-1 if none), dd = their distances
+     * and the third-nearest edge's.
      * Only edges within one flank plus the fade (reach) matter, and a point X on edge (j, k) is
      * closer to j and k than to the sample's own site, so |P - j| and |P - k| are at most
      * |P - a| + 2 reach; sites further than that are skipped. Taking every such edge, not only
@@ -305,7 +309,7 @@ public final class FieldLayout {
      */
     private void outsideEdgesInto(Sites n, int[] pair, double[] dd) {
         pair[0] = pair[1] = pair[2] = pair[3] = -1;
-        dd[0] = dd[1] = Double.MAX_VALUE;
+        dd[0] = dd[1] = dd[2] = Double.MAX_VALUE;
         double reach = s.halfWidth() + s.fieldEdgeFade;
         double lim = Math.sqrt(n.ds[n.i1]) + 2 * reach;
         double lim2 = lim * lim;
@@ -322,10 +326,14 @@ public final class FieldLayout {
                 double d = edgeDistance(n, j, k);
                 if (d >= Double.MAX_VALUE / 2) continue;
                 if (d < dd[0]) {
+                    dd[2] = dd[1];
                     dd[1] = dd[0]; pair[2] = pair[0]; pair[3] = pair[1];
                     dd[0] = d; pair[0] = j; pair[1] = k;
                 } else if (d < dd[1]) {
+                    dd[2] = dd[1];
                     dd[1] = d; pair[2] = j; pair[3] = k;
+                } else if (d < dd[2]) {
+                    dd[2] = d;
                 }
             }
         }

@@ -24,7 +24,7 @@ public final class HeightmapGenerator {
     private final FieldLayout layout;
     private final CrestProfile crest;
     private final CrossProfile cross;
-    private final long detailSeed, lakeSeed;
+    private final long detailSeed, lakeSeed, spurSeed;
 
     /** A generator with its own field layout (tests, the diagnostic tool). */
     public HeightmapGenerator(MountainSettings settings, long seed) {
@@ -40,6 +40,7 @@ public final class HeightmapGenerator {
         this.cross = new CrossProfile(settings);
         this.detailSeed = Hash.hash(seed, 606);
         this.lakeSeed = Hash.hash(seed, 707);
+        this.spurSeed = Hash.hash(seed, 808);
     }
 
     public FieldLayout layout() { return layout; }
@@ -67,7 +68,71 @@ public final class HeightmapGenerator {
             double h2 = cross.height(c2, scratch.distance2);
             if (h2 > h) h = h2;
         }
+        // Legs: side ridges branching off the summits, so a long face is broken into arms instead of
+        // one plain wall (the outer face of an area's border ridge had nothing else to break it).
+        // Only the two nearest ridges are known, so a leg is faded out as its ridge is about to
+        // drop to third nearest (distance3 catching up): it ends smoothly instead of being cut.
+        double sp = spurHeight(scratch.ridge, scratch.along, scratch.distance, scratch.scale, scratch.distance3 - scratch.distance);
+        if (sp > h) h = sp;
+        if (scratch.ridge2 != scratch.ridge) {
+            double sp2 = spurHeight(scratch.ridge2, scratch.along2, scratch.distance2, scratch.scale, scratch.distance3 - scratch.distance2);
+            if (sp2 > h) h = sp2;
+        }
         return h;
+    }
+
+    /**
+     * The highest leg (side ridge) of this ridge at a point {@code v} blocks off the ridge and
+     * {@code along} along it, or -infinity. A summit gets a leg with probability spurChance (per
+     * side of the ridge alike: both sides are measured the same way). The leg leaves the summit at
+     * spurAngleMin..spurAngleMax degrees off straight down the face, leaning one way or the other
+     * along the ridge, and its crest falls at spurFallSlope, gentler than the face, so it runs out
+     * past the foot of the face before it reaches the floor. Along it, small peaks every ~spurPeakSpacing
+     * blocks (notches spurNotchDepth deep); across it, sides at spurSideSlope, a sharp arete. It
+     * never stands above the main crest near the ridge (its slope there is steeper than the crest's
+     * fall), and it fades out between spurFadeStart and spurReach half-widths from the ridge, and
+     * over the last spurHandover blocks before its ridge stops being one of the two nearest
+     * ({@code margin}), so it ends smoothly instead of being cut off. Each leg bends by up to
+     * spurBend times its reach sideways, so neighbouring legs are not parallel.
+     */
+    private double spurHeight(int ridge, double along, double v, double scale, double margin) {
+        if (s.spurChance <= 0) return Double.NEGATIVE_INFINITY;
+        double hw = s.halfWidth(), reach = s.spurReach * hw, fadeFrom = s.spurFadeStart * hw;
+        if (v >= reach) return Double.NEGATIVE_INFINITY;
+        double fade = 1;
+        if (v > fadeFrom) { double t = (v - fadeFrom) / (reach - fadeFrom); fade = 1 - t * t * (3 - 2 * t); }
+        if (margin < s.spurHandover) {
+            if (margin <= 0) return Double.NEGATIVE_INFINITY;
+            double t = margin / s.spurHandover;
+            fade *= t * t * (3 - 2 * t);
+        }
+        long i0 = Math.round(along / s.peakSpacing);
+        int span = (int) Math.ceil(reach / s.peakSpacing) + 1;
+        double best = Double.NEGATIVE_INFINITY;
+        for (long i = i0 - span; i <= i0 + span; i++) {
+            long h0 = Hash.hash(spurSeed, ridge, i);
+            if (Hash.unit(h0) >= s.spurChance) continue;
+            double a = crest.summitAlong(ridge, i);
+            double top = crest.summitHeight(ridge, i);
+            double deg = s.spurAngleMin + Hash.unit(Hash.hash(h0, 1)) * (s.spurAngleMax - s.spurAngleMin);
+            double ang = Math.toRadians(Hash.unit(Hash.hash(h0, 2)) < 0.5 ? -deg : deg);
+            double sn = Math.sin(ang), cs = Math.cos(ang);
+            double u = along - a;
+            double run = u * sn + v * cs;                 // distance along the leg from the summit
+            if (run < 0) continue;
+            // each leg bends gently one way or the other as it runs out, so no two are parallel
+            double bend = Hash.signed(Hash.hash(h0, 4)) * s.spurBend * run * run / reach;
+            double w = Math.abs(u * cs - v * sn - bend);  // distance off the leg's (curved) crest line
+            double period = s.spurPeakSpacing * (0.8 + 0.4 * Hash.unit(Hash.hash(h0, 3)));
+            double f = run / period;
+            double notch = s.spurNotchDepth * 0.5 * (1 - Math.cos(2 * Math.PI * f));   // 0 at each little peak
+            double hh = top - s.spurFallSlope * run - notch - s.spurSideSlope * w;
+            double rel = (hh - s.valleyFloorHeight) * fade * scale;
+            if (rel <= 0) continue;
+            double out = s.valleyFloorHeight + rel;
+            if (out > best) best = out;
+        }
+        return best;
     }
 
     /**
