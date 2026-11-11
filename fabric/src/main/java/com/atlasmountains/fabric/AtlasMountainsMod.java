@@ -1,6 +1,7 @@
 package com.atlasmountains.fabric;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,7 +11,7 @@ import org.slf4j.LoggerFactory;
  * The mod no longer has a terrain generator of its own. It is a data pack in a jar: it changes
  * the settings vanilla's own mountain generation reads (under resources/data), so the mountains
  * are vanilla's, in vanilla's places, with vanilla's biomes, rivers and caves, only reshaped.
- * This class exists so Fabric loads the jar; it has nothing to do at start-up.
+ * This class only registers one debug command, /atlasmountains mountains (see FindCommand).
  */
 public final class AtlasMountainsMod implements ModInitializer {
     public static final String MOD_ID = "atlasmountains";
@@ -18,6 +19,7 @@ public final class AtlasMountainsMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> FindCommand.register(dispatcher));
         LOGGER.info("Atlas Mountains loaded (vanilla mountain overhaul)");
     }
 }

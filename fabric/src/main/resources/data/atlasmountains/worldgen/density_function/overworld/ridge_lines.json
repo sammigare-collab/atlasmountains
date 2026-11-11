@@ -1,10 +1,28 @@
 {
  "type": "minecraft:cache",
  "input": {
-  "type": "minecraft:add",
+  "type": "minecraft:mul",
   "left": {
    "type": "minecraft:mul",
-   "left": 0.3,
+   "left": "atlasmountains:overworld/mountain_mask",
+   "right": {
+    "type": "minecraft:clamp",
+    "input": {
+     "type": "minecraft:mul",
+     "left": {
+      "type": "minecraft:add",
+      "left": "atlasmountains:overworld/terrain_pv",
+      "right": -0.4
+     },
+     "right": 1.6666666666666667
+    },
+    "min": 0.0,
+    "max": 1.0
+   }
+  },
+  "right": {
+   "type": "minecraft:mul",
+   "left": 0.22,
    "right": {
     "type": "minecraft:add",
     "left": {
@@ -18,34 +36,13 @@
        "input": {
         "type": "minecraft:noise",
         "noise": "atlasmountains:ridge_main",
-        "xz_scale": 0.8,
+        "xz_scale": 1.0,
         "y_scale": 0.0
        }
       }
      }
     },
-    "right": -0.3
-   }
-  },
-  "right": {
-   "type": "minecraft:mul",
-   "left": 0.13,
-   "right": {
-    "type": "minecraft:add",
-    "left": 1.0,
-    "right": {
-     "type": "minecraft:mul",
-     "left": -2.0,
-     "right": {
-      "type": "minecraft:abs",
-      "input": {
-       "type": "minecraft:noise",
-       "noise": "atlasmountains:ridge_side",
-       "xz_scale": 1.0,
-       "y_scale": 0.0
-      }
-     }
-    }
+    "right": -0.75
    }
   }
  }

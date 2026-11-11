@@ -6,10 +6,10 @@
    "type": "minecraft:mul",
    "left": {
     "type": "minecraft:add",
-    "left": "atlasmountains:overworld/vanilla_offset",
-    "right": -0.12
+    "left": "minecraft:overworld/erosion",
+    "right": 0.3
    },
-   "right": 3.3333333333333335
+   "right": -6.666666666666666
   },
   "min": 0.0,
   "max": 1.0

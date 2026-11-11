@@ -10,11 +10,19 @@
   },
   "second": {
    "type": "minecraft:add",
-   "left": "atlasmountains:overworld/vanilla_offset",
+   "left": "atlasmountains:overworld/raw_offset",
    "right": {
     "type": "minecraft:mul",
-    "left": "atlasmountains:overworld/mountain_mask",
-    "right": "atlasmountains:overworld/ridge_lines"
+    "left": -0.5,
+    "right": {
+     "type": "minecraft:max",
+     "left": {
+      "type": "minecraft:add",
+      "left": "atlasmountains:overworld/raw_offset",
+      "right": -0.72
+     },
+     "right": 0.0
+    }
    }
   }
  }
