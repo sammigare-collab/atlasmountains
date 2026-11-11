@@ -8,12 +8,7 @@
       "right": {
         "type": "minecraft:mul",
         "left": -1.0,
-        "right": {
-          "type": "minecraft:cache",
-          "input": {
-            "type": "atlasmountains:mountain_mask"
-          }
-        }
+        "right": "atlasmountains:mountains/mask"
       }
     },
     "right": {
@@ -31,12 +26,7 @@
   },
   "right": {
     "type": "minecraft:mul",
-    "left": {
-      "type": "minecraft:cache",
-      "input": {
-        "type": "atlasmountains:mountain_mask"
-      }
-    },
+    "left": "atlasmountains:mountains/mask",
     "right": "atlasmountains:overworld/depth_masked"
   }
 }

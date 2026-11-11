@@ -5,12 +5,7 @@
     "left": "atlasmountains:mountains/vanilla_surface",
     "right": {
       "type": "minecraft:mul",
-      "left": {
-        "type": "minecraft:cache",
-        "input": {
-          "type": "atlasmountains:mountain_mask"
-        }
-      },
+      "left": "atlasmountains:mountains/mask",
       "right": {
         "type": "minecraft:sub",
         "left": {

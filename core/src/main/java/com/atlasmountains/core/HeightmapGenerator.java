@@ -56,15 +56,17 @@ public final class HeightmapGenerator {
         layout.sample(x, z, scratch);
         double c = Math.max(crest.height(scratch.ridge, scratch.along), junctionCrest(scratch.distance2, scratch));
         // the height scale stretches the relief above the valley floor, not the absolute height,
-        // so a small massif is a lower mountain on the same floor, not a sunken one
-        if (scratch.scale != 1.0) c = s.valleyFloorHeight + (c - s.valleyFloorHeight) * scratch.scale;
+        // so a small massif is a lower mountain on the same floor, not a sunken one; the taper
+        // lowers a spine towards a free end the same way
+        double k1 = scratch.scale * taper(scratch.along, scratch.half, scratch.leafLo, scratch.leafHi);
+        c = s.valleyFloorHeight + (c - s.valleyFloorHeight) * k1;
         double h = cross.height(c, scratch.distance);
-        // The second ridge matters only where it is within a half-width (two ridges meeting at a
-        // junction): the union of the two mountains is continuous where either alone would show
-        // a seam. Across a valley the second ridge is too far away and adds nothing.
-        if (scratch.distance2 < s.halfWidth() && (scratch.ridge2 != scratch.ridge || scratch.along2 != scratch.along)) {
+        // The second spine matters only where it is within a half-width (two spines meeting at a
+        // site): the union of the two mountains is continuous where either alone would show a seam.
+        double k2 = scratch.scale * taper(scratch.along2, scratch.half2, scratch.leafLo2, scratch.leafHi2);
+        if (scratch.distance2 < s.halfWidth() && scratch.ridge2 != scratch.ridge) {
             double c2 = Math.max(crest.height(scratch.ridge2, scratch.along2), junctionCrest(scratch.distance, scratch));
-            if (scratch.scale != 1.0) c2 = s.valleyFloorHeight + (c2 - s.valleyFloorHeight) * scratch.scale;
+            c2 = s.valleyFloorHeight + (c2 - s.valleyFloorHeight) * k2;
             double h2 = cross.height(c2, scratch.distance2);
             if (h2 > h) h = h2;
         }
@@ -72,10 +74,10 @@ public final class HeightmapGenerator {
         // one plain wall (the outer face of an area's border ridge had nothing else to break it).
         // Only the two nearest ridges are known, so a leg is faded out as its ridge is about to
         // drop to third nearest (distance3 catching up): it ends smoothly instead of being cut.
-        double sp = spurHeight(scratch.ridge, scratch.along, scratch.distance, scratch.scale, scratch.distance3 - scratch.distance);
+        double sp = spurHeight(scratch.ridge, scratch.alongRaw, scratch.perp, scratch.distance, scratch.half, k1, scratch.distance3 - scratch.distance);
         if (sp > h) h = sp;
         if (scratch.ridge2 != scratch.ridge) {
-            double sp2 = spurHeight(scratch.ridge2, scratch.along2, scratch.distance2, scratch.scale, scratch.distance3 - scratch.distance2);
+            double sp2 = spurHeight(scratch.ridge2, scratch.alongRaw2, scratch.perp2, scratch.distance2, scratch.half2, k2, scratch.distance3 - scratch.distance2);
             if (sp2 > h) h = sp2;
         }
         return h;
@@ -95,12 +97,14 @@ public final class HeightmapGenerator {
      * ({@code margin}), so it ends smoothly instead of being cut off. Each leg bends by up to
      * spurBend times its reach sideways, so neighbouring legs are not parallel.
      */
-    private double spurHeight(int ridge, double along, double v, double scale, double margin) {
+    private double spurHeight(int ridge, double along, double v, double dist, double half, double scale, double margin) {
         if (s.spurChance <= 0) return Double.NEGATIVE_INFINITY;
         double hw = s.halfWidth(), reach = s.spurReach * hw, fadeFrom = s.spurFadeStart * hw;
-        if (v >= reach) return Double.NEGATIVE_INFINITY;
+        // along and v are measured to the spine's whole line (so a leg keeps its shape past the
+        // spine's end); the fade uses the true distance to the spine
+        if (dist >= reach) return Double.NEGATIVE_INFINITY;
         double fade = 1;
-        if (v > fadeFrom) { double t = (v - fadeFrom) / (reach - fadeFrom); fade = 1 - t * t * (3 - 2 * t); }
+        if (dist > fadeFrom) { double t = (dist - fadeFrom) / (reach - fadeFrom); fade = 1 - t * t * (3 - 2 * t); }
         if (margin < s.spurHandover) {
             if (margin <= 0) return Double.NEGATIVE_INFINITY;
             double t = margin / s.spurHandover;
@@ -113,6 +117,7 @@ public final class HeightmapGenerator {
             long h0 = Hash.hash(spurSeed, ridge, i);
             if (Hash.unit(h0) >= s.spurChance) continue;
             double a = crest.summitAlong(ridge, i);
+            if (Math.abs(a) > half) continue;             // only summits that are on the spine
             double top = crest.summitHeight(ridge, i);
             double deg = s.spurAngleMin + Hash.unit(Hash.hash(h0, 1)) * (s.spurAngleMax - s.spurAngleMin);
             double ang = Math.toRadians(Hash.unit(Hash.hash(h0, 2)) < 0.5 ? -deg : deg);
@@ -144,6 +149,20 @@ public final class HeightmapGenerator {
      * ordinary summit. Returns -infinity where there is no other ridge close enough for it to
      * matter (deep inside a cell the second ridge is the far side of a valley).
      */
+    /** Relief multiplier along a spine: 1, falling to 1 - spineEndDrop at a free end over spineTaperLength blocks. */
+    private double taper(double along, double half, boolean leafLo, boolean leafHi) {
+        double k = 1;
+        if (leafLo) k = Math.min(k, endTaper(along + half));
+        if (leafHi) k = Math.min(k, endTaper(half - along));
+        return k;
+    }
+
+    private double endTaper(double fromEnd) {
+        if (fromEnd >= s.spineTaperLength) return 1;
+        double t = Math.max(0, fromEnd) / s.spineTaperLength;
+        return 1 - s.spineEndDrop * (1 - t * t * (3 - 2 * t));
+    }
+
     private double junctionCrest(double other, RidgeSample scratch) {
         if (s.junctionPeakBoost <= 0 || scratch.ridge2 == scratch.ridge) return Double.NEGATIVE_INFINITY;
         double apex = s.summitHeight + s.junctionPeakBoost * s.relief();
@@ -172,7 +191,7 @@ public final class HeightmapGenerator {
         double apex = s.summitHeight + s.junctionPeakBoost * s.relief();
         if (s.junctionPeakBoost > 0 && scratch.ridge2 != scratch.ridge
                 && apex - s.crestFallSlope * 1.15 * scratch.distance2 > crest.height(scratch.ridge, scratch.along)) c = apex;
-        if (scratch.scale != 1.0) c = s.valleyFloorHeight + (c - s.valleyFloorHeight) * scratch.scale;
+        c = s.valleyFloorHeight + (c - s.valleyFloorHeight) * scratch.scale * taper(scratch.along, scratch.half, scratch.leafLo, scratch.leafHi);
         return c;
     }
 

@@ -24,4 +24,11 @@ public final class RidgeSample {
     public double along2;
     /** Distance to the third-nearest ridge (MAX_VALUE if none): where it overtakes the second, legs of the second fade out. */
     public double distance3 = Double.MAX_VALUE;
+    /**
+     * For each of the two spines: the unclamped position along it (alongRaw; {@code along} is this
+     * clamped to the spine), the perpendicular distance to its line (perp; {@code distance} also
+     * counts the run past an end), its half-length, and whether its low / high end is a free end.
+     */
+    public double alongRaw, perp, half, alongRaw2, perp2, half2;
+    public boolean leafLo, leafHi, leafLo2, leafHi2;
 }

@@ -56,6 +56,11 @@ public final class MountainSettings {
      * the network irregular without letting two sites land on top of each other.
      */
     public double fieldJitter = 0.9;
+    /** Half-length of the spine of a mountain cell with no mountain neighbour, in cells. */
+    public double loneSpineHalfLength = 0.4;
+    /** A spine's free end drops by this share of its relief over spineTaperLength blocks, so ranges tail off instead of ending at full height. */
+    public double spineEndDrop = 0.45;
+    public double spineTaperLength = 160;
     /**
      * Domain warp of the diagram, so the ridges curve instead of running as straight Voronoi edges:
      * amplitude of the main octave in blocks (a second octave at 2.3 times the frequency adds a
@@ -211,9 +216,10 @@ public final class MountainSettings {
     /**
      * Concavity exponent of the grass flank. 1 is a straight slope from the rock line to the valley
      * floor; higher puts more of the drop near the top, so the foot of the flank runs out long and
-     * gentle, like a scree apron.
+     * gentle, like a scree apron. 1.3 until Nov 2026; Sammi wanted the foot to curve out into the
+     * land more gradually.
      */
-    public double flankConcavity = 1.3;
+    public double flankConcavity = 1.7;
 
     // ---- Detail noise ---------------------------------------------------
     /**
@@ -323,7 +329,7 @@ public final class MountainSettings {
      * footprintErosionScale 2.08 gives about 9 to 10% (-0.72 with 2.5 gave 5 to 8%, and -0.32 with
      * 2.5, the value before that, about 40%).
      */
-    public double erosionMountainBelow = -0.62;
+    public double erosionMountainBelow = -0.46;   // -0.62 with the cell-edge layout; the ridge skeleton covers less ground per cell, so the threshold was raised to keep about 7% of land
     /**
      * Province edges are roughened: a cell counts as mountain when erosion + footprintRagged * n
      * (n in -1..1, wavelength footprintRaggedWavelength) is below the threshold, so the edge breaks

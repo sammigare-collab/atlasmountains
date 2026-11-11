@@ -101,10 +101,16 @@ public final class AtlasBiomeSource extends BiomeSource {
         return (x, y, z) -> getBiome(x, y, z, sampler, base);
     }
 
+    private static final double OUR_BIOME_ABOVE = 30;
+
     private Holder<Biome> getBiome(int x, int y, int z, Climate.Sampler noise, BiomeResolver base) {
         int bx = x << 2, bz = z << 2;   // biome coordinates are 4-block quarts
         var cache = AtlasMountainsMod.cache();
-        if (cache.mask(bx, bz) < maskThreshold || !cache.onOurSlope(bx, bz, 6.0, SCRATCH.get())) {
+        // Our biomes start OUR_BIOME_ABOVE blocks up the mountain; the foot below that, and the
+        // ground between ranges, keeps whatever vanilla biome the land around has, so a mountain's
+        // skirt matches its surroundings (Sammi's foot-ring diagram, Nov 2026).
+        if (cache.mask(bx, bz) <= 0
+                || cache.maskedBaseHeight(bx, bz, SCRATCH.get()) < cache.settings().valleyFloorHeight + OUR_BIOME_ABOVE) {
             return base.getNoiseBiome(x, y, z);
         }
         double t = noise.temperature().sampleValue(bx, y << 2, bz);

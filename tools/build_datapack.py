@@ -108,6 +108,7 @@ TERRAIN_MIXED = cache2d({'type': f'{NS}:terrain_height', 'mixed': True})       #
 # where our term holds the surface.
 VANILLA_SLOPE = 0.25
 EDGE_SINK = 64             # blocks our surface sits under the blend at mask 0 (it rises to the blend over EDGE_SINK_BAND, quadratically)
+FOOT_BAND = 16             # our surface takes over from vanilla's across this many blocks of height (see build_variant)
 EDGE_SINK_BAND = 0.15      # the sink fades in over this much of the mask at its outer edge
 EDGE_PUSH = 12             # blocks vanilla is pushed under the blend at mask 1
 PSL_SLOPE = 0.4            # the same for the jaggedness-free preliminary-surface density
@@ -477,8 +478,21 @@ def build_variant(settings_name, preset_name, mixed):
         write(f'{NS}/worldgen/density_function/{settings_name}/vanilla_surface.json',
               cache2d(add(128.0, mul(128.0, f'{NS}:overworld/vanilla_offset'))))
         HV = f'{NS}:{settings_name}/vanilla_surface'
+        # The mountains stand on vanilla's ground instead of in a hole (Nov 2026). The layout's mask
+        # says where our terrain may be; M also needs our surface to reach up to vanilla's: it is 0
+        # where ours is FOOT_BAND or more under vanilla's surface and 1 where ours is level with it.
+        # Before, everything inside the mask was ours down to our valley floor (y 64), so where the
+        # land around was higher a mountain sat in a moat, its foot dropping to 64 before the fade
+        # brought the ground back up. Now the lower flank and the floors between ranges are simply
+        # vanilla's land wherever that is higher, and a range rises out of it. In the band the
+        # blend dips at most FOOT_BAND / 4 blocks under vanilla's surface.
+        write(f'{NS}/worldgen/density_function/{settings_name}/mask.json',
+              cache2d(mul(MASK, {'type': 'minecraft:clamp', 'min': 0.0, 'max': 1.0,
+                                 'input': add(1.0, mul(sub(TERRAIN_MIXED, HV), 1.0 / FOOT_BAND))})))
+        M = f'{NS}:{settings_name}/mask'
+        mask = M
         write(f'{NS}/worldgen/density_function/{settings_name}/blend_height.json',
-              cache2d(add(HV, mul(MASK, sub(TERRAIN_MIXED, HV)))))
+              cache2d(add(HV, mul(M, sub(TERRAIN_MIXED, HV)))))
         HB = f'{NS}:{settings_name}/blend_height'
         # Our surface sits EDGE_SINK below the blend where the mask is 0 (so vanilla's real 3D surface,
         # which can differ from its jaggedness-free estimate by several blocks, is never undercut by
@@ -493,7 +507,7 @@ def build_variant(settings_name, preset_name, mixed):
         # open country. Now our plate rises from deep below (quadratic in the band, so it meets the
         # blend with no kink), and vanilla is only pushed inward of that band, starting from zero slope,
         # so it comes down onto the blend over a few tens of blocks instead of at one line.
-        sink_t = {'type': 'minecraft:clamp', 'input': sub(1.0, mul(MASK, 1.0 / EDGE_SINK_BAND)), 'min': 0.0, 'max': 1.0}
+        sink_t = {'type': 'minecraft:clamp', 'input': sub(1.0, mul(M, 1.0 / EDGE_SINK_BAND)), 'min': 0.0, 'max': 1.0}
         ours_h = sub(HB, mul(mul(sink_t, sink_t), EDGE_SINK))
         write(f'{NS}/worldgen/density_function/{settings_name}/sloped_cheese.json',
               mul(DENSITY_PER_BLOCK, sub(ours_h, 'minecraft:y')))
@@ -503,12 +517,12 @@ def build_variant(settings_name, preset_name, mixed):
         # the ground there is simply vanilla's), then pushed in with zero slope; from mask 0.3 inwards the
         # push is what it always was. A push in the band let vanilla collapse in flat land (its density
         # changes only ~0.01 per block there) onto the sunk plate: dry pits a few blocks under sea level.
-        push_t = {'type': 'minecraft:clamp', 'input': mul(sub(MASK, EDGE_SINK_BAND), 1.0 / EDGE_SINK_BAND), 'min': 0.0, 'max': 1.0}   # full by mask 0.3
-        drop = mul(mul(push_t, push_t), add(dmax(sub(HV, HB), 0.0), mul(MASK, EDGE_PUSH)))   # never up
+        push_t = {'type': 'minecraft:clamp', 'input': mul(sub(M, EDGE_SINK_BAND), 1.0 / EDGE_SINK_BAND), 'min': 0.0, 'max': 1.0}   # full by mask 0.3
+        drop = mul(mul(push_t, push_t), add(dmax(sub(HV, HB), 0.0), mul(M, EDGE_PUSH)))   # never up
         v_final = sub(v_final, mul(VANILLA_SLOPE, drop))
         # The preliminary surface keeps the old, unramped push: the aquifers read it, and with the
         # ramped push it sat above the real ground in the band, so rivers and lakes there came out dry.
-        drop_psl = add(dmax(sub(HV, HB), 0.0), mul(MASK, EDGE_PUSH))
+        drop_psl = add(dmax(sub(HV, HB), 0.0), mul(M, EDGE_PUSH))
         psl_density = sub(psl_density, mul(PSL_SLOPE, drop_psl))
     # the depth the router and the aquifers share
     d = lerp(mask, vanilla_depth, depth)

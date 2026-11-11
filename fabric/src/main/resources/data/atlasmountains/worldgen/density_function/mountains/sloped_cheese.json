@@ -17,12 +17,7 @@
               "left": 1.0,
               "right": {
                 "type": "minecraft:mul",
-                "left": {
-                  "type": "minecraft:cache",
-                  "input": {
-                    "type": "atlasmountains:mountain_mask"
-                  }
-                },
+                "left": "atlasmountains:mountains/mask",
                 "right": 6.666666666666667
               }
             },
@@ -36,12 +31,7 @@
               "left": 1.0,
               "right": {
                 "type": "minecraft:mul",
-                "left": {
-                  "type": "minecraft:cache",
-                  "input": {
-                    "type": "atlasmountains:mountain_mask"
-                  }
-                },
+                "left": "atlasmountains:mountains/mask",
                 "right": 6.666666666666667
               }
             },
