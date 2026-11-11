@@ -14,6 +14,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
+ * The debug commands.
+ * <p>
+ * /atlasmountains heightmap &lt;size&gt; &lt;step&gt;: the real surface heights around the player, as a
+ * file, without generating chunks.
+ * <p>
  * /atlasmountains mountains &lt;radiusBlocks&gt;: where vanilla's tall mountains are.
  *
  * Vanilla only builds tall mountains where three of its climate maps line up: erosion very low
@@ -69,6 +74,59 @@ public final class FindCommand {
                     AtlasMountainsMod.LOGGER.info(msg);
                     src.sendSuccess(() -> Component.literal(msg), false);
                     return 1;
-                }))));
+                })))
+                .then(Commands.literal("df")
+                        .then(Commands.argument("id", com.mojang.brigadier.arguments.StringArgumentType.string()).executes(ctx -> {
+                    // A registered density function sampled at the player's column (at y 64 and y 200;
+                    // the 2-D ones give the same value at both). For checking the data pack by number.
+                    CommandSourceStack src = ctx.getSource();
+                    Vec3 p = src.getPosition();
+                    String idText = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "id");
+                    var reg = src.getLevel().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.DENSITY_FUNCTION);
+                    var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DENSITY_FUNCTION, net.minecraft.resources.Identifier.parse(idText));
+                    var holder = reg.get(key);
+                    if (holder.isEmpty()) { src.sendFailure(Component.literal("no density function " + idText)); return 0; }
+                    RandomState rs = src.getLevel().getChunkSource().randomState();
+                    int x = (int) Math.floor(p.x), z = (int) Math.floor(p.z);
+                    String msg = String.format(Locale.UK, "%s at %d,%d: y64=%.3f y200=%.3f", idText, x, z,
+                            rs.sampleBlockValueUncached(holder.get().value(), x, 64, z), rs.sampleBlockValueUncached(holder.get().value(), x, 200, z));
+                    src.sendSuccess(() -> Component.literal(msg), false);
+                    return 1;
+                })))
+                .then(Commands.literal("heightmap")
+                        .then(Commands.argument("sizeBlocks", IntegerArgumentType.integer(256, 8192))
+                        .then(Commands.argument("stepBlocks", IntegerArgumentType.integer(1, 32)).executes(ctx -> {
+                    // The real surface height over a square around the player, asked of the chunk
+                    // generator column by column without generating any chunks, written as raw
+                    // little-endian floats (n x n, row by row) to <world>/atlasmountains/. A look at
+                    // the terrain's shape in a couple of minutes instead of generating the area.
+                    CommandSourceStack src = ctx.getSource();
+                    ServerLevel world = src.getLevel();
+                    Vec3 p = src.getPosition();
+                    int size = IntegerArgumentType.getInteger(ctx, "sizeBlocks"), step = IntegerArgumentType.getInteger(ctx, "stepBlocks");
+                    int cx = (int) Math.floor(p.x), cz = (int) Math.floor(p.z), n = size / step;
+                    var gen = world.getChunkSource().getGenerator();
+                    RandomState rstate = world.getChunkSource().randomState();
+                    src.sendSuccess(() -> Component.literal("sampling " + n + " x " + n + " columns..."), false);
+                    Thread worker = new Thread(() -> {
+                        try {
+                            java.nio.ByteBuffer raw = java.nio.ByteBuffer.allocate(n * n * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+                            for (int j = 0; j < n; j++)
+                                for (int i = 0; i < n; i++)
+                                    raw.putFloat(gen.getBaseHeight(cx - size / 2 + i * step, cz - size / 2 + j * step,
+                                            net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG, world, rstate));
+                            java.nio.file.Path dir = src.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                            java.nio.file.Files.createDirectories(dir);
+                            java.nio.file.Path out = dir.resolve("heightmap_" + cx + "_" + cz + "_" + size + "_" + step + ".f32");
+                            java.nio.file.Files.write(out, raw.array());
+                            AtlasMountainsMod.LOGGER.info("heightmap written to {}", out);
+                        } catch (Exception e) {
+                            AtlasMountainsMod.LOGGER.error("heightmap failed", e);
+                        }
+                    }, "atlasmountains-heightmap");
+                    worker.setDaemon(true);
+                    worker.start();
+                    return 1;
+                })))));
     }
 }

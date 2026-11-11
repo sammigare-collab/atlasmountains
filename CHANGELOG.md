@@ -5,9 +5,14 @@
 - Started again from scratch (Sammi, 11 Nov 2026). The custom mountain generator, the continents,
   the mountain biomes, the world type, the debug commands and their tests are all removed; the
   world is vanilla again.
-- New approach: reshape vanilla's own mountains through its `offset`, `factor` and `jaggedness`
-  density functions (ridge lines, tighter faces, fewer random spikes), only where vanilla's
-  ground is high. See `tools/build_overhaul.py`.
+- New approach: work through vanilla's own `offset`, `factor` and `jaggedness` density functions.
+  Two attempts at adjusting them (ridge lines, filled rings, wider spikes) moved the ground only
+  about 4 blocks on a 250-block range, so they were dropped.
+- Horn peaks, after Sammi's WorldPainter references: in low-erosion country away from the coast
+  the land is pressed down to about y 110 and a field of separate pyramid peaks is added
+  (`atlasmountains:horns`): steep summits, flaring skirts, 3 to 5 ridges per peak, varied heights.
+  River valleys are kept. The terrain ceiling moves from y 256 to y 296-312.
+- Debug commands: `mountains`, `heightmap`, `df`. Shape prototype and viewer under `tools/`.
 
 ## 0.3.0 (2026-11-10)
 

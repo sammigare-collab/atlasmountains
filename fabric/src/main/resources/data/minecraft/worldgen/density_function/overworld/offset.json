@@ -10,19 +10,35 @@
   },
   "second": {
    "type": "minecraft:add",
-   "left": "atlasmountains:overworld/raw_offset",
+   "left": {
+    "type": "minecraft:add",
+    "left": "atlasmountains:overworld/vanilla_offset",
+    "right": {
+     "type": "minecraft:mul",
+     "left": {
+      "type": "minecraft:mul",
+      "left": "atlasmountains:overworld/amp",
+      "right": -0.85
+     },
+     "right": {
+      "type": "minecraft:max",
+      "left": {
+       "type": "minecraft:add",
+       "left": "atlasmountains:overworld/vanilla_offset",
+       "right": 0.14
+      },
+      "right": 0.0
+     }
+    }
+   },
    "right": {
     "type": "minecraft:mul",
-    "left": -0.5,
-    "right": {
-     "type": "minecraft:max",
-     "left": {
-      "type": "minecraft:add",
-      "left": "atlasmountains:overworld/raw_offset",
-      "right": -0.72
-     },
-     "right": 0.0
-    }
+    "left": {
+     "type": "minecraft:mul",
+     "left": "atlasmountains:overworld/amp",
+     "right": "atlasmountains:overworld/river_guard"
+    },
+    "right": "atlasmountains:overworld/horns"
    }
   }
  }

@@ -21,25 +21,34 @@ negative and 0.3 where it is positive).
 So a vanilla mountain is: a crest along a closed contour of weirdness (hence rings), dropping to
 a bowl inside the ring, smeared by 3-D noise, with small random spikes on top.
 
-What this pack changes, and only where erosion is low (the mask below)
---------------------------------------------------------------------
-  1. Solid massifs. Inside the ring (|w| > 2/3) the terrain's PV stays near 1 instead of
-     falling back, so the ring is filled in and stands as one mountain.
-  2. Ridge lines. Across the upper slopes and the massif a ridged noise, 1 - 2|n|, cuts gullies
-     between crests (it mostly lowers: the crests are the massif's own height).
-  3. Cleaner faces. Factor is raised, so the ground keeps the edges of 1 and 2.
-  4. Fewer, bigger peaks. The spike noise is stretched (features about three times wider) and
-     its strength lowered, so it makes separate summits instead of a bed of needles.
-  5. A soft ceiling. Vanilla cuts terrain off flat at y 256; the target height is compressed
-     above OFFSET_KNEE so summits finish as points below that.
+What this pack does
+-------------------
+Small changes to those three numbers barely show (two attempts on 11 Nov 2026 moved the ground
+about 4 blocks on a 250-block range). The look Sammi wants, separate pyramid peaks with ridges
+running down from each summit, needs a shape of its own. So, in vanilla's mountain country:
 
-Only vanilla's offset, factor, jaggedness and sloped_cheese are replaced, by name, so
-everything else that reads them (depth, the preliminary surface, aquifers, surface rules) stays
-consistent. Biomes are not touched: they are chosen from the same climate maps, so they stay
-where they were. Rivers are not touched either (PV below the crest line is unchanged).
+  1. Where: "amp" is 1 deep in low-erosion country, far enough inland, and fades to 0 as
+     erosion rises (erosion is vanilla's widest map, features a couple of kilometres across, so
+     amp changes slowly and whole clusters of peaks fit inside it). A first version took amp
+     from vanilla's target height instead; that is only high along narrow crest bands, and
+     multiplying the peaks by it cut them into fragments.
+  2. The land: vanilla's own, with whatever stands above BASE pressed down to a fraction of its
+     height, so there is rolling ground at about y 110 for the peaks to stand on. Valleys and
+     rivers below BASE are left exactly as they are.
+  3. The peaks: the mod's atlasmountains:horns density function (see HornsFunction.java) is
+     added on top, scaled by amp, and held back near rivers (weirdness near 0) so a river valley
+     still runs between mountains.
+  4. Factor is raised there so the ground follows the peaks closely (a little 3-D roughness is
+     left), and vanilla's random spikes are turned off there.
+  5. Vanilla cuts terrain off at y 256; that ceiling is moved up so summits fit.
+
+Only vanilla's offset, factor, jaggedness, final_density and preliminary_surface_level are
+replaced, by name, so everything that reads them stays consistent. Biomes are not touched: they
+are chosen from the same climate maps, so they stay where they were.
 """
 import json
 import os
+import shutil
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VANILLA = os.path.join(ROOT, 'tools', 'vanilla-26.3')
@@ -48,19 +57,31 @@ NS = 'atlasmountains'
 
 # ---- settings -------------------------------------------------------------------------------
 # Offsets are in vanilla's units: ground height is about y = 128 + 128 * offset.
-EROSION_FULL = -0.45  # the changes are full where erosion is below this (vanilla's two mountain tiers) ...
-EROSION_NONE = -0.30  # ... and absent above this
-FILL_DROP = 0.25      # inside the ring PV runs from 1 at the crest line down to 1 - this at |w| = 1 (vanilla: down to 0)
-RIDGE_AMP = 0.22      # ridge lines: crest to gully is 2 x this (about 56 blocks)
-RIDGE_LIFT = 0.75     # the ridge term is (ridged - this): crests rise 7 blocks, gullies cut 49
-RIDGE_FROM = 0.4      # ridge lines start where the terrain PV is above this ...
-RIDGE_TO = 1.0        # ... and are full at the crest line, so a gully never dips below the slope under it
-RIDGE_SCALE = 1.0     # ridge noise: base wavelength 256 blocks / this
-FACTOR_BOOST = 0.6    # factor is multiplied by 1 + this in the mask
-JAGGED_KEEP = 0.5     # share of vanilla's spike strength that is kept
-JAGGED_SCALE = 500.0  # vanilla's spike noise runs at 1500: lower = wider, fewer peaks
-OFFSET_KNEE = 0.72    # target heights above this (about y 220) ...
-OFFSET_SQUASH = 0.5   # ... are compressed by this, so summits stay under vanilla's y 256 cut-off
+EROSION_FROM = -0.40  # peaks start where erosion is below this ...
+EROSION_FULL = -0.65  # ... and are full size where it is below this
+INLAND_FROM = -0.05   # and where continentalness is above this (just in from the coast) ...
+INLAND_FULL = 0.20    # ... full size above this
+RIVER_FROM = 0.05     # peaks are held back where |weirdness| is below this (vanilla's river band) ...
+RIVER_FULL = 0.27     # ... and are full size above this
+BASE = -0.14          # land above this (y 110) is pressed down among the peaks ...
+BASE_KEEP = 0.15      # ... to this share of its height above it
+FACTOR_IN = 16.0      # factor among the peaks (vanilla's mountains: about 5)
+TOP_FROM, TOP_TO = 296, 312   # the terrain ceiling (vanilla: 240 to 256)
+# the peaks themselves: see HornsFunction.java and tools/prototype_horns.py (same names)
+HORNS = {
+    'cell': 230.0,          # one peak per square this size
+    'jitter': 0.7,
+    'slope_top': 1.1,       # extra slope at the summit, on top of slope_far: 62 degrees together
+    'slope_far': 0.8,       # slope far down the skirt: 39 degrees
+    'r0': 45.0,             # how quickly the summit steepness eases off, blocks
+    'aretes': [3, 5],       # ridges per peak
+    'arete_depth': 0.38,    # how much slower the ridges fall than the faces
+    'arete_reach': 130.0,   # the ridges fade over about this distance from the summit
+    'warp': 30.0, 'warp_length': 120.0,
+    'gully': 0.12, 'gully_cycles': 3.0,
+    'height': 172.0,        # the tallest peaks, above the land they stand on: summits at about y 285 to 300
+    'height_var': 0.42,     # other peaks are up to this much lower
+}
 
 
 def load(rel):
@@ -80,68 +101,64 @@ def add(a, b): return {'type': 'minecraft:add', 'left': a, 'right': b}
 def mul(a, b): return {'type': 'minecraft:mul', 'left': a, 'right': b}
 def cache(f): return {'type': 'minecraft:cache', 'input': f}
 def clamp(f, lo, hi): return {'type': 'minecraft:clamp', 'input': f, 'min': lo, 'max': hi}
-def noise(name, scale): return {'type': 'minecraft:noise', 'noise': name, 'xz_scale': scale, 'y_scale': 0.0}
-def ridged(n): return add(1.0, mul(-2.0, {'type': 'minecraft:abs', 'input': n}))   # 1 on the crest lines, falling evenly either side
 
 
-def rename(obj, old, new):
-    """Every exact string old in obj becomes new (for repointing spline coordinates)."""
-    if isinstance(obj, dict): return {k: rename(v, old, new) for k, v in obj.items()}
-    if isinstance(obj, list): return [rename(v, old, new) for v in obj]
-    return new if obj == old else obj
+def move_ceiling(node):
+    """Vanilla's 'air above the top' gradient (y 240 to 256), moved up in place."""
+    if isinstance(node, dict):
+        if node.get('type') == 'minecraft:gradient' and node.get('from_coordinate') == 240 and node.get('to_coordinate') == 256:
+            node['from_coordinate'], node['to_coordinate'] = TOP_FROM, TOP_TO
+            return 1
+        return sum(move_ceiling(v) for v in node.values())
+    if isinstance(node, list):
+        return sum(move_ceiling(v) for v in node)
+    return 0
 
 
 def main():
-    # a plain noise for the ridge lines (2 octaves, so the lines wander instead of running straight)
-    write(f'{NS}/worldgen/noise/ridge_main.json', {'base_amplitude': 0.9494731054427981, 'base_octave': -8, 'octave_count': 2})
+    for sub in ('minecraft', NS):               # start clean, so a file dropped from the pack does not linger
+        shutil.rmtree(os.path.join(OUT, sub), ignore_errors=True)
 
     offset = load('worldgen/density_function/overworld/offset.json')
     factor = load('worldgen/density_function/overworld/factor.json')
     jagged = load('worldgen/density_function/overworld/jaggedness.json')
-    cheese = load('worldgen/density_function/overworld/sloped_cheese.json')
     # each of the three is cache(lerp(blend_alpha, <value for old chunks>, <the real thing>)); only the real thing changes
     for d in (offset, factor, jagged):
         assert d['type'] == 'minecraft:cache' and d['input']['type'] == 'minecraft:lerp', 'vanilla layout changed'
 
-    EROSION, W, PV = 'minecraft:overworld/erosion', 'minecraft:overworld/ridges', 'minecraft:overworld/ridges_folded'
-    # the mask: 1 where erosion is below EROSION_FULL, 0 above EROSION_NONE
-    write(f'{NS}/worldgen/density_function/overworld/mountain_mask.json',
-          cache(clamp(mul(add(EROSION, -EROSION_NONE), 1.0 / (EROSION_FULL - EROSION_NONE)), 0.0, 1.0)))
-    MASK = f'{NS}:overworld/mountain_mask'
-
-    # 1. the terrain's own PV: vanilla's, except inside the ring (|w| > 2/3), where it only eases
-    #    down from 1 to 1 - FILL_DROP instead of falling to 0; blended in by the mask
-    absw = {'type': 'minecraft:abs', 'input': W}
-    filled = {'type': 'minecraft:range_choice', 'input': absw, 'min_inclusive': 2.0 / 3.0, 'max_exclusive': 4.0,
-              'when_in_range': add(1.0, mul(-3.0 * FILL_DROP, add(absw, -2.0 / 3.0))), 'when_out_of_range': PV}
-    write(f'{NS}/worldgen/density_function/overworld/terrain_pv.json',
-          cache(add(PV, mul(MASK, add(filled, mul(-1.0, PV))))))
-    TPV = f'{NS}:overworld/terrain_pv'
-
-    # 2. the ridge lines, in offset units, where the terrain PV is high and the mask is on
-    high = clamp(mul(add(TPV, -RIDGE_FROM), 1.0 / (RIDGE_TO - RIDGE_FROM)), 0.0, 1.0)
-    write(f'{NS}/worldgen/density_function/overworld/ridge_lines.json',
-          cache(mul(mul(MASK, high), mul(RIDGE_AMP, add(ridged(noise(f'{NS}:ridge_main', RIDGE_SCALE)), -RIDGE_LIFT)))))
-
-    # vanilla's height curve, reading the terrain PV, plus the ridge lines
-    write(f'{NS}/worldgen/density_function/overworld/raw_offset.json',
-          cache(add(rename(offset['input']['second'], PV, TPV), f'{NS}:overworld/ridge_lines')))
-    RAW = f'{NS}:overworld/raw_offset'
-    # 5. the soft ceiling: unchanged below the knee, compressed above it
-    over = {'type': 'minecraft:max', 'left': add(RAW, -OFFSET_KNEE), 'right': 0.0}
-    offset['input']['second'] = add(RAW, mul(-(1.0 - OFFSET_SQUASH), over))
-    # 3. tighter faces; the factor spline reads the terrain PV too, so the filled ring is treated as mountain
-    factor['input']['second'] = mul(rename(factor['input']['second'], PV, TPV), add(1.0, mul(FACTOR_BOOST, MASK)))
-    # 4. the spikes: lower strength here, wider features in sloped_cheese
-    jagged['input']['second'] = mul(rename(jagged['input']['second'], PV, TPV), JAGGED_KEEP)
-    text = json.dumps(cheese)
-    assert '"xz_scale": 1500.0' in text, 'vanilla sloped_cheese changed'
-    cheese = json.loads(text.replace('"xz_scale": 1500.0', f'"xz_scale": {JAGGED_SCALE}'))
-
+    EROSION, CONT, W = 'minecraft:overworld/erosion', 'minecraft:overworld/continents', 'minecraft:overworld/ridges'
+    DF = f'{NS}/worldgen/density_function/overworld'
+    def ramp(f, lo, hi):          # 0 at lo, 1 at hi, clamped
+        return clamp(mul(add(f, -lo), 1.0 / (hi - lo)), 0.0, 1.0)
+    def smooth(name, linear):     # a smooth step of a 0..1 ramp, written as its own cached file
+        write(f'{DF}/{name}_linear.json', cache(linear))
+        t = f'{NS}:overworld/{name}_linear'
+        write(f'{DF}/{name}.json', cache(mul(mul(t, t), add(3.0, mul(-2.0, t)))))
+        return f'{NS}:overworld/{name}'
+    # 1. where
+    AMP = smooth('amp', mul(ramp(EROSION, EROSION_FROM, EROSION_FULL), ramp(CONT, INLAND_FROM, INLAND_FULL)))
+    RIVER = smooth('river_guard', ramp({'type': 'minecraft:abs', 'input': W}, RIVER_FROM, RIVER_FULL))
+    # vanilla's own target height, under our name so the new offset can read it
+    write(f'{DF}/vanilla_offset.json', cache(offset['input']['second']))
+    VOFF = f'{NS}:overworld/vanilla_offset'
+    # 2. the land: what stands above BASE is pressed down to BASE_KEEP of its height, by amp
+    above = {'type': 'minecraft:max', 'left': add(VOFF, -BASE), 'right': 0.0}
+    land = add(VOFF, mul(mul(AMP, -(1.0 - BASE_KEEP)), above))
+    # 3. the peaks
+    write(f'{DF}/horns.json', cache(dict({'type': f'{NS}:horns'}, **HORNS)))
+    offset['input']['second'] = add(land, mul(mul(AMP, RIVER), f'{NS}:overworld/horns'))
+    # 4. factor rises to FACTOR_IN among the peaks; vanilla's spikes fade out there
+    vfactor = factor['input']['second']
+    factor['input']['second'] = add(vfactor, mul(AMP, add(FACTOR_IN, mul(-1.0, vfactor))))
+    jagged['input']['second'] = mul(jagged['input']['second'], add(1.0, mul(-1.0, AMP)))
     write('minecraft/worldgen/density_function/overworld/offset.json', offset)
     write('minecraft/worldgen/density_function/overworld/factor.json', factor)
     write('minecraft/worldgen/density_function/overworld/jaggedness.json', jagged)
-    write('minecraft/worldgen/density_function/overworld/sloped_cheese.json', cheese)
+    # 5. the ceiling, in the terrain itself and in the preliminary surface the aquifers and surface rules use
+    for name in ('final_density', 'preliminary_surface_level'):
+        d = load(f'worldgen/density_function/overworld/{name}.json')
+        assert move_ceiling(d) == 1, f'vanilla {name} changed'
+        write(f'minecraft/worldgen/density_function/overworld/{name}.json', d)
     print('wrote the overhaul data pack under', OUT)
 
 
