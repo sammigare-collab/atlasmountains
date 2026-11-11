@@ -108,7 +108,7 @@ TERRAIN_MIXED = cache2d({'type': f'{NS}:terrain_height', 'mixed': True})       #
 # where our term holds the surface.
 VANILLA_SLOPE = 0.25
 EDGE_SINK = 64             # blocks our surface sits under the blend at mask 0 (it rises to the blend over EDGE_SINK_BAND, quadratically)
-FOOT_BAND = 16             # our surface takes over from vanilla's across this many blocks of height (see build_variant)
+FOOT_BAND = 16             # our terrain takes over from vanilla's across its first this many blocks above its floor (see build_variant)
 EDGE_SINK_BAND = 0.15      # the sink fades in over this much of the mask at its outer edge
 EDGE_PUSH = 12             # blocks vanilla is pushed under the blend at mask 1
 PSL_SLOPE = 0.4            # the same for the jaggedness-free preliminary-surface density
@@ -478,21 +478,23 @@ def build_variant(settings_name, preset_name, mixed):
         write(f'{NS}/worldgen/density_function/{settings_name}/vanilla_surface.json',
               cache2d(add(128.0, mul(128.0, f'{NS}:overworld/vanilla_offset'))))
         HV = f'{NS}:{settings_name}/vanilla_surface'
-        # The mountains stand on vanilla's ground instead of in a hole (Nov 2026). The layout's mask
-        # says where our terrain may be; M also needs our surface to reach up to vanilla's: it is 0
-        # where ours is FOOT_BAND or more under vanilla's surface and 1 where ours is level with it.
-        # Before, everything inside the mask was ours down to our valley floor (y 64), so where the
-        # land around was higher a mountain sat in a moat, its foot dropping to 64 before the fade
-        # brought the ground back up. Now the lower flank and the floors between ranges are simply
-        # vanilla's land wherever that is higher, and a range rises out of it. In the band the
-        # blend dips at most FOOT_BAND / 4 blocks under vanilla's surface.
+        # The mountains stand on vanilla's ground instead of in a hole (Nov 2026). Our terrain is
+        # relief above a floor at y 64; before, everything inside the layout's mask was ours down
+        # to that floor, so where the land around was higher (and vanilla's land is highest exactly
+        # where its erosion is low, which is where the mountains go) a mountain sat in a moat, its
+        # foot dropping to 64 before the fade brought the ground back up. Now:
+        #   - our relief is added on top of vanilla's surface (LIFTED = ours + max(HV - floor, 0)),
+        #   - M, the mask everything below uses, is the layout's mask times a ramp that is 0 on our
+        #     floor and 1 once our terrain stands FOOT_BAND blocks above it, so the floors between
+        #     ranges are vanilla's own land and a flank rises out of it with no dip.
+        LIFTED = add(TERRAIN_MIXED, dmax(sub(HV, float(VALLEY_FLOOR)), 0.0))
         write(f'{NS}/worldgen/density_function/{settings_name}/mask.json',
               cache2d(mul(MASK, {'type': 'minecraft:clamp', 'min': 0.0, 'max': 1.0,
-                                 'input': add(1.0, mul(sub(TERRAIN_MIXED, HV), 1.0 / FOOT_BAND))})))
+                                 'input': mul(sub(TERRAIN_MIXED, float(VALLEY_FLOOR)), 1.0 / FOOT_BAND)})))
         M = f'{NS}:{settings_name}/mask'
         mask = M
         write(f'{NS}/worldgen/density_function/{settings_name}/blend_height.json',
-              cache2d(add(HV, mul(M, sub(TERRAIN_MIXED, HV)))))
+              cache2d(add(HV, mul(M, sub(LIFTED, HV)))))
         HB = f'{NS}:{settings_name}/blend_height'
         # Our surface sits EDGE_SINK below the blend where the mask is 0 (so vanilla's real 3D surface,
         # which can differ from its jaggedness-free estimate by several blocks, is never undercut by

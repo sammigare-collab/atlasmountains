@@ -98,7 +98,7 @@ public final class MountainSettings {
      */
     public double fieldHeightBoost = 0.88;
     /** Relief varies by this fraction either side of fieldHeightBoost ("some big, some small"). */
-    public double fieldHeightVariation = 0.5;
+    public double fieldHeightVariation = 0.35;   // 0.5 until Nov 2026: the smallest massifs came out as low dark humps with no snow
     /**
      * Wavelength of the height-scale noise, blocks. Long enough that a whole massif shares one
      * scale, so big and small mountains come in groups rather than alternating peak by peak.

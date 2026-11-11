@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- New mountain layout: a ridge skeleton instead of cell edges. Ranges are spines that wander and
+  branch like a tree and never close into a ring, with free ends that taper down and legs (side
+  ridges with small peaks) branching off the summits at varied angles. No more rings or
+  triangles round a bowl, and no plain outer walls.
+- Mountains stand on the land instead of in a hole: their relief is added on top of vanilla's
+  surface, and the ground between ranges is vanilla's own (with its rivers).
+- The foot of a mountain keeps the biome of the land around it; the mod's own mountain biomes
+  start 30 blocks up.
+- The grass flank runs out longer and more gently (`flankConcavity` 1.3 to 1.7), and the
+  smallest massifs are less small (`fieldHeightVariation` 0.5 to 0.35).
+- The footprint threshold is now -0.46 (was -0.62) to keep mountains at about 7 to 8% of land
+  with the new layout. All of this changes the terrain: use a new world.
 - Sharper mountains: rock faces 53 degrees instead of 49, crests falling 37 degrees between
   summits instead of 31, saddles half as rounded, and the scree smoothing now allows those
   angles instead of rounding every crest back to 49 degrees. Each summit stands as its own

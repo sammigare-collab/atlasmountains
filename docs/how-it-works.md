@@ -27,13 +27,16 @@ Technical notes on the terrain generator. For installing and playing, see the [R
   cover about 9-10% of land, a little under twice vanilla's own mountain biomes (about 5.6%), in areas a
   kilometre or two across; check it with
   `/atlasmountains footprint <km> <threshold>` and `/atlasmountains biomes <km> <step>`.
-- *The mountains* (`FieldLayout`): a domain-warped Voronoi diagram with cells about 420 blocks
-  across. Its edges are the ridges, so a province fills with ranges back to back, meeting at
-  three-way junctions, and wide cells leave a small enclosed valley floor with a lake. A cell is
-  mountain when vanilla's footprint is on at its site, so a province edge follows whole cells and
-  its last ridge stands at full height before fading into vanilla terrain. Summit heights are
-  scaled by a slow 2-D field (`fieldHeightBoost` x (1 +/- `fieldHeightVariation`)), so some
-  massifs are big and some small.
+- *The mountains* (`FieldLayout`): a ridge skeleton. One jittered site per 420-block square; a
+  site is mountain when vanilla's footprint is on there. Each mountain site is joined by a spine
+  to at most one mountain neighbour of higher hashed priority, so spines form trees and never
+  close into a ring; a lone mountain site gets a short spine of its own. A warp bends the
+  spines, summits are strung along them, a spine's free end tapers down, and legs (side ridges)
+  branch off the summits at varied angles. Summit heights are scaled by a slow 2-D field
+  (`fieldHeightBoost` x (1 +/- `fieldHeightVariation`)). Our terrain is relief on top of
+  vanilla's surface: the ground between ranges is vanilla's own, and a flank rises out of it.
+  Our biomes start 30 blocks up; the foot keeps the vanilla biome of the land around.
+  (Until Nov 2026 the ridges were the edges of Voronoi cells, which read as rings round a bowl.)
 - *Vanilla everywhere else*: terrain, rivers, caves, structures, biomes. Temperature, vegetation
   and erosion noises run at half vanilla's frequency (biomes twice vanilla size); the ridge noise
   is left alone so rivers stay vanilla. Vanilla's own peaks are removed by flooring its erosion at
