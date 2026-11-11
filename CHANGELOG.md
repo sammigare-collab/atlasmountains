@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 (unreleased): restart
+
+- Started again from scratch (Sammi, 11 Nov 2026). The custom mountain generator, the continents,
+  the mountain biomes, the world type, the debug commands and their tests are all removed; the
+  world is vanilla again.
+- New approach: reshape vanilla's own mountains through its `offset`, `factor` and `jaggedness`
+  density functions (ridge lines, tighter faces, fewer random spikes), only where vanilla's
+  ground is high. See `tools/build_overhaul.py`.
+
 ## 0.3.0 (2026-11-10)
 
 Minecraft 26.3.

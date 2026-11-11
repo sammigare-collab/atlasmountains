@@ -1,0 +1,52 @@
+{
+ "type": "minecraft:cache",
+ "input": {
+  "type": "minecraft:add",
+  "left": {
+   "type": "minecraft:mul",
+   "left": 0.3,
+   "right": {
+    "type": "minecraft:add",
+    "left": {
+     "type": "minecraft:add",
+     "left": 1.0,
+     "right": {
+      "type": "minecraft:mul",
+      "left": -2.0,
+      "right": {
+       "type": "minecraft:abs",
+       "input": {
+        "type": "minecraft:noise",
+        "noise": "atlasmountains:ridge_main",
+        "xz_scale": 0.8,
+        "y_scale": 0.0
+       }
+      }
+     }
+    },
+    "right": -0.3
+   }
+  },
+  "right": {
+   "type": "minecraft:mul",
+   "left": 0.13,
+   "right": {
+    "type": "minecraft:add",
+    "left": 1.0,
+    "right": {
+     "type": "minecraft:mul",
+     "left": -2.0,
+     "right": {
+      "type": "minecraft:abs",
+      "input": {
+       "type": "minecraft:noise",
+       "noise": "atlasmountains:ridge_side",
+       "xz_scale": 1.0,
+       "y_scale": 0.0
+      }
+     }
+    }
+   }
+  }
+ }
+}
