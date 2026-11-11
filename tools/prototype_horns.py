@@ -28,7 +28,8 @@ P = dict(
     r0=45.0,           # how quickly the summit steepness eases off, blocks
     aretes=(3, 5),     # ridges per peak
     arete_depth=0.38,  # how much slower the ridges fall than the faces
-    warp=22.0, warp_len=140.0,
+    arete_reach=130.0, # the ridges fade over about this distance from the summit
+    warp=30.0, warp_len=120.0,
     gully=0.12, gully_cycles=3.0,
     h_main=178.0, h_var=0.42,
 )
@@ -50,7 +51,10 @@ def horns(x, z, seed, base, p=P):
             dx, dz = wx - sx, wz - sz
             r = np.hypot(dx, dz); th = np.arctan2(dz, dx)
             # aretes: the fall is slowest along k directions, with a sharp crease there
-            g = 1 - p['arete_depth'] + 2 * p['arete_depth'] * np.abs(np.sin(k * (th - phi) / 2)) ** 0.8
+            # the ridges are strongest near the summit and fade down the skirt, so they do not run
+            # on for hundreds of blocks as dead straight walls
+            ad = p['arete_depth'] * (0.35 + 0.65 * np.exp(-(r / p['arete_reach']) ** 2))
+            g = 1 - ad + 2 * ad * np.abs(np.sin(k * (th - phi) / 2)) ** 0.8
             fall = (p['slope_top'] * p['r0'] * (1 - np.exp(-r / p['r0'])) + p['slope_far'] * r) * g
             # gullies running straight down the faces: noise that varies round the peak, hardly along the radius
             F = p['gully_cycles']
@@ -91,8 +95,10 @@ def ground_view(H, C, step, cam, yaw, W=1100, Hh=560, fov=62, dist=1700, eye=Non
     d = 4.0
     while d < dist:
         px = cam[0] + dxs * d / cosfix; pz = cam[1] + dzs * d / cosfix
-        ii = np.clip((px / step + n / 2).astype(int), 0, n - 1); jj = np.clip((pz / step + n / 2).astype(int), 0, n - 1)
-        h = H[jj, ii]; col = C[jj, ii]
+        fi = (px / step + n / 2).astype(int); fj = (pz / step + n / 2).astype(int)
+        inside = (fi >= 0) & (fi < n) & (fj >= 0) & (fj < n)
+        ii = np.clip(fi, 0, n - 1); jj = np.clip(fj, 0, n - 1)
+        h = np.where(inside, H[jj, ii], -1e6); col = C[jj, ii]   # nothing is drawn beyond the edge of the sampled area
         fog = min(1.0, d / dist) ** 1.6 * 0.75
         col = col * (1 - fog) + np.array((178, 200, 228)) * fog
         sy = (horizon - (h - ez) * scale / d).astype(int)
