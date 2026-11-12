@@ -4,8 +4,8 @@
   "type": "atlasmountains:horns",
   "cell": 230.0,
   "jitter": 0.7,
-  "slope_top": 0.5,
-  "slope_far": 0.9,
+  "slope_top": 0.4,
+  "slope_far": 0.7,
   "r0": 50.0,
   "aretes": [
    3,

@@ -83,8 +83,8 @@ TOP_FROM, TOP_TO = 472, 488   # the terrain ceiling (vanilla: 240 to 256)
 HORNS = {
     'cell': 230.0,          # one peak per square this size
     'jitter': 0.7,
-    'slope_top': 0.5,       # extra slope at the summit, on top of slope_far: 54 degrees together (was 1.1: 62)
-    'slope_far': 0.9,       # slope far down the skirt: 42 degrees (was 0.8: 39). Nearly straight sides
+    'slope_top': 0.4,       # extra slope at the summit, on top of slope_far: 48 degrees together (first build: 62)
+    'slope_far': 0.7,       # slope far down the skirt: 35 degrees. Nearly straight sides (Sammi picked this from A/B/C, 12 Nov 2026)
     'r0': 50.0,             # how quickly the summit steepness eases off, blocks
     'aretes': [3, 5],       # ridges per peak
     'arete_depth': 0.38,    # how much slower the ridges fall than the faces

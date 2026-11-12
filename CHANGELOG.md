@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 (unreleased): shallower peaks
+
+- Sammi chose the shallowest of three rendered options: 48 degrees at the summit easing to 35
+  (0.4.1: 54 to 42). Summit heights are unchanged, so each peak is wider and neighbours meet
+  higher up.
+
 ## 0.4.1 (unreleased): clean, flat-faced peaks
 
 After Sammi's first look in-game (12 Nov 2026): the row of separate peaks seen from a distance was
