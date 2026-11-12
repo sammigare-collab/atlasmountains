@@ -3,7 +3,6 @@
  "input": {
   "type": "atlasmountains:horns",
   "cell": 230.0,
-  "jitter": 0.7,
   "sides": [
    3,
    4
@@ -13,16 +12,17 @@
   "slope_var": 0.12,
   "edge_min": 0.45,
   "warp": 3.0,
-  "warp_length": 120.0,
   "height": 172.0,
   "height_var": 0.42,
   "min_height": 60.0,
   "shoulders": [
-   0,
-   0
+   1,
+   2
   ],
   "shoulder_size": 0.7,
-  "rib_depth": -1.0,
-  "rib_spacing": 30.0
+  "rib_depth": 10.0,
+  "rib_spacing": 34.0,
+  "skirt_from": 0.4,
+  "skirt_slope": 0.62
  }
 }

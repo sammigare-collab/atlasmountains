@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.6 (unreleased): look D, and peaks that run down to the ground
+
+- Sammi picked look D from the sampler: strong ribs down each face (10 blocks deep, about 34
+  apart) and one or two shoulders. The sampler itself is removed.
+- The skirt: the lowest 40% of a peak's height carries on down at 0.62 of the face's steepness
+  until it meets the ground. Before, a peak stopped at a line part-way down and sat on a collar
+  of vanilla hills ("the bottom hill terrain ... not connected to the rest of the terrain").
+- Peaks are looked for three cells each way (was two), since a skirt reaches further.
+- `/atlasmountains peaks` now lists the nearest peaks with a teleport to each.
+
 ## 0.4.5 (unreleased): sampler build, four looks in one world
 
 Sammi on 0.4.4: "a bit too perfectly pyramidal", then ": /" at two screenshots where a peak

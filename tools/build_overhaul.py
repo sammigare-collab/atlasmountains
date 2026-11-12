@@ -87,22 +87,23 @@ TOP_FROM, TOP_TO = 472, 488   # the terrain ceiling (vanilla: 240 to 256)
 # the peaks themselves: see HornsFunction.java and tools/prototype_horns.py (same names)
 HORNS = {
     'cell': 230.0,          # one peak per square this size
-    'jitter': 0.7,
     'sides': [3, 4],        # flat faces per peak. Five and more read as a cone, not a pyramid
     'side_jitter': 0.3,     # how unevenly the faces are turned (0 = a regular pyramid)
     'slope': 0.95,          # how steep a face is: blocks down per block out (0.95 is 44 degrees) ...
     'slope_var': 0.12,      # ... give or take this fraction, face by face (39 to 47 degrees)
     'edge_min': 0.45,       # no edge between two faces is shallower than this fraction of 'slope'
-    'warp': 3.0, 'warp_length': 120.0,     # edges wander this many blocks from a ruler line
+    'warp': 3.0,            # edges wander this many blocks from a ruler line
     'height': 172.0,        # the tallest peaks, above the land they stand on
     'height_var': 0.42,     # other peaks are up to this much lower
     'min_height': 60.0,     # a peak that would be shorter than this (weak mountain country) is left out
-    'shoulders': [0, 0],    # how many smaller pyramids stand joined to the side of a peak
+    # Look D, which Sammi picked from four in the game (12 Nov 2026): strong ribs and shoulders
+    'shoulders': [1, 2],    # how many smaller pyramids stand joined to the side of a peak
     'shoulder_size': 0.7,   # their height, as a fraction of the peak's (give or take a quarter)
-    'rib_depth': -1.0,      # straight ribs down each face, this many blocks deep. BELOW ZERO = SAMPLER BUILD: every
-                            # peak gets one of four looks (A plain, B light ribs, C strong ribs, D strong ribs and
-                            # shoulders) for Sammi to compare in the game; /atlasmountains peaks says which is where
-    'rib_spacing': 30.0,    # blocks from one rib to the next
+    'rib_depth': 10.0,      # straight ribs down each face, this many blocks deep
+    'rib_spacing': 34.0,    # blocks from one rib to the next
+    # the skirt: the lowest part of a peak carries on down more gently until it meets the ground
+    'skirt_from': 0.4,      # the lowest 40% of a peak's height is skirt ...
+    'skirt_slope': 0.62,    # ... at this fraction of the face's steepness (about 30 degrees)
 }
 
 
