@@ -27,17 +27,16 @@ Small changes to those three numbers barely show (two attempts on 11 Nov 2026 mo
 about 4 blocks on a 250-block range). The look Sammi wants, separate pyramid peaks with ridges
 running down from each summit, needs a shape of its own. So, in vanilla's mountain country:
 
-  1. Where: "amp" is 1 deep in low-erosion country, far enough inland, and fades to 0 as
-     erosion rises (erosion is vanilla's widest map, features a couple of kilometres across, so
-     amp changes slowly and whole clusters of peaks fit inside it). A first version took amp
-     from vanilla's target height instead; that is only high along narrow crest bands, and
-     multiplying the peaks by it cut them into fragments.
+  1. Where: "strength" is 1 deep in low-erosion country, far enough inland and away from
+     rivers, and fades to 0 outside it. (A first version used vanilla's target height instead;
+     that is only high along narrow crest bands and cut the peaks into fragments.)
   2. The land: vanilla's own, at vanilla's own height. Nothing is lowered or flattened to make
      room (a first version pressed the land down to y 110 so the summits would fit under the
      world's ceiling; Sammi asked for the ceiling to be raised instead, 12 Nov 2026).
   3. The peaks: the mod's atlasmountains:horns density function (see HornsFunction.java) is
-     added on top, scaled by amp, and held back near rivers (weirdness near 0) so a river valley
-     still runs between mountains.
+     added on top. Each peak reads the strength once, at its own summit, and is that fraction
+     of its full height with its angles unchanged; a weak one is left out. Only along the river
+     channel itself is the ground pressed back down, so a river still runs between mountains.
   4. Vanilla's random spikes are turned off there.
   5. The world is made taller so the summits fit: the overworld's build height goes from
      y 320 to y 512, and the level where vanilla cuts terrain off from y 256 to about y 480.
@@ -64,13 +63,17 @@ OUT = os.path.join(ROOT, 'fabric', 'src', 'main', 'resources', 'data')
 NS = 'atlasmountains'
 
 # ---- settings -------------------------------------------------------------------------------
+# Where peaks generate and how far apart they are is NOT to be changed without Sammi asking
+# ("don't change their spawning", 12 Nov 2026): the erosion, inland and river settings and 'cell'.
 # Offsets are in vanilla's units: ground height is about y = 128 + 128 * offset.
-EROSION_FROM = -0.40  # peaks start where erosion is below this ...
-EROSION_FULL = -0.65  # ... and are full size where it is below this
+EROSION_FROM = -0.40  # mountain country starts where erosion is below this ...
+EROSION_FULL = -0.65  # ... and is at full strength below this
 INLAND_FROM = -0.05   # and where continentalness is above this (just in from the coast) ...
-INLAND_FULL = 0.20    # ... full size above this
-RIVER_FROM = 0.05     # peaks are held back where |weirdness| is below this (vanilla's river band) ...
-RIVER_FULL = 0.27     # ... and are full size above this
+INLAND_FULL = 0.20    # ... full strength above this
+RIVER_FROM = 0.05     # a peak is weaker if its SUMMIT is where |weirdness| is below RIVER_FULL (near a river) ...
+RIVER_FULL = 0.27     # ... and absent where it is below RIVER_FROM
+CHANNEL_FROM = 0.04   # whatever stands there, the ground is pressed back to the land's own level along the
+CHANNEL_FULL = 0.12   # river channel itself (|weirdness| below CHANNEL_FROM), easing off by CHANNEL_FULL
 PEAK_BIOME_FROM = 0.27 # vanilla's peak biomes take over where a peak stands this far above the land (35 blocks) ...
 PEAK_BIOME_FULL = 0.43 # ... fully by here (55 blocks)
 PEAK_BIOME_W = 0.70   # the weirdness the biomes are shown there (a crest line is 2/3)
@@ -83,17 +86,19 @@ TOP_FROM, TOP_TO = 472, 488   # the terrain ceiling (vanilla: 240 to 256)
 HORNS = {
     'cell': 230.0,          # one peak per square this size
     'jitter': 0.7,
-    'slope_top': 0.4,       # extra slope at the summit, on top of slope_far: 48 degrees together (first build: 62)
-    'slope_far': 0.7,       # slope far down the skirt: 35 degrees. Nearly straight sides (Sammi picked this from A/B/C, 12 Nov 2026)
+    'slope_top': 0.4,       # extra slope at the summit, on top of slope_far
+    'slope_far': 0.7,       # slope far down the skirt (Sammi picked these two from A/B/C, 12 Nov 2026)
     'r0': 50.0,             # how quickly the summit steepness eases off, blocks
-    'aretes': [3, 5],       # ridges per peak
-    'arete_depth': 0.38,    # how much slower the ridges fall than the faces
-    'arete_reach': 130.0,   # the ridges fade over about this distance from the summit
-    'warp': 18.0, 'warp_length': 120.0,    # how far ridge lines wander from straight (was 30)
-    'gully': 0.12, 'gully_cycles': 3.0,
+    'aretes': [3, 4],       # sides per peak: a pyramid. Five and more read as a cone or a star, not a pyramid
+    'arete_depth': 0.38,    # how much slower the ridges (the pyramid's edges) fall than the nominal slope
+    'arete_reach': 130.0,   # that eases off over about this distance from the summit
+    'warp': 8.0, 'warp_length': 120.0,     # how far the edges wander from straight
+    'gully': 0.03,          # soft, irregular gullies on the faces (0.12 drew many lines down each face: "too many sides")
     'height': 172.0,        # the tallest peaks, above the land they stand on
     'height_var': 0.42,     # other peaks are up to this much lower
-    'facet': 0.75,          # faces between ridges: 0 = scooped hollows, 1 = flat like a pyramid's sides
+    'min_height': 60.0,     # a peak that would be shorter than this (weak mountain country) is left out
+    'facet': 1.0,           # how flat the faces are: 1 = a true pyramid, 0 = scooped hollows between the edges
+    'fold': 0.0,            # sharp V gullies between ridges: tried, made stars; left at 0
 }
 
 
@@ -172,8 +177,13 @@ def main():
     # 2. the land is vanilla's, untouched
     land = VOFF
     # 3. the peaks
+    #    Each peak reads "strength" once, at its own summit, and is that fraction of its full
+    #    height with its slopes unchanged (HornsFunction, PeakStrength). Multiplying every column
+    #    by the local value instead, as up to 0.4.2, squashed most peaks into rounded humps.
+    write(f'{DF}/strength.json', cache(mul(AMP, RIVER)))
+    CHANNEL = smooth('channel', ramp({'type': 'minecraft:abs', 'input': W}, CHANNEL_FROM, CHANNEL_FULL))
     write(f'{DF}/horns.json', cache(dict({'type': f'{NS}:horns'}, **HORNS)))
-    write(f'{DF}/peak_height.json', cache(mul(mul(AMP, RIVER), f'{NS}:overworld/horns')))
+    write(f'{DF}/peak_height.json', cache(mul(CHANNEL, f'{NS}:overworld/horns')))
     PEAK = f'{NS}:overworld/peak_height'      # how far the peaks stand above the land here, in offset units
     offset['input']['second'] = add(land, PEAK)
     # 4. vanilla's random spikes fade out among the peaks. Factor is left as vanilla has it: an

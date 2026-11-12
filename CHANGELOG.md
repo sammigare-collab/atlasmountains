@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.3 (unreleased): pyramids that keep their angles
+
+Sammi in the game on 0.4.2: "these aren't looking very angular, very smooth". Three causes, all
+fixed here, and one over-correction on the way that he caught ("more star like than pyramidal").
+
+- Peaks are no longer squashed. Each peak now reads the strength of mountain country once, at
+  its summit, and is that fraction of its full height with its angles unchanged. Before, every
+  column was multiplied by the local strength, which flattened most peaks into rounded humps
+  (only 36% of peak ground was at full shape on his seed) and the clean cut then smoothed them.
+- A peak that would be shorter than 60 blocks is left out.
+- Pyramids: 3 or 4 fully flat sides (was 3 to 5, three-quarters flat). Five-sided peaks have
+  edges too shallow to see and read as cones.
+- Far fewer lines down each face (gully 0.03, was 0.12), and straighter, unevenly spaced edges.
+- Where peaks generate and how far apart they are is unchanged, at Sammi's request.
+- Tried and removed: ridges with V gullies between them and finer ribs on the faces. From above
+  each peak was a pleated star.
+
 ## 0.4.2 (unreleased): shallower peaks
 
 - Sammi chose the shallowest of three rendered options: 48 degrees at the summit easing to 35

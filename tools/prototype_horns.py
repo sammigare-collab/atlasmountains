@@ -1,4 +1,7 @@
-"""Prototype of the horn-peak shape, for fast looks before anything goes in the game.
+"""NOTE (12 Nov 2026): the game's shape has moved on from this prototype (uneven edge spacing, per-peak
+strength, 3 or 4 sides). HornsFunction.java is the reference; this file is kept for its renderer.
+
+Prototype of the horn-peak shape, for fast looks before anything goes in the game.
    python3 horns.py out_prefix [seed]"""
 import sys, numpy as np
 from PIL import Image

@@ -9,16 +9,17 @@
   "r0": 50.0,
   "aretes": [
    3,
-   5
+   4
   ],
   "arete_depth": 0.38,
   "arete_reach": 130.0,
-  "warp": 18.0,
+  "warp": 8.0,
   "warp_length": 120.0,
-  "gully": 0.12,
-  "gully_cycles": 3.0,
+  "gully": 0.03,
   "height": 172.0,
   "height_var": 0.42,
-  "facet": 0.75
+  "min_height": 60.0,
+  "facet": 1.0,
+  "fold": 0.0
  }
 }
