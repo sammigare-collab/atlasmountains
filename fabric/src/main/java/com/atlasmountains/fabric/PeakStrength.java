@@ -34,12 +34,16 @@ final class PeakStrength {
             ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/vanilla_offset"));
     private static final ResourceKey<DensityFunction> ABOVE_KEY =
             ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/peak_height"));
+    /** Vanilla's weirdness map, whose zero line is where rivers run: see RiverDistance. */
+    private static final ResourceKey<DensityFunction> WEIRDNESS_KEY =
+            ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.withDefaultNamespace("overworld/ridges"));
     private static final int MAX_REMEMBERED = 400_000;
 
     private static volatile RandomState state;
     private static volatile DensityFunction function;
     private static volatile DensityFunction landFunction;
     private static volatile DensityFunction aboveFunction;
+    private static volatile DensityFunction weirdnessFunction;
     private static final ConcurrentHashMap<Long, Float> remembered = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Long, Float> rememberedLand = new ConcurrentHashMap<>();
 
@@ -57,6 +61,9 @@ final class PeakStrength {
         function = null;
         landFunction = null;
         aboveFunction = null;
+        weirdnessFunction = null;
+        RiverDistance.reset();
+        HornsFunction.forget();
         remembered.clear();
         rememberedLand.clear();
         if (server == null) return;
@@ -65,6 +72,7 @@ final class PeakStrength {
         var wanted = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(KEY);
         var land = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(LAND_KEY);
         var above = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(ABOVE_KEY);
+        var weird = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(WEIRDNESS_KEY);
         if (overworld.isEmpty() || wanted.isEmpty() || land.isEmpty() || !(overworld.get().value().generator() instanceof NoiseBasedChunkGenerator generator)) {
             AtlasMountainsMod.LOGGER.info("this world's overworld is not built from terrain noise; no peaks");
             return;
@@ -74,6 +82,7 @@ final class PeakStrength {
         function = wanted.get().value();
         landFunction = land.get().value();
         aboveFunction = above.map(h -> h.value()).orElse(null);
+        weirdnessFunction = weird.map(h -> h.value()).orElse(null);
     }
 
     /** Strength for the peak of cell (ix, iz), whose summit is at block (x, z). */
@@ -106,6 +115,25 @@ final class PeakStrength {
         if (rememberedLand.size() > MAX_REMEMBERED) rememberedLand.clear();
         rememberedLand.put(key, value);
         return value;
+    }
+
+    /** Vanilla's own target height for the land at a column, in offset units (y = 128 + 128 * value). */
+    static double land(int x, int z) {
+        RandomState rs = state;
+        DensityFunction fn = landFunction;
+        return (rs == null || fn == null) ? 0.0 : rs.sampleBlockValueUncached(fn, x, 64, z);
+    }
+
+    /** True once a world's terrain sampler is ready. */
+    static boolean ready() {
+        return state != null && weirdnessFunction != null;
+    }
+
+    /** Vanilla's weirdness at a column (rivers run where it is near zero); 1 with no world loaded. */
+    static float weirdness(int x, int z) {
+        RandomState rs = state;
+        DensityFunction fn = weirdnessFunction;
+        return (rs == null || fn == null) ? 1.0f : rs.sampleBlockValueUncached(fn, x, 64, z);
     }
 
     /** The last column asked about by aboveLand, per thread. */

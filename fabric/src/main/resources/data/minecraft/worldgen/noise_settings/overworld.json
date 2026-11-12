@@ -112,7 +112,7 @@
   "chunk_surface_level": "minecraft:overworld/chunk_surface_level",
   "continents": "minecraft:overworld/continents",
   "depth": "minecraft:overworld/depth",
-  "erosion": "minecraft:overworld/erosion",
+  "erosion": "atlasmountains:overworld/biome_erosion",
   "final_density": "minecraft:overworld/final_density",
   "ridges": "atlasmountains:overworld/biome_ridges",
   "temperature": "atlasmountains:overworld/biome_temperature",

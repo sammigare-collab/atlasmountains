@@ -1,0 +1,9 @@
+{
+ "type": "minecraft:cache",
+ "input": {
+  "type": "atlasmountains:river_wall",
+  "channel": 0.04,
+  "slope": 0.95,
+  "max_slope": 1.73
+ }
+}

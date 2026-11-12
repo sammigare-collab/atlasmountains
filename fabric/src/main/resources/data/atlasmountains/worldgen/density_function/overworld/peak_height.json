@@ -15,22 +15,6 @@
     }
    }
   },
-  "right": {
-   "type": "minecraft:mul",
-   "left": {
-    "type": "minecraft:clamp",
-    "input": {
-     "type": "minecraft:add",
-     "left": {
-      "type": "minecraft:abs",
-      "input": "minecraft:overworld/ridges"
-     },
-     "right": -0.04
-    },
-    "min": 0.0,
-    "max": 4.0
-   },
-   "right": 2.578125
-  }
+  "right": "atlasmountains:overworld/river_wall"
  }
 }

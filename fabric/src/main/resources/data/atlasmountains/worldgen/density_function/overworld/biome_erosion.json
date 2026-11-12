@@ -1,0 +1,24 @@
+{
+ "type": "minecraft:cache",
+ "input": {
+  "type": "minecraft:add",
+  "left": "minecraft:overworld/erosion",
+  "right": {
+   "type": "minecraft:mul",
+   "left": "atlasmountains:overworld/peak_biome",
+   "right": {
+    "type": "minecraft:add",
+    "left": {
+     "type": "minecraft:min",
+     "left": "minecraft:overworld/erosion",
+     "right": -0.9
+    },
+    "right": {
+     "type": "minecraft:mul",
+     "left": -1.0,
+     "right": "minecraft:overworld/erosion"
+    }
+   }
+  }
+ }
+}

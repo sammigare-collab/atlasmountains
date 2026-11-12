@@ -24,11 +24,14 @@ import java.util.function.DoubleSupplier;
  *
  * <h2>How a block is chosen</h2>
  * <ol>
- *   <li>Height on the face, as a percentage: 0 at the base level of the piece that forms the ground
- *       here (a peak's main pyramid or one of its shoulders), 100 at {@code top_fraction} of its
- *       height (where its snow cap begins). So every peak and shoulder, large or small, runs through
- *       the whole gradient, and the dark band always sits right under the snow. The skirt below the
- *       base level counts as under 0 and is the lightest rock.</li>
+ *   <li>Height on the face, as a percentage: 0 at {@code floor} (a fixed height, about the level
+ *       of the valley floors), 100 where the snow cap begins on the piece that forms the ground
+ *       here (a peak's main pyramid or one of its shoulders: {@code top_fraction} of its height
+ *       above its base). So the darkest rock always sits right under each peak's own snow, and
+ *       the light rock is only ever near the valley floor. In 0.4.7 the 0 was the piece's base
+ *       level, the land under its summit, which is often 100 blocks above the valley: everything
+ *       below it was the lightest rock, and whole mountainsides came out light grey (Sammi's
+ *       screenshots, 12 Nov 2026). Without {@code floor} the piece's base level is still used.</li>
  *   <li>Wobble: the height is shifted up or down by up to {@code wobble} blocks with a slow 2-D
  *       noise, so the change from one rock to the next is not along one contour.</li>
  *   <li>Blend: between two stops the share of the upper rock rises from 0 to 1; the roll is a
@@ -36,7 +39,10 @@ import java.util.function.DoubleSupplier;
  *       comes in small patches rather than salt and pepper.</li>
  * </ol>
  */
-public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, double topFraction) implements MaterialRule {
+public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, double topFraction, int floor) implements MaterialRule {
+
+    /** The value of floor that means "measure from each piece's own base level". */
+    private static final int NO_FLOOR = -10000;
 
     /** One rock and the percentage up the face at which it is pure. */
     public record Stop(BlockState state, int at) {
@@ -50,7 +56,8 @@ public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, dou
             Stop.CODEC.listOf().fieldOf("stops").forGetter(PeakRockRule::stops),
             Codec.FLOAT.optionalFieldOf("wobble", 8.0f).forGetter(PeakRockRule::wobble),
             Codec.FLOAT.optionalFieldOf("blend_width", 1.0f).forGetter(PeakRockRule::blendWidth),
-            Codec.DOUBLE.optionalFieldOf("top_fraction", 0.8).forGetter(PeakRockRule::topFraction)
+            Codec.DOUBLE.optionalFieldOf("top_fraction", 0.8).forGetter(PeakRockRule::topFraction),
+            Codec.INT.optionalFieldOf("floor", NO_FLOOR).forGetter(PeakRockRule::floor)
     ).apply(i, PeakRockRule::new));
 
     private static final ResourceKey<NormalNoise> WOBBLE_NOISE = ResourceKey.create(Registries.NOISE, AtlasMountainsMod.id("rock_wobble"));
@@ -74,8 +81,9 @@ public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, dou
             if (horns == null || n == 0) return null;
             double[] c = horns.column(x, z);
             if (c[2] <= 0) return null;
-            double baseY = 128 + 128 * c[1];
-            double h = 100 * (y + wobble * wobbleNoise.getAsDouble() - baseY) / Math.max(8, topFraction * c[2]);
+            double baseY = 128 + 128 * c[1], capY = baseY + topFraction * c[2];
+            double zero = floor == NO_FLOOR ? baseY : floor;
+            double h = 100 * (y + wobble * wobbleNoise.getAsDouble() - zero) / Math.max(8, capY - zero);
             if (n == 1 || h <= stops.get(0).at()) return stops.get(0).state();
             if (h >= stops.get(n - 1).at()) return stops.get(n - 1).state();
             int k = 0;

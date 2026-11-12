@@ -99,26 +99,27 @@
            "wobble": 8.0,
            "blend_width": 1.0,
            "top_fraction": 0.72,
+           "floor": 70,
            "stops": [
             {
              "state": "minecraft:andesite",
-             "at": 20
+             "at": 6
             },
             {
              "state": "minecraft:stone",
-             "at": 40
+             "at": 18
             },
             {
              "state": "minecraft:tuff",
-             "at": 60
+             "at": 32
             },
             {
              "state": "minecraft:deepslate",
-             "at": 78
+             "at": 55
             },
             {
              "state": "minecraft:smooth_basalt",
-             "at": 94
+             "at": 90
             }
            ]
           }

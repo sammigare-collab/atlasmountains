@@ -51,7 +51,7 @@
     "type": "minecraft:add",
     "left": {
      "type": "minecraft:add",
-     "left": "minecraft:overworld/temperature",
+     "left": 0.4,
      "right": {
       "type": "minecraft:mul",
       "left": {
@@ -82,7 +82,7 @@
        "right": {
         "type": "minecraft:mul",
         "left": -1.0,
-        "right": "minecraft:overworld/temperature"
+        "right": 0.4
        }
       }
      }
@@ -259,7 +259,7 @@
        "type": "minecraft:add",
        "left": {
         "type": "minecraft:add",
-        "left": "minecraft:overworld/temperature",
+        "left": 0.4,
         "right": {
          "type": "minecraft:mul",
          "left": {
@@ -290,7 +290,7 @@
           "right": {
            "type": "minecraft:mul",
            "left": -1.0,
-           "right": "minecraft:overworld/temperature"
+           "right": 0.4
           }
          }
         }

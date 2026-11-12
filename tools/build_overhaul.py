@@ -37,7 +37,8 @@ running down from each summit, needs a shape of its own. So, in vanilla's mounta
      a field of pyramids, each a solid of its own built up from the land's level under its
      summit; the ground is whichever is higher, the land or the pyramid. Each peak reads the
      strength once, at its own summit, and is that fraction of its full height with its angles
-     unchanged; a weak one is left out. A river that meets a peak runs through a V-shaped valley.
+     unchanged; a weak one is left out. A river that meets a peak runs in a straight-sided V
+     (atlasmountains:river_wall, see RiverWallFunction.java).
   4. Vanilla's random spikes are turned off there.
   5. The world is made taller so the summits fit: the overworld's build height goes from
      y 320 to y 512, and the level where vanilla cuts terrain off from y 256 to about y 480.
@@ -74,9 +75,11 @@ INLAND_FULL = 0.20    # ... full strength above this
 RIVER_FROM = 0.05     # a peak is weaker if its SUMMIT is where |weirdness| is below RIVER_FULL (near a river) ...
 RIVER_FULL = 0.27     # ... and absent where it is below RIVER_FROM
 CHANNEL = 0.04        # along the river channel itself (|weirdness| below this) nothing stands above the land ...
-VALLEY_STEEP = 330.0  # ... and beside it a peak may rise only this many blocks per unit of |weirdness| (about 38
-                      # degrees, gentler than the faces): a river that meets a peak runs through a V-shaped valley.
-                      # 0.4.6 had 600 (about 55 degrees), which left a huge smooth wall where a river cut a peak
+RIVER_WALL = 0.95     # ... and beside it a piece of a peak may rise only this many blocks per block of distance from the
+                      # channel (44 degrees, the angle of the peaks' own faces): a river that meets a peak runs in a
+                      # straight-sided V. Up to 0.4.7 the limit was a multiple of weirdness itself (VALLEY_STEEP),
+                      # a noise: lumpy, 22 to 71 degrees, and the cause of the fins, towers and domes Sammi found
+RIVER_WALL_MAX = 1.73 # a piece whose summit is too close to a river for that gets a steeper wall, up to this (60 degrees)
 PEAK_BIOME_FROM = 0.03 # peak biomes take over where a peak stands this far above the land (4 blocks) ...
 PEAK_BIOME_FULL = 0.09 # ... fully by here (12 blocks). Was 35 to 55 blocks, which left forest biomes (dirt, trees) round each foot
 PEAK_TEMPERATURE = 0.4 # below its snow cap a peak's biome is shown this temperature: vanilla's stony peaks (bare rock, no snow)
@@ -87,11 +90,13 @@ CREST_PV = (0.15, 0.25) # vanilla's own land in mountain country with peaks-and-
                       # peak and snowy-slope biomes), where no peak stands, is shown PEAK_TEMPERATURE too
 SNOW_EDGE = 0.06      # ... its lower edge wanders up and down by this much (in offset units: about 8 blocks)
 DUST_FROM = 0.94      # in warm country only the top 6% gets a patchy dusting
-ROCK = [               # the rock gradient up each face, percent of the way from the foot to the snow cap (Sammi's reference)
-    ('minecraft:andesite', 20), ('minecraft:stone', 40), ('minecraft:tuff', 60),
-    ('minecraft:deepslate', 78), ('minecraft:smooth_basalt', 94)]
+ROCK_FLOOR = 70       # the rock gradient is measured from this height (about the valley floors) up to each peak's snow cap ...
+ROCK = [               # ... in percent: light rock only in the bottom fifth or so, dark above (0.4.7: 20, 40, 60, 78, 94
+    ('minecraft:andesite', 6), ('minecraft:stone', 18), ('minecraft:tuff', 32),   # measured from the land under each summit,
+    ('minecraft:deepslate', 55), ('minecraft:smooth_basalt', 90)]                 # which left whole mountainsides light grey)
 COLD_PEAKS = ['minecraft:jagged_peaks', 'minecraft:frozen_peaks']
-PEAK_BIOME_W = 0.70   # the weirdness the biomes are shown there (a crest line is 2/3)
+PEAK_BIOME_W = 0.70   # the weirdness the biomes are shown there (a crest line is 2/3) ...
+PEAK_BIOME_E = -0.90  # ... and the erosion (vanilla's lowest band, the only one with peak biomes right down to the coast)
 CLEAN_FROM = 0.03     # where a peak stands this far above the land (4 blocks) its faces start to be cut clean ...
 CLEAN_FULL = 0.16     # ... and by here (20 blocks) the ground is exactly the peak's own shape: no 3-D roughness
 SHELL_BLOCKS = 12     # and solid for this many blocks down, so caves cannot open holes in a face
@@ -183,7 +188,7 @@ def write_surface():
     snow = {'type': 'minecraft:block', 'result_state': 'minecraft:snow_block'}
     top = {'type': 'minecraft:stone_depth', 'offset': 0, 'surface_type': 'floor', 'add_surface_depth': False, 'secondary_depth_range': 0}
     deep = {'type': 'minecraft:stone_depth', 'offset': 8, 'surface_type': 'floor', 'add_surface_depth': True, 'secondary_depth_range': 0}
-    rock = {'type': f'{NS}:peak_rock', 'wobble': 8.0, 'blend_width': 1.0, 'top_fraction': 1 - SNOW_CAP,
+    rock = {'type': f'{NS}:peak_rock', 'wobble': 8.0, 'blend_width': 1.0, 'top_fraction': 1 - SNOW_CAP, 'floor': ROCK_FLOOR,
             'stops': [{'state': b, 'at': a} for b, a in ROCK]}
     peak_surface = {'type': 'minecraft:sequence', 'sequence': [
         cond(top, {'type': 'minecraft:sequence', 'sequence': [
@@ -231,7 +236,8 @@ def main():
     #    height with its slopes unchanged (HornsFunction, PeakStrength). Multiplying every column
     #    by the local value instead, as up to 0.4.2, squashed most peaks into rounded humps.
     write(f'{DF}/strength.json', cache(mul(AMP, RIVER)))
-    valley = mul(clamp(add({'type': 'minecraft:abs', 'input': W}, -CHANNEL), 0.0, 4.0), VALLEY_STEEP / 128.0)
+    write(f'{DF}/river_wall.json', cache({'type': f'{NS}:river_wall', 'channel': CHANNEL, 'slope': RIVER_WALL, 'max_slope': RIVER_WALL_MAX}))
+    valley = f'{NS}:overworld/river_wall'
     write(f'{DF}/horns.json', cache(dict({'type': f'{NS}:horns'}, **HORNS)))
     #    horns gives the level the peaks reach here (far below ground where there is none); a peak
     #    is a solid of its own, so what it adds to the land is whatever of it stands above the land.
@@ -261,11 +267,20 @@ def main():
     ns = load('worldgen/noise_settings/overworld.json')
     assert ns['noise_router']['ridges'] == 'minecraft:overworld/ridges', 'vanilla noise router changed'
     ns['noise_router']['ridges'] = f'{NS}:overworld/biome_ridges'
+    #    The erosion the biomes see is pushed down on the peaks in the same way (0.4.8). Weirdness
+    #    alone was not enough: near the coast, and where erosion is only just low enough for peaks,
+    #    vanilla's table gives plains, forest, meadow or savanna even on a crest line. On Sammi's
+    #    seed that left whole peaks in those biomes: no snow caps, stray trees, and a savanna
+    #    village built up a rock wall. Only vanilla's lowest erosion band has peak biomes everywhere.
+    assert ns['noise_router']['erosion'] == 'minecraft:overworld/erosion', 'vanilla noise router changed'
+    write(f'{DF}/biome_erosion.json', cache(add(EROSION, mul(K, add({'type': 'minecraft:min', 'left': EROSION, 'right': PEAK_BIOME_E}, mul(-1.0, EROSION))))))
+    ns['noise_router']['erosion'] = f'{NS}:overworld/biome_erosion'
     #    And the temperature the biomes see: on a peak, below its snow cap, it is PEAK_TEMPERATURE,
     #    so the biome there is vanilla's stony peaks (bare rock, no snow layers, no trees) in any
     #    climate. In the cap the biomes see vanilla's own temperature, so a peak in cold country
     #    has vanilla's cold peak biome (snow, and snow falling) in its cap and nowhere else, and a
-    #    peak in warm country stays stony to the top. Before 0.4.7 the whole upper part of every
+    #    peak in warm country stays stony to the top (shown PEAK_TEMPERATURE there too: vanilla's
+    #    hottest peaks would be badlands). Before 0.4.7 the whole upper part of every
     #    peak in cold country was jagged or frozen peaks, which covered it in snow and blue ice.
     #    The cap line is per peak (atlasmountains:peak_cap); its edge wanders with a noise.
     assert ns['noise_router']['temperature'] == 'minecraft:overworld/temperature', 'vanilla noise router changed'
@@ -281,7 +296,7 @@ def main():
     T = 'minecraft:overworld/temperature'
     def lerp(a, b, t): return add(a, mul(t, add(b, mul(-1.0, a))))
     not_warm = clamp(mul(add(CAP_WARMEST, mul(-1.0, T)), 1000.0), 0.0, 1.0)
-    t_cap = lerp(T, {'type': 'minecraft:min', 'left': T, 'right': CAP_TEMPERATURE}, not_warm)
+    t_cap = lerp(PEAK_TEMPERATURE, {'type': 'minecraft:min', 'left': T, 'right': CAP_TEMPERATURE}, not_warm)
     t_base = lerp(T, t_cap, mul(K, in_cap))
     pv = add(1.0, mul(-1.0, {'type': 'minecraft:abs', 'input': add(mul(3.0, {'type': 'minecraft:abs', 'input': W}), -2.0)}))
     high = ramp(pv, CREST_PV[0], CREST_PV[1])

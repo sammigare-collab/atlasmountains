@@ -255,6 +255,10 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         // blocks at cell 230) in every direction.
         double maxReach = Math.max(reach(height), shHigh > 0 ? SHOULDER_FAR * height + reach(1.25 * shoulderSize * height) : 0);
         double best = NO_PEAK, bestBase = 0, bestH = 0;
+        // The river walls (see wallSlope). The land's level and the distance to the nearest river at
+        // this column are only looked up if some piece of a peak actually stands here.
+        RiverWallFunction walls = RiverWallFunction.current;
+        double landHere = Double.NaN, riverBlocks = 0;
         for (int dj = -3; dj <= 3; dj++) {
             for (int di = -3; di <= 3; di++) {
                 long ix = cx + di, iz = cz + dj;
@@ -277,24 +281,74 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
                 // a notch behind it (median about 26 blocks in a check of 240 shoulders; Sammi: "add
                 // more distinct peaks"). In 0.4.6 they stood closer in and in any direction, and in
                 // that check only 28% showed their own summit, none with a real notch.
-                double up = standing(h, pyramid(dx, dz, ix, iz, seed)), upH = h;
-                int faces = faceCount(ix, iz, seed);
-                int count = Math.min(faces, (int) Math.floor(shLow + hash(ix, iz, seed + 8) * (shHigh - shLow + 1)));
-                int firstFace = (int) Math.floor(hash(ix, iz, seed + 9) * faces);
-                for (int j = 0; j < count; j++) {
-                    long salt = seed + 200 + 100L * j;
-                    double away = h * (SHOULDER_NEAR + (SHOULDER_FAR - SHOULDER_NEAR) * hash(ix, iz, salt + 1));
-                    double turn = faceAngle(ix, iz, seed, (firstFace + j) % faces, faces) + 0.15 * (2 * hash(ix, iz, salt + 2) - 1);
-                    double hs = h * shoulderSize * (0.75 + 0.5 * hash(ix, iz, salt + 3));
-                    double s = standing(hs, pyramid(dx - away * Math.cos(turn), dz - away * Math.sin(turn), ix, iz, salt));
-                    if (s > up) { up = s; upH = hs; }
+                // Each piece is first held under its own river wall, then the highest piece wins.
+                for (int piece = 0, pieces = 1; piece < pieces; piece++) {
+                    double px = sx, pz = sz, ph = h;
+                    long salt = seed;
+                    if (piece == 0) {
+                        int faces = faceCount(ix, iz, seed);
+                        pieces = 1 + Math.min(faces, (int) Math.floor(shLow + hash(ix, iz, seed + 8) * (shHigh - shLow + 1)));
+                    } else {
+                        int j = piece - 1, faces = faceCount(ix, iz, seed);
+                        int firstFace = (int) Math.floor(hash(ix, iz, seed + 9) * faces);
+                        salt = seed + 200 + 100L * j;
+                        double away = h * (SHOULDER_NEAR + (SHOULDER_FAR - SHOULDER_NEAR) * hash(ix, iz, salt + 1));
+                        double turn = faceAngle(ix, iz, seed, (firstFace + j) % faces, faces) + 0.15 * (2 * hash(ix, iz, salt + 2) - 1);
+                        ph = h * shoulderSize * (0.75 + 0.5 * hash(ix, iz, salt + 3));
+                        px = sx + away * Math.cos(turn); pz = sz + away * Math.sin(turn);
+                    }
+                    double top = base + standing(ph, pyramid(wx - px, wz - pz, ix, iz, salt)) / 128.0;
+                    if (top <= best) continue;
+                    if (walls != null) {
+                        if (Double.isNaN(landHere)) {
+                            landHere = PeakStrength.land(blockX, blockZ);
+                            riverBlocks = RiverDistance.at(blockX, blockZ, walls.channel());
+                        }
+                        if (top > landHere) top = Math.min(top, landHere + riverBlocks * wallSlope(walls, ix, iz, piece, px, pz, ph, base) / 128.0);
+                        if (top <= best) continue;
+                    }
+                    best = top; bestBase = base; bestH = ph;
                 }
-                double top = base + up / 128.0;
-                if (top > best) { best = top; bestBase = base; bestH = upH; }
             }
         }
         out[0] = best; out[1] = bestBase; out[2] = bestH;
     }
+
+    /** Each piece's wall steepness, worked out once: see wallSlope. */
+    private static final java.util.concurrent.ConcurrentHashMap<Long, Float> WALL_SLOPES = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Forgets the remembered wall slopes: called when a world starts or stops. */
+    static void forget() { WALL_SLOPES.clear(); }
+
+    /**
+     * How steeply the river wall of one piece of a peak rises: blocks up per block of distance
+     * from the nearest river channel.
+     * <p>
+     * Beside a river no piece may stand higher above the land than its distance from the channel
+     * times this, so the river runs in a straight-sided V. The wall is normally at the angle of the
+     * peaks' own faces ({@code slope}, 44 degrees). But a summit that stands close to a river
+     * cannot be reached by a wall that gentle, and the first build of 0.4.8 cut the tops off 7 of 9
+     * summits in a test square on Sammi's seed. So a piece whose summit is close to a river gets a
+     * steeper wall, just steep enough to clear its own summit with WALL_MARGIN to spare, up to
+     * {@code max_slope}. The wall is still one flat plane per piece. A summit closer to a river
+     * than even that allows still loses its top.
+     */
+    private double wallSlope(RiverWallFunction walls, long ix, long iz, int piece, double px, double pz, double ph, double base) {
+        long key = (ix * 0x9E3779B97F4A7C15L) ^ (iz * 0xC2B2AE3D27D4EB4FL) ^ (piece * 0x165667B19E3779F9L);
+        Float known = WALL_SLOPES.get(key);
+        if (known != null) return known;
+        int sxBlock = (int) Math.floor(px), szBlock = (int) Math.floor(pz);
+        double river = RiverDistance.at(sxBlock, szBlock, walls.channel());
+        double summitAboveLand = 128.0 * (base - PeakStrength.land(sxBlock, szBlock)) + ph;
+        double needed = river >= RiverDistance.REACH ? 0 : WALL_MARGIN * summitAboveLand / Math.max(1.0, river);
+        float value = (float) Math.max(walls.slope(), Math.min(walls.maxSlope(), needed));
+        if (WALL_SLOPES.size() > 400_000) WALL_SLOPES.clear();
+        WALL_SLOPES.put(key, value);
+        return value;
+    }
+
+    /** A piece's wall is made steep enough to clear its own summit by this factor. */
+    private static final double WALL_MARGIN = 1.15;
 
     @Override
     public Interval range() { return Interval.of((float) NO_PEAK, (float) (4.0 + height / 128.0)); }

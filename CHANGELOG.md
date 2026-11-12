@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.4.8 (unreleased): straight river walls, darker rock, peak biome on the whole peak
+
+Sammi's in-game look at 0.4.7 (six screenshots, "........"): thin fins, rounded towers and domes,
+whole mountainsides in light grey, and one peak that was right (dark rock under a ragged cap).
+Where peaks generate and their spacing are unchanged.
+
+What was wrong, measured on his seed (-3550591538524093002):
+- The fins, towers and domes came from the rule that keeps peaks out of rivers. It limited a peak's
+  height by vanilla's weirdness noise, so its surface was lumpy and anywhere from 22 to 71 degrees,
+  and it decided the ground on 70% of the peak area in a 384-block square, taking a median 83
+  blocks off. 0.4.6 had the same shapes under its snow. (My first guess, vanilla's raised terrain
+  ceiling, was wrong: no vanilla land there is above y 203.)
+- The light grey came from measuring the rock gradient from the land under each summit, which is
+  often 100 blocks above the valley: everything below that was the lightest rock.
+
+Changes:
+- River walls. Beside a river a piece of a peak may stand no higher above the land than its real
+  distance from the river channel times a slope, so a river runs in a straight-sided V between
+  flat walls. The slope is 44 degrees (the peaks' own face angle) unless the piece's summit stands
+  too close to a river to be reached at that angle; then it is as steep as that summit needs, up
+  to 60 degrees. A first build with 44 degrees everywhere cut the top off 7 of the 9 summits in a
+  test square, including the one peak he had liked.
+- Rock gradient measured from y 70 (about the valley floors) up to each peak's snow cap, with the
+  dark rocks starting lower: andesite and stone only in the bottom fifth or so, then tuff,
+  deepslate, smooth basalt.
+- Peak biome on the whole of every peak. The erosion the biomes see is now pushed down on peaks
+  as weirdness already was. Before, peaks near the coast or in only just low enough erosion were
+  plains, forest, meadow or savanna: no snow caps, stray trees, and (found in testing) a savanna
+  village built up a rock wall. In warm country a peak's cap is stony peaks, not badlands.
+
+Checked on a dev server on his seed, from real generated chunks, at his screenshot positions:
+- The fins and slabs in his screenshots 4, 5 and 6 are gone; the peak in screenshot 2 keeps its
+  pointed top and cap. `0.4.7 vs 0.4.8` renders were sent with the build.
+- Summits in a 768-block square that do not sit on a river: 9. Cut by more than 3 blocks: 3 in
+  0.4.8 (by 29, 41 and 56 blocks; their summits are 30 to 68 blocks from a river), 5 in 0.4.7, 1 in
+  0.4.6. Nine more shoulder summits sit on a river channel and are removed in every version.
+- Not less steep overall: ground steeper than 65 degrees is 19% of the peak area in both 0.4.7
+  and 0.4.8. On wall ground the middle steepness is 64 degrees (0.4.7: 60), the steepest tenth is
+  above 72 (0.4.7: 76). The walls are flat now, not gentle.
+- Rock on peaks: andesite 1%, stone 9%, tuff 19%, deepslate 32%, smooth basalt 33%, snow 6%
+  (0.4.7: 53, 15, 12, 9, 8, 4).
+- Biome on peak columns: jagged, frozen or stony peaks on over 99% of one square and 91% of a
+  coastal one (the rest is ocean biome under the outer skirts).
+- The peak shape away from rivers is identical to 0.4.7 (compared column by column over the square).
+- Generating the same two test squares took 3 min 36 s against 3 min 26 s for 0.4.7.
+
 ## 0.4.7 (unreleased): the look of Sammi's dark-rock valley screenshot, and more distinct peaks
 
 Sammi on 12 Nov 2026, with a screenshot of the old mod (two big bare rock slopes, dark rock under
