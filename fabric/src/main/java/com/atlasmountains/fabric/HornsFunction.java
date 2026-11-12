@@ -34,7 +34,7 @@ import java.util.List;
 public record HornsFunction(double cell, double jitter, double slopeTop, double slopeFar, double r0,
                             List<Integer> aretes, double areteDepth, double areteReach,
                             double warp, double warpLength, double gully, double gullyCycles,
-                            double height, double heightVar) implements ColumnFunction {
+                            double height, double heightVar, double facet) implements ColumnFunction {
 
     public static final MapCodec<HornsFunction> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.DOUBLE.fieldOf("cell").forGetter(HornsFunction::cell),
@@ -50,7 +50,8 @@ public record HornsFunction(double cell, double jitter, double slopeTop, double 
             Codec.DOUBLE.fieldOf("gully").forGetter(HornsFunction::gully),
             Codec.DOUBLE.fieldOf("gully_cycles").forGetter(HornsFunction::gullyCycles),
             Codec.DOUBLE.fieldOf("height").forGetter(HornsFunction::height),
-            Codec.DOUBLE.fieldOf("height_var").forGetter(HornsFunction::heightVar)
+            Codec.DOUBLE.fieldOf("height_var").forGetter(HornsFunction::heightVar),
+            Codec.DOUBLE.optionalFieldOf("facet", 0.0).forGetter(HornsFunction::facet)
     ).apply(i, HornsFunction::new));
 
     // ---- hashing and noise ---------------------------------------------------------------
@@ -113,7 +114,14 @@ public record HornsFunction(double cell, double jitter, double slopeTop, double 
                 // are strongest near the summit and fade down the skirt
                 double q = r / areteReach;
                 double ad = areteDepth * (0.35 + 0.65 * Math.exp(-q * q));
-                double g = 1 - ad + 2 * ad * Math.pow(Math.abs(Math.sin(k * (th - phi) / 2)), 0.8);
+                // Between two ridges the face is either scooped out (a hollow, the first version) or
+                // flat like the side of a pyramid, whose level lines run straight from ridge to
+                // ridge; facet mixes the two (0 = scooped, 1 = flat).
+                double scooped = 1 - ad + 2 * ad * Math.pow(Math.abs(Math.sin(k * (th - phi) / 2)), 0.8);
+                double sector = 2 * Math.PI / k;
+                double across = (th - phi) - Math.floor((th - phi) / sector) * sector - sector / 2;   // angle from the middle of the face
+                double flat = (1 - ad) * Math.cos(across) / Math.cos(sector / 2);
+                double g = (1 - facet) * scooped + facet * flat;
                 double fall = (slopeTop * r0 * (1 - Math.exp(-r / r0)) + slopeFar * r) * g;
                 // gullies straight down the faces: noise that varies round the peak, hardly along the radius
                 double gn = 1 - 2 * Math.abs(fbm(gullyCycles * Math.cos(th) + ix * 7.1, gullyCycles * Math.sin(th) + iz * 3.7 + r / 260.0, seed + 8, 2));

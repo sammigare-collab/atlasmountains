@@ -38,8 +38,7 @@ running down from each summit, needs a shape of its own. So, in vanilla's mounta
   3. The peaks: the mod's atlasmountains:horns density function (see HornsFunction.java) is
      added on top, scaled by amp, and held back near rivers (weirdness near 0) so a river valley
      still runs between mountains.
-  4. Factor is raised there so the ground follows the peaks closely (a little 3-D roughness is
-     left), and vanilla's random spikes are turned off there.
+  4. Vanilla's random spikes are turned off there.
   5. The world is made taller so the summits fit: the overworld's build height goes from
      y 320 to y 512, and the level where vanilla cuts terrain off from y 256 to about y 480.
      (Vanilla's tallest land is about y 250 and the tallest peak adds 172.)
@@ -47,8 +46,10 @@ running down from each summit, needs a shape of its own. So, in vanilla's mounta
   6. Biomes: the upper part of each peak is given vanilla's own peak biome for its climate
      (jagged, frozen or stony peaks), by changing the weirdness the biome picker sees there.
      Everything else keeps the biome vanilla chose.
+  7. Clean faces: where a peak stands clear of the land, the ground is cut exactly at the
+     peak's own height, with no 3-D roughness and no cave mouths in the face.
 
-Vanilla's offset, factor, jaggedness, depth, final_density and preliminary_surface_level are
+Vanilla's offset, jaggedness, depth, sloped_cheese, final_density and preliminary_surface_level are
 replaced by name, so everything that reads them stays consistent; the overworld noise settings
 are vanilla's with the height and one router entry (ridges, used for biomes only) changed, and
 the overworld dimension type is vanilla's with the height changed.
@@ -73,23 +74,26 @@ RIVER_FULL = 0.27     # ... and are full size above this
 PEAK_BIOME_FROM = 0.27 # vanilla's peak biomes take over where a peak stands this far above the land (35 blocks) ...
 PEAK_BIOME_FULL = 0.43 # ... fully by here (55 blocks)
 PEAK_BIOME_W = 0.70   # the weirdness the biomes are shown there (a crest line is 2/3)
-FACTOR_IN = 16.0      # factor among the peaks (vanilla's mountains: about 5)
+CLEAN_FROM = 0.03     # where a peak stands this far above the land (4 blocks) its faces start to be cut clean ...
+CLEAN_FULL = 0.16     # ... and by here (20 blocks) the ground is exactly the peak's own shape: no 3-D roughness
+SHELL_BLOCKS = 12     # and solid for this many blocks down, so caves cannot open holes in a face
 WORLD_MIN_Y, WORLD_HEIGHT = -64, 576   # the overworld: y -64 to 511 (vanilla: height 384, top y 319)
 TOP_FROM, TOP_TO = 472, 488   # the terrain ceiling (vanilla: 240 to 256)
 # the peaks themselves: see HornsFunction.java and tools/prototype_horns.py (same names)
 HORNS = {
     'cell': 230.0,          # one peak per square this size
     'jitter': 0.7,
-    'slope_top': 1.1,       # extra slope at the summit, on top of slope_far: 62 degrees together
-    'slope_far': 0.8,       # slope far down the skirt: 39 degrees
-    'r0': 45.0,             # how quickly the summit steepness eases off, blocks
+    'slope_top': 0.5,       # extra slope at the summit, on top of slope_far: 54 degrees together (was 1.1: 62)
+    'slope_far': 0.9,       # slope far down the skirt: 42 degrees (was 0.8: 39). Nearly straight sides
+    'r0': 50.0,             # how quickly the summit steepness eases off, blocks
     'aretes': [3, 5],       # ridges per peak
     'arete_depth': 0.38,    # how much slower the ridges fall than the faces
     'arete_reach': 130.0,   # the ridges fade over about this distance from the summit
-    'warp': 30.0, 'warp_length': 120.0,
+    'warp': 18.0, 'warp_length': 120.0,    # how far ridge lines wander from straight (was 30)
     'gully': 0.12, 'gully_cycles': 3.0,
     'height': 172.0,        # the tallest peaks, above the land they stand on
     'height_var': 0.42,     # other peaks are up to this much lower
+    'facet': 0.75,          # faces between ridges: 0 = scooped hollows, 1 = flat like a pyramid's sides
 }
 
 
@@ -172,12 +176,13 @@ def main():
     write(f'{DF}/peak_height.json', cache(mul(mul(AMP, RIVER), f'{NS}:overworld/horns')))
     PEAK = f'{NS}:overworld/peak_height'      # how far the peaks stand above the land here, in offset units
     offset['input']['second'] = add(land, PEAK)
-    # 4. factor rises to FACTOR_IN among the peaks; vanilla's spikes fade out there
-    vfactor = factor['input']['second']
-    factor['input']['second'] = add(vfactor, mul(AMP, add(FACTOR_IN, mul(-1.0, vfactor))))
+    # 4. vanilla's random spikes fade out among the peaks. Factor is left as vanilla has it: an
+    #    earlier version raised it to 16 to hold the shape against the 3-D noise, but that also
+    #    let caves come within 3 blocks of the surface (factor is how fast "depth below ground"
+    #    grows, and vanilla keeps caves away from the surface by that depth), which is where the
+    #    cave mouths in the faces came from. The clean cut (7) holds the shape now.
     jagged['input']['second'] = mul(jagged['input']['second'], add(1.0, mul(-1.0, AMP)))
     write('minecraft/worldgen/density_function/overworld/offset.json', offset)
-    write('minecraft/worldgen/density_function/overworld/factor.json', factor)
     write('minecraft/worldgen/density_function/overworld/jaggedness.json', jagged)
     # 6. biomes on the peaks. Vanilla picks biomes from the climate maps, and its peak biomes
     #    (jagged, frozen, stony peaks, by temperature) need weirdness on a crest line (|w| near
@@ -208,6 +213,27 @@ def main():
     write('minecraft/worldgen/density_function/overworld/depth.json', depth)
     fd = load('worldgen/density_function/overworld/final_density.json')
     assert move_ceiling(fd) == 1 and extend_depth(fd) == 0, 'vanilla final_density changed'
+    # 7. clean faces. Vanilla smears every surface with 3-D noise and lets caves break through it;
+    #    on faces this steep that tears off shards and punches holes (Sammi's screenshots, 12 Nov
+    #    2026). Where a peak stands clear of the land ("clean" = 1) the ground is instead cut
+    #    exactly at the peak's own height, column by column, as the old mod's mountains were:
+    #    air above it, solid for SHELL_BLOCKS below it, vanilla's own business (caves, ores)
+    #    below that. This sits outside vanilla's 4x8x4 interpolation, so it is exact per block.
+    #    depth is positive below the target height, one block = 1/128.
+    CLEAN = smooth('clean', ramp(PEAK, CLEAN_FROM, CLEAN_FULL))
+    DEPTH = 'minecraft:overworld/depth'
+    below = clamp(mul(DEPTH, 16.0), -1.0, 1.0)                                           # > 0 below the peak's surface
+    in_shell = clamp(mul(add(SHELL_BLOCKS / 128.0, mul(-1.0, DEPTH)), 16.0), -1.0, 1.0)   # > 0 above the shell's bottom
+    solid = add(mul(CLEAN, add({'type': 'minecraft:min', 'left': below, 'right': in_shell}, 1.0)), -1.0)
+    air = add(1.0, mul(CLEAN, add(below, -1.0)))
+    assert fd['type'] == 'minecraft:add' and fd['left']['type'] == 'minecraft:min' and fd['right'] == {'type': 'minecraft:beardifier'}, 'vanilla final_density changed'
+    fd['left'] = {'type': 'minecraft:min', 'left': {'type': 'minecraft:max', 'left': fd['left'], 'right': solid}, 'right': air}
+    #    Vanilla's own 3-D noise is also faded out there, so its idea of the ground agrees with the
+    #    clean cut and no hollow is left between the two under the solid shell.
+    sc = load('worldgen/density_function/overworld/sloped_cheese.json')
+    assert sc['type'] == 'minecraft:cache' and sc['input']['right'] == 'minecraft:overworld/base_3d_noise', 'vanilla sloped_cheese changed'
+    sc['input']['right'] = mul('minecraft:overworld/base_3d_noise', add(1.0, mul(-1.0, CLEAN)))
+    write('minecraft/worldgen/density_function/overworld/sloped_cheese.json', sc)
     write('minecraft/worldgen/density_function/overworld/final_density.json', fd)
     psl = load('worldgen/density_function/overworld/preliminary_surface_level.json')
     assert move_ceiling(psl) == 1 and extend_depth(psl) == 1, 'vanilla preliminary_surface_level changed'

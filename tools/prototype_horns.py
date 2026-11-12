@@ -23,15 +23,16 @@ def fbm(x, z, seed, oct=3):
 P = dict(
     cell=230.0,        # one peak site per square this size
     jitter=0.7,
-    slope_top=1.1,     # extra slope right at the summit (on top of slope_far): 1.1 + 0.8 = 62 degrees
-    slope_far=0.8,     # slope far down the skirt (39 degrees)
-    r0=45.0,           # how quickly the summit steepness eases off, blocks
+    slope_top=0.5,     # extra slope right at the summit (on top of slope_far): 54 degrees together
+    slope_far=0.9,     # slope far down the skirt (42 degrees)
+    r0=50.0,           # how quickly the summit steepness eases off, blocks
     aretes=(3, 5),     # ridges per peak
     arete_depth=0.38,  # how much slower the ridges fall than the faces
     arete_reach=130.0, # the ridges fade over about this distance from the summit
-    warp=30.0, warp_len=120.0,
+    warp=18.0, warp_len=120.0,
     gully=0.12, gully_cycles=3.0,
     h_main=178.0, h_var=0.42,
+    facet=0.75,        # faces between ridges: 0 = scooped hollows, 1 = flat like a pyramid's sides
 )
 
 def horns(x, z, seed, base, p=P):
@@ -54,7 +55,12 @@ def horns(x, z, seed, base, p=P):
             # the ridges are strongest near the summit and fade down the skirt, so they do not run
             # on for hundreds of blocks as dead straight walls
             ad = p['arete_depth'] * (0.35 + 0.65 * np.exp(-(r / p['arete_reach']) ** 2))
-            g = 1 - ad + 2 * ad * np.abs(np.sin(k * (th - phi) / 2)) ** 0.8
+            scooped = 1 - ad + 2 * ad * np.abs(np.sin(k * (th - phi) / 2)) ** 0.8
+            # flat faces: level lines run straight from ridge to ridge, as on a pyramid with k sides
+            sector = 2 * np.pi / k
+            across = np.mod(th - phi, sector) - sector / 2
+            flat = (1 - ad) * np.cos(across) / np.cos(sector / 2)
+            g = (1 - p['facet']) * scooped + p['facet'] * flat
             fall = (p['slope_top'] * p['r0'] * (1 - np.exp(-r / p['r0'])) + p['slope_far'] * r) * g
             # gullies running straight down the faces: noise that varies round the peak, hardly along the radius
             F = p['gully_cycles']

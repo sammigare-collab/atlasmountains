@@ -93,6 +93,83 @@ public final class FindCommand {
                     src.sendSuccess(() -> Component.literal(msg), false);
                     return 1;
                 })))
+                .then(Commands.literal("dfmap")
+                        .then(Commands.argument("id", com.mojang.brigadier.arguments.StringArgumentType.string())
+                        .then(Commands.argument("sizeBlocks", IntegerArgumentType.integer(256, 400000))
+                        .then(Commands.argument("stepBlocks", IntegerArgumentType.integer(1, 1024)).executes(ctx -> {
+                    // A registered density function over a square around the player, at y 64, written
+                    // as raw little-endian floats (n x n, row by row) to <world>/atlasmountains/.
+                    // For maps of the climate fields (land and ocean, temperature) over huge areas.
+                    CommandSourceStack src = ctx.getSource();
+                    Vec3 p = src.getPosition();
+                    String idText = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "id");
+                    int size = IntegerArgumentType.getInteger(ctx, "sizeBlocks"), step = IntegerArgumentType.getInteger(ctx, "stepBlocks");
+                    var reg = src.getLevel().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.DENSITY_FUNCTION);
+                    var key = net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.DENSITY_FUNCTION, net.minecraft.resources.Identifier.parse(idText));
+                    var holder = reg.get(key);
+                    if (holder.isEmpty()) { src.sendFailure(Component.literal("no density function " + idText)); return 0; }
+                    var fn = holder.get().value();
+                    RandomState rs = src.getLevel().getChunkSource().randomState();
+                    int cx = (int) Math.floor(p.x), cz = (int) Math.floor(p.z), n = size / step;
+                    src.sendSuccess(() -> Component.literal("sampling " + n + " x " + n + " points..."), false);
+                    Thread worker = new Thread(() -> {
+                        try {
+                            java.nio.ByteBuffer raw = java.nio.ByteBuffer.allocate(n * n * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+                            for (int j = 0; j < n; j++)
+                                for (int i = 0; i < n; i++)
+                                    raw.putFloat((float) rs.sampleBlockValueUncached(fn, cx - size / 2 + i * step, 64, cz - size / 2 + j * step));
+                            java.nio.file.Path dir = src.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                            java.nio.file.Files.createDirectories(dir);
+                            java.nio.file.Path out = dir.resolve("dfmap_" + idText.replaceAll("[^a-z0-9_]", "_") + "_" + cx + "_" + cz + "_" + size + "_" + step + ".f32");
+                            java.nio.file.Files.write(out, raw.array());
+                            AtlasMountainsMod.LOGGER.info("dfmap written to {}", out);
+                        } catch (Exception e) {
+                            AtlasMountainsMod.LOGGER.error("dfmap failed", e);
+                        }
+                    }, "atlasmountains-dfmap");
+                    worker.setDaemon(true);
+                    worker.start();
+                    return 1;
+                })))))
+                .then(Commands.literal("biomemap")
+                        .then(Commands.argument("sizeBlocks", IntegerArgumentType.integer(256, 400000))
+                        .then(Commands.argument("stepBlocks", IntegerArgumentType.integer(4, 1024)).executes(ctx -> {
+                    // The biome the generator would pick, over a square around the player, sampled high
+                    // above the ground so cave biomes stay out of it. Written as n x n little-endian
+                    // ints to <world>/atlasmountains/, with the biome names in a .txt beside it.
+                    CommandSourceStack src = ctx.getSource();
+                    ServerLevel world = src.getLevel();
+                    Vec3 p = src.getPosition();
+                    int size = IntegerArgumentType.getInteger(ctx, "sizeBlocks"), step = IntegerArgumentType.getInteger(ctx, "stepBlocks");
+                    int cx = (int) Math.floor(p.x), cz = (int) Math.floor(p.z), n = size / step;
+                    RandomState rstate = world.getChunkSource().randomState();
+                    var biomes = world.getChunkSource().getGenerator().getBiomeSource().createUncachedResolver(rstate);
+                    src.sendSuccess(() -> Component.literal("sampling " + n + " x " + n + " biomes..."), false);
+                    Thread worker = new Thread(() -> {
+                        try {
+                            java.util.Map<String, Integer> ids = new java.util.LinkedHashMap<>();
+                            java.nio.ByteBuffer raw = java.nio.ByteBuffer.allocate(n * n * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+                            for (int j = 0; j < n; j++)
+                                for (int i = 0; i < n; i++) {
+                                    String name = biomes.getNoiseBiome((cx - size / 2 + i * step) >> 2, 300 >> 2, (cz - size / 2 + j * step) >> 2).getRegisteredName();
+                                    Integer id = ids.get(name);
+                                    if (id == null) { id = ids.size(); ids.put(name, id); }
+                                    raw.putInt(id);
+                                }
+                            java.nio.file.Path dir = src.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                            java.nio.file.Files.createDirectories(dir);
+                            String base = "biomemap_" + cx + "_" + cz + "_" + size + "_" + step;
+                            java.nio.file.Files.write(dir.resolve(base + ".i32"), raw.array());
+                            java.nio.file.Files.write(dir.resolve(base + ".txt"), String.join("\n", ids.keySet()).getBytes());
+                            AtlasMountainsMod.LOGGER.info("biomemap written to {}", dir.resolve(base + ".i32"));
+                        } catch (Exception e) {
+                            AtlasMountainsMod.LOGGER.error("biomemap failed", e);
+                        }
+                    }, "atlasmountains-biomemap");
+                    worker.setDaemon(true);
+                    worker.start();
+                    return 1;
+                }))))
                 .then(Commands.literal("heightmap")
                         .then(Commands.argument("sizeBlocks", IntegerArgumentType.integer(256, 8192))
                         .then(Commands.argument("stepBlocks", IntegerArgumentType.integer(1, 32)).executes(ctx -> {

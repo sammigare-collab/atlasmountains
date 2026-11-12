@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.1 (unreleased): clean, flat-faced peaks
+
+After Sammi's first look in-game (12 Nov 2026): the row of separate peaks seen from a distance was
+right, but close up the summits were torn into shards, holes and blade-thin walls. He asked for
+the even, angular slopes of the old mod on the new separate peaks, each peak straight-sided with a
+sharp top.
+
+- Clean faces: where a peak stands clear of the land, the ground is cut exactly at the peak's own
+  height, block by block, with no 3-D roughness, and is solid for 12 blocks down. On a test peak
+  99.1% of columns sit exactly at the intended height.
+- Factor is vanilla's again. Raising it to 16 had let caves come within 3 blocks of the surface,
+  which is where the cave mouths in the faces came from.
+- Flat faces: between two ridges the face is now mostly flat, like the side of a pyramid, where
+  it was a scooped hollow (`facet` 0.75).
+- Sturdier: nearly straight sides, 54 degrees at the summit easing to 42 (was 62 to 39), and
+  ridge lines wander less.
+- Debug commands `dfmap` and `biomemap` write maps of a density function or of the biomes.
+
 ## 0.4.0 (unreleased): restart
 
 - Started again from scratch (Sammi, 11 Nov 2026). The custom mountain generator, the continents,

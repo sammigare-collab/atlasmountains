@@ -33,7 +33,9 @@ worked out in `tools/prototype_horns.py`, which draws ground-level previews in s
 
 Debug commands: `/atlasmountains mountains <radius>` lists where the mountain country is;
 `/atlasmountains heightmap <size> <step>` dumps the real surface heights (view them with
-`tools/view_heightmap.py`); `/atlasmountains df "<id>"` samples a density function.
+`tools/view_heightmap.py`); `/atlasmountains df "<id>"` samples a density function. `/atlasmountains dfmap "<id>" <size> <step>`
+and `/atlasmountains biomemap <size> <step>` write a map of a density function or of the biomes
+into the world folder.
 
 ## Building
 
