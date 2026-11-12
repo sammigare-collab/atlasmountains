@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.4.7 (unreleased): the look of Sammi's dark-rock valley screenshot, and more distinct peaks
+
+Sammi on 12 Nov 2026, with a screenshot of the old mod (two big bare rock slopes, dark rock under
+ragged snow caps, lighter rock lower down, grass only on the valley floor): "i want the mountains to
+look like this ... and add more distinct peaks". Where peaks generate and their spacing are
+unchanged. Look D (ribs and shoulders) and the skirt are kept.
+
+Surface (new):
+- Bare rock on every peak from foot to summit, shading up each peak's own face: andesite and stone
+  at the foot, then tuff, deepslate and smooth basalt just under the snow (the gradient from his
+  reference, measured against the height of each peak or shoulder).
+- A snow cap on the top 28% of each peak and shoulder in cold and temperate country, with a ragged
+  lower edge and a few bare holes. In warm country only a patchy dusting on the top 6%.
+- Below its cap a peak's biome is vanilla's stony peaks whatever the climate, so no snow layers, ice
+  sheets or trees there. Peak biomes start 4 blocks above the land (was 35), so the dirt-and-trees
+  collar round each foot is gone. Vanilla's own crest land between the peaks gets the same bare-rock
+  biome, so its snow and blue ice sheets are gone too.
+- A river that cuts a peak runs through a gentler V (about 38 degrees, was about 55), so no huge smooth wall.
+
+Shape:
+- More distinct peaks: two or three shoulder peaks per peak (was one or two), each standing out in
+  front of the middle of one of the main peak's faces, 0.55 to 0.85 of its height away, 0.65 of its
+  height give or take a quarter. In 0.4.6 they stood closer in and in any direction and were mostly
+  swallowed by the main peak.
+- Pointier summits: the top 18% of each peak is 1.5 times as steep as the face (about 55 degrees).
+
+Checked on a dev server (seed 12345), from real generated chunks:
+- Peak field alone, 640-block square at x -800 z -100: 11 summits with 15+ blocks of prominence
+  (0.4.6: 7), 8 with 30+ (0.4.6: 5). Allowing up to four shoulders gave no more: the peaks already
+  cover 86% of that square, so extra shoulders are buried in neighbouring peaks.
+- Snow or ice on the surface: 2.7% of that square (0.4.6: 25%). In a cold range (x 5450 z 5600) the
+  cap covers the top 30 to 35 blocks of a 116-block peak, with bare rock below.
+- Grass is down to 9% of that square (0.4.6: 28%): the skirts between peaks are bare rock now.
+
+Debug: `/atlasmountains snapshot <size>` generates a square round the player and writes each
+column's top block and height; `tools/render_snapshot.py` draws it as a map or a view, lit as
+Minecraft lights blocks.
+
 ## 0.4.6 (unreleased): look D, and peaks that run down to the ground
 
 - Sammi picked look D from the sampler: strong ribs down each face (10 blocks deep, about 34

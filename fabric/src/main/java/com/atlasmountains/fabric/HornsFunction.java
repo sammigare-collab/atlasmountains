@@ -84,7 +84,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     }
 
     /** What the function returns where no peak reaches: far below any land. */
-    private static final double NO_PEAK = -8.0;
+    static final double NO_PEAK = -8.0;
 
     public static final MapCodec<HornsFunction> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.DOUBLE.fieldOf("cell").forGetter(HornsFunction::cell),
@@ -138,38 +138,66 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
 
     // ---- the peaks ------------------------------------------------------------------------
 
+    // ---- the pointed top and the distinct shoulder peaks (0.4.7) ---------------------------
+    // These are constants because the codec is full (16 settings).
+    /** The top TOP_PART of a peak's height is steeper than the face below it ... */
+    static final double TOP_PART = 0.18;
+    /** ... by this factor: a 44 degree face becomes about 55 degrees near the summit. */
+    static final double TOP_STEEP = 1.5;
+    /** A shoulder's summit stands between SHOULDER_NEAR and SHOULDER_FAR times the peak's height from the peak's summit. */
+    static final double SHOULDER_NEAR = 0.55, SHOULDER_FAR = 0.85;
+
+    /**
+     * How high above its base level a pyramid h blocks tall stands where its faces have dropped by
+     * "fall" (fall is the drop of the steepest plane here, so the shape stays a set of flat planes).
+     * Three bands, top down, each a straight-sided step of the same planes:
+     * <ol>
+     *   <li>the top TOP_PART of the height drops TOP_STEEP times as fast: a sharper, pointier summit
+     *       (Sammi on the right side of a 0.4.6 peak: "slightly pointier top");</li>
+     *   <li>the face, down to skirt_from of the height;</li>
+     *   <li>the skirt, at skirt_slope times the face's steepness, until it meets the ground. Without
+     *       it a peak stopped at a line part-way down and sat on a collar of vanilla hills ("not
+     *       connected to the rest of the terrain", Sammi, 12 Nov 2026).</li>
+     * </ol>
+     */
+    private double standing(double h, double fall) {
+        double topFall = TOP_PART * h / TOP_STEEP;                 // fall at which the steep top ends
+        if (fall <= topFall) return h - fall * TOP_STEEP;
+        double faceDrop = (1 - skirtFrom - TOP_PART) * h;          // height the face band covers
+        double faceEnd = topFall + faceDrop;
+        if (fall <= faceEnd) return (1 - TOP_PART) * h - (fall - topFall);
+        return skirtFrom * h - (fall - faceEnd) * skirtSlope;
+    }
+
+    /** How far, at most, from its summit a pyramid h blocks tall still stands above its base level. */
+    private double reach(double h) {
+        double fallAtFoot = TOP_PART * h / TOP_STEEP + (1 - skirtFrom - TOP_PART) * h + (skirtFrom > 0 ? skirtFrom * h / skirtSlope : 0);
+        return fallAtFoot / (slope * (1 - slopeVar) * edgeMin) + ribDepth;
+    }
+
     /**
      * How far one pyramid has dropped at (dx, dz) from its own summit. Its faces are flat planes:
      * face f looks outward in direction a and drops s blocks for every block out along a, and
      * under any point the plane that has dropped furthest is the surface.
      */
-    /**
-     * How high above its base level a pyramid h blocks tall stands where its faces have dropped by
-     * "fall". Down to skirt_from of its height that is simply h - fall. Below that the same faces
-     * carry on at skirt_slope times their steepness: the skirt. Without it a peak stopped at a line
-     * part-way down and sat on a collar of vanilla hills that belonged to neither the peak nor the
-     * land ("not connected to the rest of the terrain", Sammi, 12 Nov 2026). With it the peak flares
-     * out in its own flat faces until it meets the ground.
-     */
-    private double standing(double h, double fall) {
-        double steepPart = (1 - skirtFrom) * h;
-        return fall <= steepPart ? h - fall : skirtFrom * h - (fall - steepPart) * skirtSlope;
+    /** How many faces the pyramid drawn with this seed has. */
+    private int faceCount(long ix, long iz, long seed) {
+        int sMin = sides.get(0), sMax = sides.get(1);
+        return (int) Math.floor(sMin + hash(ix, iz, seed + 6) * (sMax - sMin + 1));
     }
 
-    /** How far, at most, from its summit a pyramid h blocks tall still stands above its base level. */
-    private double reach(double h) {
-        double fallAtFoot = (1 - skirtFrom) * h + (skirtFrom > 0 ? skirtFrom * h / skirtSlope : 0);
-        return fallAtFoot / (slope * (1 - slopeVar) * edgeMin) + ribDepth;
+    /** The direction face f of the pyramid drawn with this seed looks out to. */
+    private double faceAngle(long ix, long iz, long seed, int f, int k) {
+        double turnAll = hash(ix, iz, seed + 7) * 2 * Math.PI, sector = 2 * Math.PI / k;
+        return turnAll + (f + (hash(ix, iz, seed + 20 + f) - 0.5) * sideJitter) * sector;
     }
 
     private double pyramid(double dx, double dz, long ix, long iz, long seed) {
         double faceSlope = slope;
-        int sMin = sides.get(0), sMax = sides.get(1);
-        int k = (int) Math.floor(sMin + hash(ix, iz, seed + 6) * (sMax - sMin + 1));
-        double turnAll = hash(ix, iz, seed + 7) * 2 * Math.PI, sector = 2 * Math.PI / k;
+        int k = faceCount(ix, iz, seed);
         double fall = edgeMin * faceSlope * Math.hypot(dx, dz);              // no edge shallower than this
         for (int f = 0; f < k; f++) {
-            double a = turnAll + (f + (hash(ix, iz, seed + 20 + f) - 0.5) * sideJitter) * sector;
+            double a = faceAngle(ix, iz, seed, f, k);
             double s = faceSlope * (1 + slopeVar * (2 * hash(ix, iz, seed + 30 + f) - 1));
             double out = dx * Math.cos(a) + dz * Math.sin(a);                // how far out along this face's own direction
             double down = out * s;
@@ -190,6 +218,32 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
 
     @Override
     public double at(int blockX, int blockZ) {
+        return column(blockX, blockZ)[0];
+    }
+
+    /** The last column asked for, per thread: terrain, surface rules and biomes ask about the same column in a row. */
+    private static final ThreadLocal<double[]> LAST = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, NO_PEAK, 0, 0});
+
+    /**
+     * The peaks at one column: {level the peaks reach here (offset units, NO_PEAK if none), base
+     * level of the piece that forms the surface here (offset units), that piece's height (blocks)}.
+     * A "piece" is either a peak's main pyramid or one of its shoulders; the surface rules and the
+     * snow use the piece's own base and height, so every shoulder shades and takes snow as a peak
+     * of its own. The returned array is reused by the calling thread: read it, don't keep it.
+     */
+    double[] column(int blockX, int blockZ) {
+        double[] last = LAST.get();
+        double world = AtlasMountainsMod.seed(), self = System.identityHashCode(this);
+        double[] out = RESULT.get();
+        if (last[0] == blockX && last[1] == blockZ && last[2] == world && last[3] == self) return out;
+        evaluate(blockX, blockZ, out);
+        last[0] = blockX; last[1] = blockZ; last[2] = world; last[3] = self;
+        return out;
+    }
+
+    private static final ThreadLocal<double[]> RESULT = ThreadLocal.withInitial(() -> new double[3]);
+
+    private void evaluate(int blockX, int blockZ, double[] out) {
         long seed = AtlasMountainsMod.seed();
         double x = blockX, z = blockZ;
         double wx = x + warp * fbm(x / WARP_LENGTH, z / WARP_LENGTH, seed + 1, 3);
@@ -197,9 +251,10 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         long cx = (long) Math.floor(wx / cell), cz = (long) Math.floor(wz / cell);
         int shLow = shoulders.get(0), shHigh = shoulders.get(1);
         // Beyond this distance nothing of even the tallest peak, or of a shoulder standing off from
-        // it, is left. The loop looks three cells each way, good for about 720 blocks.
-        double maxReach = Math.max(reach(height), shHigh > 0 ? 0.55 * height + reach(1.25 * shoulderSize * height) : 0);
-        double best = NO_PEAK;
+        // it, is left. The loop looks three cells each way, which covers at least 3.15 cells (724
+        // blocks at cell 230) in every direction.
+        double maxReach = Math.max(reach(height), shHigh > 0 ? SHOULDER_FAR * height + reach(1.25 * shoulderSize * height) : 0);
+        double best = NO_PEAK, bestBase = 0, bestH = 0;
         for (int dj = -3; dj <= 3; dj++) {
             for (int di = -3; di <= 3; di++) {
                 long ix = cx + di, iz = cz + dj;
@@ -213,21 +268,32 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
                 double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
                 h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
                 if (h < minHeight) continue;
-                // A peak can be the highest of several pyramids joined together, all standing on the
-                // same level: the summit pyramid and one or two shoulders standing off to the side.
-                double up = standing(h, pyramid(dx, dz, ix, iz, seed));
-                int count = (int) Math.floor(shLow + hash(ix, iz, seed + 8) * (shHigh - shLow + 1));
+                double base = PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
+                // A peak is the highest of several pyramids joined together, all standing on the
+                // same level: the summit pyramid and its shoulders. Since 0.4.7 each shoulder stands
+                // out in front of the middle of one of the main pyramid's faces (one shoulder per
+                // face at most), 0.55 to 0.85 of the peak's height from its summit. That is where the
+                // main pyramid falls away fastest, so every shoulder shows a summit of its own with
+                // a notch behind it (median about 26 blocks in a check of 240 shoulders; Sammi: "add
+                // more distinct peaks"). In 0.4.6 they stood closer in and in any direction, and in
+                // that check only 28% showed their own summit, none with a real notch.
+                double up = standing(h, pyramid(dx, dz, ix, iz, seed)), upH = h;
+                int faces = faceCount(ix, iz, seed);
+                int count = Math.min(faces, (int) Math.floor(shLow + hash(ix, iz, seed + 8) * (shHigh - shLow + 1)));
+                int firstFace = (int) Math.floor(hash(ix, iz, seed + 9) * faces);
                 for (int j = 0; j < count; j++) {
                     long salt = seed + 200 + 100L * j;
-                    double away = h * (0.25 + 0.3 * hash(ix, iz, salt + 1)), turn = hash(ix, iz, salt + 2) * 2 * Math.PI;
+                    double away = h * (SHOULDER_NEAR + (SHOULDER_FAR - SHOULDER_NEAR) * hash(ix, iz, salt + 1));
+                    double turn = faceAngle(ix, iz, seed, (firstFace + j) % faces, faces) + 0.15 * (2 * hash(ix, iz, salt + 2) - 1);
                     double hs = h * shoulderSize * (0.75 + 0.5 * hash(ix, iz, salt + 3));
-                    up = Math.max(up, standing(hs, pyramid(dx - away * Math.cos(turn), dz - away * Math.sin(turn), ix, iz, salt)));
+                    double s = standing(hs, pyramid(dx - away * Math.cos(turn), dz - away * Math.sin(turn), ix, iz, salt));
+                    if (s > up) { up = s; upH = hs; }
                 }
-                double top = PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + up / 128.0;
-                if (top > best) best = top;
+                double top = base + up / 128.0;
+                if (top > best) { best = top; bestBase = base; bestH = upH; }
             }
         }
-        return best;
+        out[0] = best; out[1] = bestBase; out[2] = bestH;
     }
 
     @Override

@@ -32,11 +32,14 @@ final class PeakStrength {
     /** Vanilla's own target height for the land (in offset units), which a peak also needs at its summit: see landAt. */
     private static final ResourceKey<DensityFunction> LAND_KEY =
             ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/vanilla_offset"));
+    private static final ResourceKey<DensityFunction> ABOVE_KEY =
+            ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/peak_height"));
     private static final int MAX_REMEMBERED = 400_000;
 
     private static volatile RandomState state;
     private static volatile DensityFunction function;
     private static volatile DensityFunction landFunction;
+    private static volatile DensityFunction aboveFunction;
     private static final ConcurrentHashMap<Long, Float> remembered = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Long, Float> rememberedLand = new ConcurrentHashMap<>();
 
@@ -53,6 +56,7 @@ final class PeakStrength {
         state = null;
         function = null;
         landFunction = null;
+        aboveFunction = null;
         remembered.clear();
         rememberedLand.clear();
         if (server == null) return;
@@ -60,6 +64,7 @@ final class PeakStrength {
         var overworld = registries.lookupOrThrow(Registries.LEVEL_STEM).get(LevelStem.OVERWORLD);
         var wanted = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(KEY);
         var land = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(LAND_KEY);
+        var above = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(ABOVE_KEY);
         if (overworld.isEmpty() || wanted.isEmpty() || land.isEmpty() || !(overworld.get().value().generator() instanceof NoiseBasedChunkGenerator generator)) {
             AtlasMountainsMod.LOGGER.info("this world's overworld is not built from terrain noise; no peaks");
             return;
@@ -68,6 +73,7 @@ final class PeakStrength {
         state = RandomState.create(registries.lookupOrThrow(Registries.NOISE), seed, generator.generatorSettings().value());
         function = wanted.get().value();
         landFunction = land.get().value();
+        aboveFunction = above.map(h -> h.value()).orElse(null);
     }
 
     /** Strength for the peak of cell (ix, iz), whose summit is at block (x, z). */
@@ -100,5 +106,28 @@ final class PeakStrength {
         if (rememberedLand.size() > MAX_REMEMBERED) rememberedLand.clear();
         rememberedLand.put(key, value);
         return value;
+    }
+
+    /** The last column asked about by aboveLand, per thread. */
+    private static final ThreadLocal<double[]> LAST_ABOVE = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, 0, 0});
+
+    /**
+     * How far the peaks stand above vanilla's own target height for the land at this column, in
+     * blocks (0 where they do not): the same number the terrain adds to the land (peak_height).
+     * The surface rules use it to tell a peak from vanilla land. Comparing a block with the
+     * peaks' level alone is not enough: vanilla's 3-D noise often puts the real ground below the
+     * level of a peak's buried skirt, and in 0.4.7's first test that painted 60% of the land
+     * between peaks as peak rock. Sampled uncached (one lookup per column; the surface rules ask
+     * about the same column several times in a row, so the last answer is kept per thread).
+     */
+    static double aboveLand(int x, int z) {
+        double[] last = LAST_ABOVE.get();
+        RandomState rs = state;
+        double world = System.identityHashCode(rs);
+        if (last[0] == x && last[1] == z && last[3] == world) return last[2];
+        DensityFunction fn = aboveFunction;
+        double v = (rs == null || fn == null) ? 0.0 : 128.0 * rs.sampleBlockValueUncached(fn, x, 64, z);
+        last[0] = x; last[1] = z; last[2] = v; last[3] = world;
+        return v;
     }
 }

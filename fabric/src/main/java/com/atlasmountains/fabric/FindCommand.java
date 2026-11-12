@@ -19,6 +19,9 @@ import java.util.Locale;
  * /atlasmountains heightmap &lt;size&gt; &lt;step&gt;: the real surface heights around the player, as a
  * file, without generating chunks.
  * <p>
+ * /atlasmountains snapshot &lt;size&gt;: generates a square round the player and writes each
+ * column's top block and height to a file (tools/render_snapshot.py draws it).
+ * <p>
  * /atlasmountains mountains &lt;radiusBlocks&gt;: where vanilla's tall mountains are.
  *
  * Vanilla only builds tall mountains where three of its climate maps line up: erosion very low
@@ -186,6 +189,43 @@ public final class FindCommand {
                     }
                     return 1;
                 }))
+                .then(Commands.literal("snapshot")
+                        .then(Commands.argument("sizeBlocks", IntegerArgumentType.integer(16, 2048)).executes(ctx -> {
+                    // Generates every chunk of a square round the player (fully, features and all)
+                    // and writes the top block of each column and its height to a file, so the
+                    // surface can be checked and drawn from real generated chunks. Runs on the
+                    // server thread and can take minutes for a large square.
+                    CommandSourceStack src = ctx.getSource();
+                    ServerLevel world = src.getLevel();
+                    Vec3 p = src.getPosition();
+                    int size = IntegerArgumentType.getInteger(ctx, "sizeBlocks");
+                    int x0 = (int) Math.floor(p.x) - size / 2, z0 = (int) Math.floor(p.z) - size / 2;
+                    java.util.Map<String, Integer> ids = new java.util.LinkedHashMap<>();
+                    java.nio.ByteBuffer raw = java.nio.ByteBuffer.allocate(size * size * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+                    net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+                    for (int j = 0; j < size; j++)
+                        for (int i = 0; i < size; i++) {
+                            int x = x0 + i, z = z0 + j;
+                            world.getChunk(x >> 4, z >> 4);
+                            int y = world.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, x, z) - 1;
+                            String name = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(world.getBlockState(pos.set(x, y, z)).getBlock()).toString();
+                            Integer id = ids.get(name);
+                            if (id == null) { id = ids.size(); ids.put(name, id); }
+                            raw.putShort((short) y);
+                            raw.putShort((short) (int) id);
+                        }
+                    try {
+                        java.nio.file.Path dir = src.getServer().getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT).resolve(AtlasMountainsMod.MOD_ID);
+                        java.nio.file.Files.createDirectories(dir);
+                        String base = "snapshot_" + x0 + "_" + z0 + "_" + size;
+                        java.nio.file.Files.write(dir.resolve(base + ".bin"), raw.array());
+                        java.nio.file.Files.write(dir.resolve(base + ".txt"), String.join("\n", ids.keySet()).getBytes());
+                        src.sendSuccess(() -> Component.literal("snapshot written: " + base), false);
+                    } catch (java.io.IOException e) {
+                        src.sendFailure(Component.literal("snapshot failed: " + e));
+                    }
+                    return 1;
+                })))
                 .then(Commands.literal("heightmap")
                         .then(Commands.argument("sizeBlocks", IntegerArgumentType.integer(256, 8192))
                         .then(Commands.argument("stepBlocks", IntegerArgumentType.integer(1, 32)).executes(ctx -> {

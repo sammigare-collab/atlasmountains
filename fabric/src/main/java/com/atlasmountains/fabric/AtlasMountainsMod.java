@@ -17,7 +17,9 @@ import org.slf4j.LoggerFactory;
  * terrain reads, so the mountains stay in vanilla's places with vanilla's biomes, rivers and
  * caves. The one thing a data pack cannot express is the shape of the peaks themselves, so
  * this class registers one extra density function for the pack to use, atlasmountains:horns
- * (see HornsFunction), remembers the world seed for it, and registers the debug commands.
+ * (see HornsFunction), and from 0.4.7 the pieces of the peaks' own surface: the snow-cap line
+ * (PeakCapFunction), "is this block on a peak" (OnPeakCondition) and the rock gradient
+ * (PeakRockRule). It remembers the world seed and registers the debug commands.
  */
 public final class AtlasMountainsMod implements ModInitializer {
     public static final String MOD_ID = "atlasmountains";
@@ -28,9 +30,15 @@ public final class AtlasMountainsMod implements ModInitializer {
 
     public static long seed() { return seed; }
 
+    /** An identifier in the mod's namespace. */
+    public static Identifier id(String path) { return Identifier.fromNamespaceAndPath(MOD_ID, path); }
+
     @Override
     public void onInitialize() {
-        Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, Identifier.fromNamespaceAndPath(MOD_ID, "horns"), HornsFunction.CODEC);
+        Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("horns"), HornsFunction.CODEC);
+        Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("peak_cap"), PeakCapFunction.CODEC);
+        Registry.register(BuiltInRegistries.MATERIAL_CONDITION_TYPE, id("on_peak"), OnPeakCondition.CODEC);
+        Registry.register(BuiltInRegistries.MATERIAL_RULE_TYPE, id("peak_rock"), PeakRockRule.CODEC);
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             seed = server.getWorldGenSettings().options().seed();
             PeakStrength.world(server);

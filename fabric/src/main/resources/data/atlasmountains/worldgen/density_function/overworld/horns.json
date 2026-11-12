@@ -16,10 +16,10 @@
   "height_var": 0.42,
   "min_height": 60.0,
   "shoulders": [
-   1,
-   2
+   2,
+   3
   ],
-  "shoulder_size": 0.7,
+  "shoulder_size": 0.65,
   "rib_depth": 10.0,
   "rib_spacing": 34.0,
   "skirt_from": 0.4,

@@ -115,7 +115,7 @@
   "erosion": "minecraft:overworld/erosion",
   "final_density": "minecraft:overworld/final_density",
   "ridges": "atlasmountains:overworld/biome_ridges",
-  "temperature": "minecraft:overworld/temperature",
+  "temperature": "atlasmountains:overworld/biome_temperature",
   "vegetation": "minecraft:overworld/vegetation"
  },
  "sea_level": 63,
