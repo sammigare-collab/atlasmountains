@@ -97,6 +97,12 @@ HORNS = {
     'height': 172.0,        # the tallest peaks, above the land they stand on
     'height_var': 0.42,     # other peaks are up to this much lower
     'min_height': 60.0,     # a peak that would be shorter than this (weak mountain country) is left out
+    'shoulders': [0, 0],    # how many smaller pyramids stand joined to the side of a peak
+    'shoulder_size': 0.7,   # their height, as a fraction of the peak's (give or take a quarter)
+    'rib_depth': -1.0,      # straight ribs down each face, this many blocks deep. BELOW ZERO = SAMPLER BUILD: every
+                            # peak gets one of four looks (A plain, B light ribs, C strong ribs, D strong ribs and
+                            # shoulders) for Sammi to compare in the game; /atlasmountains peaks says which is where
+    'rib_spacing': 30.0,    # blocks from one rib to the next
 }
 
 

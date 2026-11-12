@@ -170,6 +170,35 @@ public final class FindCommand {
                     worker.start();
                     return 1;
                 }))))
+                .then(Commands.literal("peaks").executes(ctx -> {
+                    // The peaks nearest the player: where each summit is and, in a sampler build, which look it has.
+                    CommandSourceStack src = ctx.getSource();
+                    Vec3 p = src.getPosition();
+                    HornsFunction horns = HornsFunction.current;
+                    if (horns == null) { src.sendFailure(Component.literal("no peak field loaded")); return 0; }
+                    java.util.List<double[]> all = horns.peaksNear(p.x, p.z, 6000);
+                    all.sort(java.util.Comparator.comparingDouble(a -> Math.hypot(a[1] - p.x, a[2] - p.z)));
+                    if (all.isEmpty()) { src.sendSuccess(() -> Component.literal("No peaks within 6,000 blocks."), false); return 1; }
+                    if (horns.sampler()) {
+                        src.sendSuccess(() -> Component.literal("Sampler build. Nearest peak of each look (click to copy the teleport):"), false);
+                        for (int style = 0; style < 4; style++) {
+                            final int st = style;
+                            double[] hit = all.stream().filter(a -> (int) a[0] == st).findFirst().orElse(null);
+                            if (hit == null) { src.sendSuccess(() -> Component.literal("  " + HornsFunction.STYLE_NAMES[st] + ": none in range"), false); continue; }
+                            String tp = String.format("/tp @s %d %d %d", (int) hit[1], (int) hit[4] + 20, (int) hit[2]);
+                            String line = String.format("  %s: %s  (%d blocks away, %d tall)", HornsFunction.STYLE_NAMES[st], tp, (int) Math.hypot(hit[1] - p.x, hit[2] - p.z), (int) hit[3]);
+                            src.sendSuccess(() -> Component.literal(line), false);
+                        }
+                        double[] near = all.get(0);
+                        src.sendSuccess(() -> Component.literal("The peak nearest you is " + HornsFunction.STYLE_NAMES[(int) near[0]] + "."), false);
+                    } else {
+                        for (double[] hit : all.subList(0, Math.min(6, all.size()))) {
+                            String line = String.format("  /tp @s %d %d %d  (%d blocks away, %d tall)", (int) hit[1], (int) hit[4] + 20, (int) hit[2], (int) Math.hypot(hit[1] - p.x, hit[2] - p.z), (int) hit[3]);
+                            src.sendSuccess(() -> Component.literal(line), false);
+                        }
+                    }
+                    return 1;
+                }))
                 .then(Commands.literal("heightmap")
                         .then(Commands.argument("sizeBlocks", IntegerArgumentType.integer(256, 8192))
                         .then(Commands.argument("stepBlocks", IntegerArgumentType.integer(1, 32)).executes(ctx -> {

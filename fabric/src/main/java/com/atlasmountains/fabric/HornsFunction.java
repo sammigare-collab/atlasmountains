@@ -46,7 +46,50 @@ import java.util.List;
 public record HornsFunction(double cell, double jitter, List<Integer> sides, double sideJitter,
                             double slope, double slopeVar, double edgeMin,
                             double warp, double warpLength,
-                            double height, double heightVar, double minHeight) implements ColumnFunction {
+                            double height, double heightVar, double minHeight,
+                            List<Integer> shoulders, double shoulderSize, double ribDepth, double ribSpacing) implements ColumnFunction {
+
+    /** The peak field most recently built from the data pack; the debug command asks it about peaks. */
+    static volatile HornsFunction current;
+
+    public HornsFunction {
+        current = this;
+    }
+
+    /**
+     * SAMPLER BUILD (temporary, 12 Nov 2026). With rib_depth set below zero every peak is given one
+     * of four looks, A to D, so Sammi can fly round one world, compare them in the game itself and
+     * name the one he wants. My renders could not show the difference between them.
+     */
+    static final String[] STYLE_NAMES = {"A plain pyramid", "B light ribs", "C strong ribs", "D strong ribs and shoulders"};
+    private static final double[] STYLE_RIB_DEPTH = {0, 5, 10, 10};
+    private static final double[] STYLE_RIB_SPACING = {30, 28, 34, 34};
+    private static final int[][] STYLE_SHOULDERS = {{0, 0}, {0, 0}, {0, 0}, {1, 2}};
+
+    boolean sampler() { return ribDepth < 0; }
+
+    static int styleOf(long ix, long iz, long seed) { return (int) Math.floor(hash(ix, iz, seed + 90) * 4); }
+
+    /** One line per peak whose summit is within radius blocks of (x, z): style, summit x, summit z, height. */
+    java.util.List<double[]> peaksNear(double x, double z, double radius) {
+        long seed = AtlasMountainsMod.seed();
+        java.util.List<double[]> found = new java.util.ArrayList<>();
+        long c0x = (long) Math.floor((x - radius) / cell), c1x = (long) Math.floor((x + radius) / cell);
+        long c0z = (long) Math.floor((z - radius) / cell), c1z = (long) Math.floor((z + radius) / cell);
+        for (long ix = c0x; ix <= c1x; ix++) {
+            for (long iz = c0z; iz <= c1z; iz++) {
+                double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * jitter) * cell;
+                double sz = (iz + 0.5 + (hash(ix, iz, seed + 4) - 0.5) * jitter) * cell;
+                if (Math.hypot(sx - x, sz - z) > radius) continue;
+                double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
+                h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
+                if (h < minHeight) continue;
+                found.add(new double[]{sampler() ? styleOf(ix, iz, seed) : -1, sx, sz, h,
+                        128 + 128 * PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + h});
+            }
+        }
+        return found;
+    }
 
     /** What the function returns where no peak reaches: far below any land. */
     private static final double NO_PEAK = -8.0;
@@ -63,7 +106,11 @@ public record HornsFunction(double cell, double jitter, List<Integer> sides, dou
             Codec.DOUBLE.fieldOf("warp_length").forGetter(HornsFunction::warpLength),
             Codec.DOUBLE.fieldOf("height").forGetter(HornsFunction::height),
             Codec.DOUBLE.fieldOf("height_var").forGetter(HornsFunction::heightVar),
-            Codec.DOUBLE.fieldOf("min_height").forGetter(HornsFunction::minHeight)
+            Codec.DOUBLE.fieldOf("min_height").forGetter(HornsFunction::minHeight),
+            Codec.INT.listOf().optionalFieldOf("shoulders", List.of(0, 0)).forGetter(HornsFunction::shoulders),
+            Codec.DOUBLE.optionalFieldOf("shoulder_size", 0.7).forGetter(HornsFunction::shoulderSize),
+            Codec.DOUBLE.optionalFieldOf("rib_depth", 0.0).forGetter(HornsFunction::ribDepth),
+            Codec.DOUBLE.optionalFieldOf("rib_spacing", 30.0).forGetter(HornsFunction::ribSpacing)
     ).apply(i, HornsFunction::new));
 
     // ---- hashing and noise ---------------------------------------------------------------
@@ -99,6 +146,36 @@ public record HornsFunction(double cell, double jitter, List<Integer> sides, dou
 
     // ---- the peaks ------------------------------------------------------------------------
 
+    /**
+     * How far one pyramid has dropped at (dx, dz) from its own summit. Its faces are flat planes:
+     * face f looks outward in direction a and drops s blocks for every block out along a, and
+     * under any point the plane that has dropped furthest is the surface.
+     */
+    private double pyramid(double dx, double dz, long ix, long iz, long seed, double faceSlope, double ribDepth, double ribSpacing) {
+        int sMin = sides.get(0), sMax = sides.get(1);
+        int k = (int) Math.floor(sMin + hash(ix, iz, seed + 6) * (sMax - sMin + 1));
+        double turnAll = hash(ix, iz, seed + 7) * 2 * Math.PI, sector = 2 * Math.PI / k;
+        double fall = edgeMin * faceSlope * Math.hypot(dx, dz);              // no edge shallower than this
+        for (int f = 0; f < k; f++) {
+            double a = turnAll + (f + (hash(ix, iz, seed + 20 + f) - 0.5) * sideJitter) * sector;
+            double s = faceSlope * (1 + slopeVar * (2 * hash(ix, iz, seed + 30 + f) - 1));
+            double out = dx * Math.cos(a) + dz * Math.sin(a);                // how far out along this face's own direction
+            double down = out * s;
+            if (ribDepth > 0 && out > 0) {
+                // Ribs: straight ridges and gullies running down the face, side by side, each a
+                // different height. Across the face the ground zigzags between random levels set
+                // every rib_spacing blocks, so the creases are sharp; down the face they are dead
+                // straight. They fade in below the summit, which stays a clean point.
+                double across = (-dx * Math.sin(a) + dz * Math.cos(a)) / ribSpacing + 50 * hash(ix, iz, seed + 40 + f);
+                double knot = Math.floor(across), t = across - knot;
+                double here = hash((long) knot, f, seed + 60 + ix * 31 + iz * 17), next = hash((long) knot + 1, f, seed + 60 + ix * 31 + iz * 17);
+                down += ribDepth * Math.min(1, out / 50.0) * ((here + (next - here) * t) * 2 - 1);
+            }
+            if (down > fall) fall = down;
+        }
+        return fall;
+    }
+
     @Override
     public double at(int blockX, int blockZ) {
         long seed = AtlasMountainsMod.seed();
@@ -106,9 +183,14 @@ public record HornsFunction(double cell, double jitter, List<Integer> sides, dou
         double wx = x + warp * fbm(x / warpLength, z / warpLength, seed + 1, 3);
         double wz = z + warp * fbm(x / warpLength, z / warpLength, seed + 2, 3);
         long cx = (long) Math.floor(wx / cell), cz = (long) Math.floor(wz / cell);
-        int sMin = sides.get(0), sMax = sides.get(1);
-        // beyond this distance even the tallest peak, along its shallowest possible edge, has reached the ground
-        double maxReach = height / (slope * (1 - slopeVar) * edgeMin);
+        boolean sampler = sampler();
+        int shMax = sampler ? 2 : shoulders.get(1);
+        double deepestRib = sampler ? 10 : ribDepth;
+        // Beyond this distance nothing of even the tallest peak is left. The loop below looks two
+        // cells each way, which is good for about 490 blocks with the usual cell and jitter.
+        double shallowest = (1 - slopeVar) * edgeMin;
+        double maxReach = Math.max(height / (slope * shallowest),
+                shMax > 0 ? 0.55 * height + 1.25 * shoulderSize * height / (slope * shallowest) : 0) + deepestRib;
         double best = NO_PEAK;
         for (int dj = -2; dj <= 2; dj++) {
             for (int di = -2; di <= 2; di++) {
@@ -116,26 +198,27 @@ public record HornsFunction(double cell, double jitter, List<Integer> sides, dou
                 double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * jitter) * cell;
                 double sz = (iz + 0.5 + (hash(ix, iz, seed + 4) - 0.5) * jitter) * cell;
                 double dx = wx - sx, dz = wz - sz;
-                double r = Math.hypot(dx, dz);
-                if (r > maxReach) continue;
+                if (Math.hypot(dx, dz) > maxReach) continue;
                 // The peak's height is its own draw times how strongly mountain country holds at its
                 // summit. The slopes are never scaled, so a weaker peak is lower and narrower with the
                 // same angles; one that would come out shorter than min_height is left out altogether.
                 double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
                 h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
                 if (h < minHeight) continue;
-                int k = (int) Math.floor(sMin + hash(ix, iz, seed + 6) * (sMax - sMin + 1));
-                double turnAll = hash(ix, iz, seed + 7) * 2 * Math.PI, sector = 2 * Math.PI / k;
-                // the planes: face f looks outward in direction a and drops s blocks for every block out
-                // along a. Under any point, the plane that has dropped furthest is the surface.
-                double fall = edgeMin * slope * r;                       // no edge shallower than this
-                for (int f = 0; f < k; f++) {
-                    double a = turnAll + (f + (hash(ix, iz, seed + 20 + f) - 0.5) * sideJitter) * sector;
-                    double s = slope * (1 + slopeVar * (2 * hash(ix, iz, seed + 30 + f) - 1));
-                    double down = (dx * Math.cos(a) + dz * Math.sin(a)) * s;
-                    if (down > fall) fall = down;
+                // A peak can be the highest of several pyramids joined together, all standing on the
+                // same level: the summit pyramid and one or two shoulders standing off to the side.
+                int style = sampler ? styleOf(ix, iz, seed) : -1;
+                double ribs = sampler ? STYLE_RIB_DEPTH[style] : ribDepth, spacing = sampler ? STYLE_RIB_SPACING[style] : ribSpacing;
+                int shLow = sampler ? STYLE_SHOULDERS[style][0] : shoulders.get(0), shHigh = sampler ? STYLE_SHOULDERS[style][1] : shoulders.get(1);
+                double up = h - pyramid(dx, dz, ix, iz, seed, slope, ribs, spacing);
+                int count = (int) Math.floor(shLow + hash(ix, iz, seed + 8) * (shHigh - shLow + 1));
+                for (int j = 0; j < count; j++) {
+                    long salt = seed + 200 + 100L * j;
+                    double away = h * (0.25 + 0.3 * hash(ix, iz, salt + 1)), turn = hash(ix, iz, salt + 2) * 2 * Math.PI;
+                    double hs = h * shoulderSize * (0.75 + 0.5 * hash(ix, iz, salt + 3));
+                    up = Math.max(up, hs - pyramid(dx - away * Math.cos(turn), dz - away * Math.sin(turn), ix, iz, salt, slope, ribs, spacing));
                 }
-                double top = PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + (h - fall) / 128.0;
+                double top = PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + up / 128.0;
                 if (top > best) best = top;
             }
         }

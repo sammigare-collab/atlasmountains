@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.5 (unreleased): sampler build, four looks in one world
+
+Sammi on 0.4.4: "a bit too perfectly pyramidal", then ": /" at two screenshots where a peak
+read as a tent. The shape had been swung from one extreme to the other four times in a day on
+my guesses, and my renders could not show the differences that matter, so this build puts four
+looks in one world for him to compare in the game itself:
+
+- A plain pyramid (0.4.4), B light ribs, C strong ribs, D strong ribs and one or two shoulders.
+  Every peak is given one of the four at random.
+- Ribs: straight ridges and gullies running down each flat face, side by side, with sharp
+  creases; they fade in below the summit.
+- Shoulders: one or two smaller pyramids joined to the side of a peak.
+- `/atlasmountains peaks` lists the nearest peak of each look with a teleport command.
+- Temporary: `rib_depth` below zero switches the sampler on. To be replaced by the chosen look.
+
 ## 0.4.4 (unreleased): true pyramids with big flat sides
 
 Sammi on 0.4.3: "they all seem rounded", "I want big flat side".
