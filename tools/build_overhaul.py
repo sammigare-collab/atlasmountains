@@ -42,9 +42,13 @@ running down from each summit, needs a shape of its own. So, in vanilla's mounta
      left), and vanilla's random spikes are turned off there.
   5. Vanilla cuts terrain off at y 256; that ceiling is moved up so summits fit.
 
-Only vanilla's offset, factor, jaggedness, final_density and preliminary_surface_level are
-replaced, by name, so everything that reads them stays consistent. Biomes are not touched: they
-are chosen from the same climate maps, so they stay where they were.
+  6. Biomes: the upper part of each peak is given vanilla's own peak biome for its climate
+     (jagged, frozen or stony peaks), by changing the weirdness the biome picker sees there.
+     Everything else keeps the biome vanilla chose.
+
+Vanilla's offset, factor, jaggedness, final_density and preliminary_surface_level are replaced
+by name, so everything that reads them stays consistent; the overworld noise settings are
+vanilla's with one router entry (ridges, used for biomes only) repointed.
 """
 import json
 import os
@@ -65,6 +69,9 @@ RIVER_FROM = 0.05     # peaks are held back where |weirdness| is below this (van
 RIVER_FULL = 0.27     # ... and are full size above this
 BASE = -0.14          # land above this (y 110) is pressed down among the peaks ...
 BASE_KEEP = 0.15      # ... to this share of its height above it
+PEAK_BIOME_FROM = 0.27 # vanilla's peak biomes take over where a peak stands this far above the land (35 blocks) ...
+PEAK_BIOME_FULL = 0.43 # ... fully by here (55 blocks)
+PEAK_BIOME_W = 0.70   # the weirdness the biomes are shown there (a crest line is 2/3)
 FACTOR_IN = 16.0      # factor among the peaks (vanilla's mountains: about 5)
 TOP_FROM, TOP_TO = 296, 312   # the terrain ceiling (vanilla: 240 to 256)
 # the peaks themselves: see HornsFunction.java and tools/prototype_horns.py (same names)
@@ -146,7 +153,9 @@ def main():
     land = add(VOFF, mul(mul(AMP, -(1.0 - BASE_KEEP)), above))
     # 3. the peaks
     write(f'{DF}/horns.json', cache(dict({'type': f'{NS}:horns'}, **HORNS)))
-    offset['input']['second'] = add(land, mul(mul(AMP, RIVER), f'{NS}:overworld/horns'))
+    write(f'{DF}/peak_height.json', cache(mul(mul(AMP, RIVER), f'{NS}:overworld/horns')))
+    PEAK = f'{NS}:overworld/peak_height'      # how far the peaks stand above the land here, in offset units
+    offset['input']['second'] = add(land, PEAK)
     # 4. factor rises to FACTOR_IN among the peaks; vanilla's spikes fade out there
     vfactor = factor['input']['second']
     factor['input']['second'] = add(vfactor, mul(AMP, add(FACTOR_IN, mul(-1.0, vfactor))))
@@ -154,6 +163,22 @@ def main():
     write('minecraft/worldgen/density_function/overworld/offset.json', offset)
     write('minecraft/worldgen/density_function/overworld/factor.json', factor)
     write('minecraft/worldgen/density_function/overworld/jaggedness.json', jagged)
+    # 6. biomes on the peaks. Vanilla picks biomes from the climate maps, and its peak biomes
+    #    (jagged, frozen, stony peaks, by temperature) need weirdness on a crest line (|w| near
+    #    2/3). The peaks stand wherever erosion is low, whatever the weirdness, so without help a
+    #    peak in forest country is a forest-covered pyramid. The weirdness the BIOMES see (the
+    #    router's "ridges"; the terrain reads the map by name and is not affected) is therefore
+    #    pushed to a crest value on the upper part of each peak: below PEAK_BIOME_FROM above the
+    #    land the biome is whatever vanilla had (forest, meadow...), above PEAK_BIOME_FULL it is
+    #    vanilla's peak biome for that climate, and vanilla's slope biomes come in between.
+    K = smooth('peak_biome', ramp(PEAK, PEAK_BIOME_FROM, PEAK_BIOME_FULL))
+    sign = clamp(mul(W, 10000.0), -1.0, 1.0)
+    write(f'{DF}/biome_ridges.json', cache(add(W, mul(K, add(mul(sign, PEAK_BIOME_W), mul(-1.0, W))))))
+    ns = load('worldgen/noise_settings/overworld.json')
+    assert ns['noise_router']['ridges'] == 'minecraft:overworld/ridges', 'vanilla noise router changed'
+    ns['noise_router']['ridges'] = f'{NS}:overworld/biome_ridges'
+    write('minecraft/worldgen/noise_settings/overworld.json', ns)
+
     # 5. the ceiling, in the terrain itself and in the preliminary surface the aquifers and surface rules use
     for name in ('final_density', 'preliminary_surface_level'):
         d = load(f'worldgen/density_function/overworld/{name}.json')

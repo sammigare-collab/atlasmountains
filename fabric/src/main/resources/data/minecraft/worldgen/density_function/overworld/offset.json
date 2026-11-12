@@ -31,15 +31,7 @@
      }
     }
    },
-   "right": {
-    "type": "minecraft:mul",
-    "left": {
-     "type": "minecraft:mul",
-     "left": "atlasmountains:overworld/amp",
-     "right": "atlasmountains:overworld/river_guard"
-    },
-    "right": "atlasmountains:overworld/horns"
-   }
+   "right": "atlasmountains:overworld/peak_height"
   }
  }
 }
