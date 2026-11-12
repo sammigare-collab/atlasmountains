@@ -10,27 +10,7 @@
   },
   "second": {
    "type": "minecraft:add",
-   "left": {
-    "type": "minecraft:add",
-    "left": "atlasmountains:overworld/vanilla_offset",
-    "right": {
-     "type": "minecraft:mul",
-     "left": {
-      "type": "minecraft:mul",
-      "left": "atlasmountains:overworld/amp",
-      "right": -0.85
-     },
-     "right": {
-      "type": "minecraft:max",
-      "left": {
-       "type": "minecraft:add",
-       "left": "atlasmountains:overworld/vanilla_offset",
-       "right": 0.14
-      },
-      "right": 0.0
-     }
-    }
-   },
+   "left": "atlasmountains:overworld/vanilla_offset",
    "right": "atlasmountains:overworld/peak_height"
   }
  }

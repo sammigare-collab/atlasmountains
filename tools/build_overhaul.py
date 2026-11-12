@@ -32,23 +32,26 @@ running down from each summit, needs a shape of its own. So, in vanilla's mounta
      amp changes slowly and whole clusters of peaks fit inside it). A first version took amp
      from vanilla's target height instead; that is only high along narrow crest bands, and
      multiplying the peaks by it cut them into fragments.
-  2. The land: vanilla's own, with whatever stands above BASE pressed down to a fraction of its
-     height, so there is rolling ground at about y 110 for the peaks to stand on. Valleys and
-     rivers below BASE are left exactly as they are.
+  2. The land: vanilla's own, at vanilla's own height. Nothing is lowered or flattened to make
+     room (a first version pressed the land down to y 110 so the summits would fit under the
+     world's ceiling; Sammi asked for the ceiling to be raised instead, 12 Nov 2026).
   3. The peaks: the mod's atlasmountains:horns density function (see HornsFunction.java) is
      added on top, scaled by amp, and held back near rivers (weirdness near 0) so a river valley
      still runs between mountains.
   4. Factor is raised there so the ground follows the peaks closely (a little 3-D roughness is
      left), and vanilla's random spikes are turned off there.
-  5. Vanilla cuts terrain off at y 256; that ceiling is moved up so summits fit.
+  5. The world is made taller so the summits fit: the overworld's build height goes from
+     y 320 to y 512, and the level where vanilla cuts terrain off from y 256 to about y 480.
+     (Vanilla's tallest land is about y 250 and the tallest peak adds 172.)
 
   6. Biomes: the upper part of each peak is given vanilla's own peak biome for its climate
      (jagged, frozen or stony peaks), by changing the weirdness the biome picker sees there.
      Everything else keeps the biome vanilla chose.
 
-Vanilla's offset, factor, jaggedness, final_density and preliminary_surface_level are replaced
-by name, so everything that reads them stays consistent; the overworld noise settings are
-vanilla's with one router entry (ridges, used for biomes only) repointed.
+Vanilla's offset, factor, jaggedness, depth, final_density and preliminary_surface_level are
+replaced by name, so everything that reads them stays consistent; the overworld noise settings
+are vanilla's with the height and one router entry (ridges, used for biomes only) changed, and
+the overworld dimension type is vanilla's with the height changed.
 """
 import json
 import os
@@ -67,13 +70,12 @@ INLAND_FROM = -0.05   # and where continentalness is above this (just in from th
 INLAND_FULL = 0.20    # ... full size above this
 RIVER_FROM = 0.05     # peaks are held back where |weirdness| is below this (vanilla's river band) ...
 RIVER_FULL = 0.27     # ... and are full size above this
-BASE = -0.14          # land above this (y 110) is pressed down among the peaks ...
-BASE_KEEP = 0.15      # ... to this share of its height above it
 PEAK_BIOME_FROM = 0.27 # vanilla's peak biomes take over where a peak stands this far above the land (35 blocks) ...
 PEAK_BIOME_FULL = 0.43 # ... fully by here (55 blocks)
 PEAK_BIOME_W = 0.70   # the weirdness the biomes are shown there (a crest line is 2/3)
 FACTOR_IN = 16.0      # factor among the peaks (vanilla's mountains: about 5)
-TOP_FROM, TOP_TO = 296, 312   # the terrain ceiling (vanilla: 240 to 256)
+WORLD_MIN_Y, WORLD_HEIGHT = -64, 576   # the overworld: y -64 to 511 (vanilla: height 384, top y 319)
+TOP_FROM, TOP_TO = 472, 488   # the terrain ceiling (vanilla: 240 to 256)
 # the peaks themselves: see HornsFunction.java and tools/prototype_horns.py (same names)
 HORNS = {
     'cell': 230.0,          # one peak per square this size
@@ -86,7 +88,7 @@ HORNS = {
     'arete_reach': 130.0,   # the ridges fade over about this distance from the summit
     'warp': 30.0, 'warp_length': 120.0,
     'gully': 0.12, 'gully_cycles': 3.0,
-    'height': 172.0,        # the tallest peaks, above the land they stand on: summits at about y 285 to 300
+    'height': 172.0,        # the tallest peaks, above the land they stand on
     'height_var': 0.42,     # other peaks are up to this much lower
 }
 
@@ -122,6 +124,21 @@ def move_ceiling(node):
     return 0
 
 
+def extend_depth(node):
+    """Vanilla's height-to-depth gradient stops at y 320 (it is clamped beyond its ends, so land
+    could never rise above that); carried on at the same slope to the new top of the world."""
+    top = WORLD_MIN_Y + WORLD_HEIGHT
+    if isinstance(node, dict):
+        if (node.get('type') == 'minecraft:gradient' and node.get('from_coordinate') == -64 and node.get('to_coordinate') == 320
+                and node.get('from_value') == 1.5 and node.get('to_value') == -1.5):
+            node['to_coordinate'], node['to_value'] = top, 1.5 - 3.0 * (top + 64) / 384.0
+            return 1
+        return sum(extend_depth(v) for v in node.values())
+    if isinstance(node, list):
+        return sum(extend_depth(v) for v in node)
+    return 0
+
+
 def main():
     for sub in ('minecraft', NS):               # start clean, so a file dropped from the pack does not linger
         shutil.rmtree(os.path.join(OUT, sub), ignore_errors=True)
@@ -148,9 +165,8 @@ def main():
     # vanilla's own target height, under our name so the new offset can read it
     write(f'{DF}/vanilla_offset.json', cache(offset['input']['second']))
     VOFF = f'{NS}:overworld/vanilla_offset'
-    # 2. the land: what stands above BASE is pressed down to BASE_KEEP of its height, by amp
-    above = {'type': 'minecraft:max', 'left': add(VOFF, -BASE), 'right': 0.0}
-    land = add(VOFF, mul(mul(AMP, -(1.0 - BASE_KEEP)), above))
+    # 2. the land is vanilla's, untouched
+    land = VOFF
     # 3. the peaks
     write(f'{DF}/horns.json', cache(dict({'type': f'{NS}:horns'}, **HORNS)))
     write(f'{DF}/peak_height.json', cache(mul(mul(AMP, RIVER), f'{NS}:overworld/horns')))
@@ -177,13 +193,25 @@ def main():
     ns = load('worldgen/noise_settings/overworld.json')
     assert ns['noise_router']['ridges'] == 'minecraft:overworld/ridges', 'vanilla noise router changed'
     ns['noise_router']['ridges'] = f'{NS}:overworld/biome_ridges'
+
+    ns['noise']['height'] = WORLD_HEIGHT
     write('minecraft/worldgen/noise_settings/overworld.json', ns)
 
-    # 5. the ceiling, in the terrain itself and in the preliminary surface the aquifers and surface rules use
-    for name in ('final_density', 'preliminary_surface_level'):
-        d = load(f'worldgen/density_function/overworld/{name}.json')
-        assert move_ceiling(d) == 1, f'vanilla {name} changed'
-        write(f'minecraft/worldgen/density_function/overworld/{name}.json', d)
+    # 5. a taller world: the dimension itself, the depth gradient (in its own file and inlined in
+    #    the preliminary surface), and the terrain ceiling (in the terrain and the preliminary surface)
+    dim = load('dimension_type/overworld.json')
+    assert dim['min_y'] == WORLD_MIN_Y and dim['height'] == 384, 'vanilla dimension type changed'
+    dim['height'] = dim['logical_height'] = WORLD_HEIGHT
+    write('minecraft/dimension_type/overworld.json', dim)
+    depth = load('worldgen/density_function/overworld/depth.json')
+    assert extend_depth(depth) == 1, 'vanilla depth changed'
+    write('minecraft/worldgen/density_function/overworld/depth.json', depth)
+    fd = load('worldgen/density_function/overworld/final_density.json')
+    assert move_ceiling(fd) == 1 and extend_depth(fd) == 0, 'vanilla final_density changed'
+    write('minecraft/worldgen/density_function/overworld/final_density.json', fd)
+    psl = load('worldgen/density_function/overworld/preliminary_surface_level.json')
+    assert move_ceiling(psl) == 1 and extend_depth(psl) == 1, 'vanilla preliminary_surface_level changed'
+    write('minecraft/worldgen/density_function/overworld/preliminary_surface_level.json', psl)
     print('wrote the overhaul data pack under', OUT)
 
 

@@ -9,9 +9,14 @@
   Two attempts at adjusting them (ridge lines, filled rings, wider spikes) moved the ground only
   about 4 blocks on a 250-block range, so they were dropped.
 - Horn peaks, after Sammi's WorldPainter references: in low-erosion country away from the coast
-  the land is pressed down to about y 110 and a field of separate pyramid peaks is added
+  a field of separate pyramid peaks is added to the land
   (`atlasmountains:horns`): steep summits, flaring skirts, 3 to 5 ridges per peak, varied heights.
-  River valleys are kept. The terrain ceiling moves from y 256 to y 296-312.
+  River valleys are kept.
+- The upper part of each peak takes vanilla's peak biome for its climate, so summits are rock,
+  snow or ice, not forest.
+- Vanilla's land is left at its own height under the peaks (a first build pressed it down to
+  y 110). To make room the overworld is taller: build height y 320 to y 512, terrain ceiling
+  y 256 to y 472-488.
 - Debug commands: `mountains`, `heightmap`, `df`. Shape prototype and viewer under `tools/`.
 
 ## 0.3.0 (2026-11-10)

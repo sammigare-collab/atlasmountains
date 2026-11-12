@@ -20,9 +20,12 @@ by clusters of separate pyramid peaks:
 - **One tallest peak, others stepping down**, biggest in the heart of the mountain country and
   shrinking towards its edges.
 - **Rivers still run between them**: river valleys are left as vanilla made them.
-- **Taller summits**: the terrain ceiling moves from y 256 to about y 300.
+- **A taller world.** Vanilla's land keeps its own height and the peaks stand on top of it, so
+  the overworld's build height is raised from y 320 to y 512 and terrain may reach about y 480.
 
-Biomes, caves, structures and everything outside mountain country are vanilla's.
+The top of each peak takes vanilla's own peak biome for its climate (jagged, frozen or stony
+peaks). Other biomes, caves, structures and everything outside mountain country are vanilla's.
+It applies to the default world type only (not Large Biomes or Amplified).
 
 The peak shape is the `atlasmountains:horns` density function (`HornsFunction.java`); where the
 peaks go and how they meet vanilla's land is set in `tools/build_overhaul.py`. The shape was

@@ -19,9 +19,9 @@
     "alpha": {
      "type": "minecraft:gradient",
      "axis": "y",
-     "from_coordinate": 296,
+     "from_coordinate": 472,
      "from_value": 1.0,
-     "to_coordinate": 312,
+     "to_coordinate": 488,
      "to_value": 0.0
     },
     "first": -0.078125,
@@ -42,8 +42,8 @@
            "axis": "y",
            "from_coordinate": -64,
            "from_value": 1.5,
-           "to_coordinate": 320,
-           "to_value": -1.5
+           "to_coordinate": 512,
+           "to_value": -3.0
           },
           "right": "minecraft:overworld/offset"
          },
