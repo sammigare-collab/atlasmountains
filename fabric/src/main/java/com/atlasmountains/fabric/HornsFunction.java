@@ -9,53 +9,61 @@ import net.minecraft.world.level.levelgen.densityfunction.DensityFunction;
 import java.util.List;
 
 /**
- * The horn peaks: a field of separate pyramid peaks, as a density function of (x, z).
+ * The peaks: a field of separate pyramids, as a density function of (x, z).
  *
- * The value is the height of the peaks above the land they stand on, in vanilla's "offset"
- * units (blocks / 128), so the data pack can add it straight to vanilla's terrain offset. The
- * shape was first worked out in tools/prototype_horns.py against Sammi's WorldPainter references
- * (11 Nov 2026) and has moved on from it in step with what he saw in the game:
+ * The value is the height the peaks reach at this column, in vanilla's "offset" units (ground at
+ * about y = 128 + 128 * value), or a very low number where there is no peak. The data pack takes
+ * whichever is higher, this or vanilla's land. Each peak is a solid of its own, built up from the
+ * land's level under its summit; it is not added on top of the land column by column, which let
+ * every bump in the land show through on its faces.
+ *
+ * Each peak is a true pyramid: 3 or 4 flat planes meeting at a point. The ground under a peak
+ * is its summit height minus the largest of "how far down this plane has got here", so every
+ * side is one big flat face, every edge between two faces is a straight line and the summit is
+ * a point. The planes face unevenly spaced directions and each has its own steepness, so no two
+ * pyramids are alike and none is regular.
  * <ul>
  *   <li>one peak site per square of {@code cell} blocks, jittered;</li>
- *   <li>each peak is a pyramid of 3 or 4 sides ({@code aretes}); its edges are the ridges, and
- *       {@code facet} says how flat the faces between them are;</li>
- *   <li>it is a little steeper at the summit ({@code slope_top + slope_far}) than down its skirt
- *       ({@code slope_far}), and the edges fall more slowly than the faces;</li>
- *   <li>the edges are unevenly spaced round the summit and wander slightly ({@code warp}), so no
- *       two pyramids are alike;</li>
+ *   <li>{@code sides}: how many faces (a range); {@code slope}: how steep a face is, in blocks
+ *       down per block out, give or take {@code slope_var}; {@code side_jitter}: how unevenly
+ *       the faces are turned;</li>
+ *   <li>an edge between two faces is always shallower than the faces, and between faces turned
+ *       far apart it would run on for hundreds of blocks; {@code edge_min} stops an edge being
+ *       shallower than that fraction of {@code slope};</li>
  *   <li>peaks differ in height, and each is scaled by how strongly mountain country holds at its
- *       own summit, never column by column; one shorter than {@code min_height} is left out;</li>
+ *       own summit ({@link PeakStrength}), never column by column, so its angles never change;
+ *       one shorter than {@code min_height} is left out;</li>
+ *   <li>{@code warp} moves the ground a few blocks before all this, so edges are not ruler lines;</li>
  *   <li>the terrain is the highest of the peaks in reach, so neighbours meet in a notch.</li>
  * </ul>
- * Where mountain country is, is decided in the data pack (tools/build_overhaul.py): it supplies
- * {@code atlasmountains:overworld/strength}, which each peak reads at its own summit (see
- * {@link PeakStrength}).
+ * How it got here, all from what Sammi saw in the game on 12 Nov 2026. The first shape was a cone
+ * with ridges and scooped hollows, torn up by vanilla's 3-D noise. Then faces were made flat by
+ * bending a cone's angle, which gave shallow creases ("very smooth"). Then ridges with V gullies
+ * and ribs ("more star like than pyramidal", "way too many sides"). Then flat again but with the
+ * ridge angles bent to make them uneven, which curved every face ("they all seem rounded", "I
+ * want big flat side"). Planes are the answer to all four.
  */
-public record HornsFunction(double cell, double jitter, double slopeTop, double slopeFar, double r0,
-                            List<Integer> aretes, double areteDepth, double areteReach,
-                            double warp, double warpLength, double gully,
-                            double height, double heightVar, double minHeight, double facet, double fold) implements ColumnFunction {
+public record HornsFunction(double cell, double jitter, List<Integer> sides, double sideJitter,
+                            double slope, double slopeVar, double edgeMin,
+                            double warp, double warpLength,
+                            double height, double heightVar, double minHeight) implements ColumnFunction {
 
-    /** How many gullies the gully noise makes round a peak (about twice this). Fixed: a codec holds 16 settings at most. */
-    private static final double GULLY_CYCLES = 3.0;
+    /** What the function returns where no peak reaches: far below any land. */
+    private static final double NO_PEAK = -8.0;
 
     public static final MapCodec<HornsFunction> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.DOUBLE.fieldOf("cell").forGetter(HornsFunction::cell),
             Codec.DOUBLE.fieldOf("jitter").forGetter(HornsFunction::jitter),
-            Codec.DOUBLE.fieldOf("slope_top").forGetter(HornsFunction::slopeTop),
-            Codec.DOUBLE.fieldOf("slope_far").forGetter(HornsFunction::slopeFar),
-            Codec.DOUBLE.fieldOf("r0").forGetter(HornsFunction::r0),
-            Codec.INT.listOf().fieldOf("aretes").forGetter(HornsFunction::aretes),
-            Codec.DOUBLE.fieldOf("arete_depth").forGetter(HornsFunction::areteDepth),
-            Codec.DOUBLE.fieldOf("arete_reach").forGetter(HornsFunction::areteReach),
+            Codec.INT.listOf().fieldOf("sides").forGetter(HornsFunction::sides),
+            Codec.DOUBLE.fieldOf("side_jitter").forGetter(HornsFunction::sideJitter),
+            Codec.DOUBLE.fieldOf("slope").forGetter(HornsFunction::slope),
+            Codec.DOUBLE.fieldOf("slope_var").forGetter(HornsFunction::slopeVar),
+            Codec.DOUBLE.fieldOf("edge_min").forGetter(HornsFunction::edgeMin),
             Codec.DOUBLE.fieldOf("warp").forGetter(HornsFunction::warp),
             Codec.DOUBLE.fieldOf("warp_length").forGetter(HornsFunction::warpLength),
-            Codec.DOUBLE.fieldOf("gully").forGetter(HornsFunction::gully),
             Codec.DOUBLE.fieldOf("height").forGetter(HornsFunction::height),
             Codec.DOUBLE.fieldOf("height_var").forGetter(HornsFunction::heightVar),
-            Codec.DOUBLE.optionalFieldOf("min_height", 0.0).forGetter(HornsFunction::minHeight),
-            Codec.DOUBLE.optionalFieldOf("facet", 0.0).forGetter(HornsFunction::facet),
-            Codec.DOUBLE.optionalFieldOf("fold", 0.0).forGetter(HornsFunction::fold)
+            Codec.DOUBLE.fieldOf("min_height").forGetter(HornsFunction::minHeight)
     ).apply(i, HornsFunction::new));
 
     // ---- hashing and noise ---------------------------------------------------------------
@@ -98,10 +106,10 @@ public record HornsFunction(double cell, double jitter, double slopeTop, double 
         double wx = x + warp * fbm(x / warpLength, z / warpLength, seed + 1, 3);
         double wz = z + warp * fbm(x / warpLength, z / warpLength, seed + 2, 3);
         long cx = (long) Math.floor(wx / cell), cz = (long) Math.floor(wz / cell);
-        int aMin = aretes.get(0), aMax = aretes.get(1);
-        // beyond this distance even the tallest peak, along a ridge, has reached the ground
-        double maxReach = height / (slopeFar * (1 - areteDepth) * (1 - gully));
-        double best = 0;
+        int sMin = sides.get(0), sMax = sides.get(1);
+        // beyond this distance even the tallest peak, along its shallowest possible edge, has reached the ground
+        double maxReach = height / (slope * (1 - slopeVar) * edgeMin);
+        double best = NO_PEAK;
         for (int dj = -2; dj <= 2; dj++) {
             for (int di = -2; di <= 2; di++) {
                 long ix = cx + di, iz = cz + dj;
@@ -116,49 +124,26 @@ public record HornsFunction(double cell, double jitter, double slopeTop, double 
                 double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
                 h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
                 if (h < minHeight) continue;
-                double k = Math.floor(aMin + hash(ix, iz, seed + 6) * (aMax - aMin + 1));
-                double phi = hash(ix, iz, seed + 7) * 2 * Math.PI;
-                double th = Math.atan2(dz, dx);
-                // ridges: the fall is slowest along k directions, with a sharp crease there; they
-                // are strongest near the summit and fade down the skirt
-                double q = r / areteReach;
-                double ad = areteDepth * (0.35 + 0.65 * Math.exp(-q * q));
-                // Going round the summit the ground falls slowest along the k ridges and fastest
-                // midway between them. How it gets from one to the other decides the look:
-                //   scooped: a sharp ridge with a rounded hollow between ridges (the first version);
-                //   flat:    the faces are flat, as on a pyramid with k sides, so from above the peak
-                //            is a triangle or a square and the ridges are its edges;
-                //   folded:  a sharp V gully midway between ridges, like folded paper.
-                // facet and fold are how much of flat and folded go in; the rest is scooped.
-                // What Sammi made of them (12 Nov 2026): flat is the one he wants ("pyramidal"), with
-                // few sides. Folded with 4 to 6 ridges and finer ribs on the faces was "more star like
-                // than pyramidal", "way too many sides", and the ribs were taken out again. Flat peaks
-                // did look smooth in 0.4.2, but that was peaks being squashed (see PeakStrength) and
-                // five-sided ones, whose edges are too shallow to see.
-                // The ridges are not spread evenly round the summit: the angle is stretched and
-                // squeezed a little, differently for every peak, so no two pyramids are alike and
-                // none is perfectly regular. 0.3 + 2 * 0.15 < 1 keeps the angle running one way.
-                double bent = th + 0.3 * Math.sin(th + hash(ix, iz, seed + 9) * 2 * Math.PI)
-                        + 0.15 * Math.sin(2 * th + hash(ix, iz, seed + 10) * 2 * Math.PI);
-                double turn = k * (bent - phi) / (2 * Math.PI);
-                double u = turn - Math.floor(turn);                         // 0 on a ridge, 0.5 midway between two
-                double scooped = 1 - ad + 2 * ad * Math.pow(Math.abs(Math.sin(k * (bent - phi) / 2)), 0.8);
-                double across = (u - 0.5) * 2 * Math.PI / k;                // angle from the middle of the face
-                double flat = (1 - ad) * Math.cos(across) / Math.cos(Math.PI / k);
-                double folded = 1 - ad * (4 * Math.abs(u - 0.5) - 1);
-                double g = (1 - facet - fold) * scooped + facet * flat + fold * folded;
-                double fall = (slopeTop * r0 * (1 - Math.exp(-r / r0)) + slopeFar * r) * g;
-                // gullies straight down the faces: noise that varies round the peak, hardly along the radius
-                double gn = 1 - 2 * Math.abs(fbm(GULLY_CYCLES * Math.cos(th) + ix * 7.1, GULLY_CYCLES * Math.sin(th) + iz * 3.7 + r / 260.0, seed + 8, 2));
-                fall *= 1 + gully * (gn - 0.6) * Math.min(1, r / 40.0);
-                if (h - fall > best) best = h - fall;
+                int k = (int) Math.floor(sMin + hash(ix, iz, seed + 6) * (sMax - sMin + 1));
+                double turnAll = hash(ix, iz, seed + 7) * 2 * Math.PI, sector = 2 * Math.PI / k;
+                // the planes: face f looks outward in direction a and drops s blocks for every block out
+                // along a. Under any point, the plane that has dropped furthest is the surface.
+                double fall = edgeMin * slope * r;                       // no edge shallower than this
+                for (int f = 0; f < k; f++) {
+                    double a = turnAll + (f + (hash(ix, iz, seed + 20 + f) - 0.5) * sideJitter) * sector;
+                    double s = slope * (1 + slopeVar * (2 * hash(ix, iz, seed + 30 + f) - 1));
+                    double down = (dx * Math.cos(a) + dz * Math.sin(a)) * s;
+                    if (down > fall) fall = down;
+                }
+                double top = PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + (h - fall) / 128.0;
+                if (top > best) best = top;
             }
         }
-        return best / 128.0;
+        return best;
     }
 
     @Override
-    public Interval range() { return Interval.of(0, (float) (height / 128.0 * 1.01)); }
+    public Interval range() { return Interval.of((float) NO_PEAK, (float) (4.0 + height / 128.0)); }
 
     @Override
     public MapCodec<? extends DensityFunction> codec() { return CODEC; }

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.4 (unreleased): true pyramids with big flat sides
+
+Sammi on 0.4.3: "they all seem rounded", "I want big flat side".
+
+- Each peak is now 3 or 4 flat planes meeting at a point. In 0.4.3 the faces were made by
+  bending a cone's angle, and my uneven spacing of the edges curved every face.
+- Each peak is a solid of its own, built up from the land's level under its summit. Before, it
+  was added on top of the land column by column, so every bump in the land showed on its faces.
+- One face slope (44 degrees, give or take 12% face by face) from summit to foot; no extra
+  steepening at the top, no gullies on the faces.
+- Where a river meets a peak it runs through a V-shaped valley. (An interim version pressed the
+  ground flat along the channel, which left a wall.)
+- Where peaks generate and their spacing are unchanged.
+
 ## 0.4.3 (unreleased): pyramids that keep their angles
 
 Sammi in the game on 0.4.2: "these aren't looking very angular, very smooth". Three causes, all

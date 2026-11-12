@@ -4,22 +4,18 @@
   "type": "atlasmountains:horns",
   "cell": 230.0,
   "jitter": 0.7,
-  "slope_top": 0.4,
-  "slope_far": 0.7,
-  "r0": 50.0,
-  "aretes": [
+  "sides": [
    3,
    4
   ],
-  "arete_depth": 0.38,
-  "arete_reach": 130.0,
-  "warp": 8.0,
+  "side_jitter": 0.3,
+  "slope": 0.95,
+  "slope_var": 0.12,
+  "edge_min": 0.45,
+  "warp": 3.0,
   "warp_length": 120.0,
-  "gully": 0.03,
   "height": 172.0,
   "height_var": 0.42,
-  "min_height": 60.0,
-  "facet": 1.0,
-  "fold": 0.0
+  "min_height": 60.0
  }
 }

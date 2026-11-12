@@ -1,8 +1,36 @@
 {
  "type": "minecraft:cache",
  "input": {
-  "type": "minecraft:mul",
-  "left": "atlasmountains:overworld/channel",
-  "right": "atlasmountains:overworld/horns"
+  "type": "minecraft:min",
+  "left": {
+   "type": "minecraft:max",
+   "left": 0.0,
+   "right": {
+    "type": "minecraft:add",
+    "left": "atlasmountains:overworld/horns",
+    "right": {
+     "type": "minecraft:mul",
+     "left": -1.0,
+     "right": "atlasmountains:overworld/vanilla_offset"
+    }
+   }
+  },
+  "right": {
+   "type": "minecraft:mul",
+   "left": {
+    "type": "minecraft:clamp",
+    "input": {
+     "type": "minecraft:add",
+     "left": {
+      "type": "minecraft:abs",
+      "input": "minecraft:overworld/ridges"
+     },
+     "right": -0.04
+    },
+    "min": 0.0,
+    "max": 4.0
+   },
+   "right": 4.6875
+  }
  }
 }
