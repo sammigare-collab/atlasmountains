@@ -182,7 +182,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         return from * h - (fall - faceEnd) * gentle;
     }
 
-    // ---- how a peak ends at its foot (the 0.4.12 sampler, now switched off) ---------------------
+    // ---- SAMPLER BUILD (0.4.12, temporary): how a peak ends at its foot -------------------------
     // Sammi, 13 Nov 2026, on a view of the tops of three peaks: "this top part looks good, I don't
     // like the bottom parts; if we just had the mountain more or less stop here". Measured on his
     // seed, only 24% of the peak area was the peaks' own tops and faces; 33% was the gentle skirt
@@ -191,11 +191,8 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     // two feet for him to compare; /atlasmountains peaks lists the nearest of each.
     //   F1  no skirt: the faces run straight on down, at their own 49 degrees, to the ground
     //   F2  short flare: only the lowest 15% of the height eases out, to about 39 degrees
-    // 0.4.13: Sammi did not choose between them; he asked for the ground to be raised to the line
-    // he drew under the peaks instead (valleyFloor, below), which buries most of the difference.
-    // Claude set F1 everywhere (skirt_from 0, skirt_slope = MID_STEEP in build_overhaul.py) and
-    // switched the sampler off. Setting FOOT_SAMPLER to true brings the two feet back to compare.
-    static final boolean FOOT_SAMPLER = false;
+    // Once he has chosen, FOOT_SAMPLER goes and skirt_from / skirt_slope carry the choice.
+    static final boolean FOOT_SAMPLER = true;
     static final String[] FOOT_NAMES = {"F1 no skirt", "F2 short flare"};
     static final double FLARE_FROM = 0.15, FLARE_SLOPE = 0.85;
 
@@ -395,17 +392,13 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
                     double rib = ribOut[0];
                     if (walls != null) {
                         if (Double.isNaN(landHere)) {
-                            landHere = PeakStrength.raisedLand(blockX, blockZ);
-                            // Where the valley floor is raised the rivers are under it, so there is
-                            // nothing for a wall to keep clear: the walls only still stand at the
-                            // fringe of mountain country, where a river comes out from under the floor.
-                            riverBlocks = PeakStrength.floorMask(blockX, blockZ) >= WALLS_END ? Double.POSITIVE_INFINITY
-                                    : RiverDistance.at(blockX, blockZ, walls.channel());
+                            landHere = PeakStrength.land(blockX, blockZ);
+                            riverBlocks = RiverDistance.at(blockX, blockZ, walls.channel());
                         }
                         // The wall carries the face's own ribs and gullies, so it is not one bare
                         // slab (Sammi's screenshot of 12 Nov 2026, a dead-flat plane hundreds of
                         // blocks wide). They fade out towards the river, which stays clear.
-                        if (top > landHere && riverBlocks != Double.POSITIVE_INFINITY) {
+                        if (top > landHere) {
                             double wallRib = rib * Math.min(1, riverBlocks / WALL_RIB_FADE);
                             top = Math.min(top, landHere + (riverBlocks * wallSlope(walls, ix, iz, piece, px, pz, ph, base) - wallRib) / 128.0);
                         }
@@ -428,9 +421,6 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     static final double STEP_NEAR = 0.30, STEP_SPREAD = 0.15, STEP_GAP = 0.25, STEP_FAR = STEP_NEAR + STEP_GAP + 2 * STEP_SPREAD;
     /** A step's summit stands this share of the peak's height (once to twice it) above the edge it sits on. */
     static final double STEP_RISE = 0.07;
-
-    /** River walls stop where the valley floor applies this fully (a river is dry and filled in well before that). */
-    static final double WALLS_END = 0.10;
 
     /** The ribs on a river wall come in to full depth over this many blocks from the river. */
     static final double WALL_RIB_FADE = 40.0;
@@ -460,37 +450,6 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
      */
     double snowLine(int blockX, int blockZ) {
         return snowLine(blockX, blockZ, null);
-    }
-
-    // ---- the valley floor (0.4.13) -------------------------------------------------------------
-    // Sammi drew a line across views of 0.4.11 and 0.4.12, just under the peaks' dark faces:
-    // "everything below those lines looks quite bad", "if we just had the mountain more or less
-    // stop here". Traced back onto the terrain the lines were 65 to 100 blocks under the snow
-    // line, about the level of the land under the summits; below them the mountains ran on down
-    // another 100 blocks into vanilla's river valleys (peak faces, river walls and vanilla's own
-    // slopes). He chose to have the ground raised to the line (option B of two mock-ups), so the
-    // peaks rise straight out of a high valley floor, as in his reference pictures.
-    /** The valley floor is this many blocks under the snow line (the median of his drawn lines). */
-    static final double FLOOR_BELOW = 79.0;
-    /** The "distance" where there are no peaks about at all. */
-    static final double FLOOR_NONE = 4000.0;
-    private static final ThreadLocal<double[]> FLOOR = ThreadLocal.withInitial(() -> new double[2]);
-
-    /**
-     * {level of the valley floor at this column (y), how far the peaks are (blocks)}; level is NaN where
-     * there are no peaks about. The distance is worked back from the summed weight the snow line gives
-     * the peaks round here, so it is the plain distance to a single full-height peak, less for a group
-     * and more for small peaks (a small peak gets a small apron). The data pack turns it into how fully
-     * the floor applies (FLOOR_FULL, FLOOR_END in build_overhaul.py). The array is reused: read it, don't keep it.
-     */
-    double[] valleyFloor(int blockX, int blockZ) {
-        double[] f = FLOOR.get();
-        double line = snowLine(blockX, blockZ, f);
-        double weight = f[1];
-        f[0] = line - FLOOR_BELOW;
-        f[1] = Double.isNaN(line) || weight <= 0 ? FLOOR_NONE : weight >= 1 ? 0
-                : Math.min(FLOOR_NONE, SNOW_BLEND_CELLS * cell * Math.sqrt(-2 * Math.log(weight)));
-        return f;
     }
 
     /** The peaks round one cell, per thread: {summit x, summit z, height, summit y} each. Columns arrive a cell at a time. */
@@ -528,7 +487,6 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
             double w = tall * tall * Math.exp(-(dx * dx + dz * dz) / (2 * spread * spread));
             sum += w * (near.peaks[k + 3] - SNOW_SHARE * h); weight += w; heights += w * h;
         }
-        if (heightOut != null && heightOut.length > 1) heightOut[1] = weight;
         if (weight < 1e-12) return Double.NaN;
         if (heightOut != null) heightOut[0] = heights / weight;
         return sum / weight;
@@ -553,7 +511,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         if (known != null) return known;
         int sxBlock = (int) Math.floor(px), szBlock = (int) Math.floor(pz);
         double river = RiverDistance.at(sxBlock, szBlock, walls.channel());
-        double summitAboveLand = 128.0 * (base - PeakStrength.raisedLand(sxBlock, szBlock)) + ph;
+        double summitAboveLand = 128.0 * (base - PeakStrength.land(sxBlock, szBlock)) + ph;
         double needed = river >= RiverDistance.REACH ? 0 : WALL_MARGIN * summitAboveLand / Math.max(1.0, river);
         float value = (float) Math.max(walls.slope(), Math.min(walls.maxSlope(), needed));
         if (WALL_SLOPES.size() > 400_000) WALL_SLOPES.clear();

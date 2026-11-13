@@ -10,7 +10,7 @@
   },
   "second": {
    "type": "minecraft:add",
-   "left": "atlasmountains:overworld/raised_land",
+   "left": "atlasmountains:overworld/vanilla_offset",
    "right": "atlasmountains:overworld/peak_height"
   }
  }

@@ -1,8 +1,0 @@
-{
- "type": "minecraft:cache",
- "input": {
-  "type": "minecraft:mul",
-  "left": "atlasmountains:overworld/floor_near",
-  "right": "atlasmountains:overworld/floor_inland"
- }
-}
