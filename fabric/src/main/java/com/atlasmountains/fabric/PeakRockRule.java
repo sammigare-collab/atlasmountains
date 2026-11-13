@@ -24,23 +24,28 @@ import java.util.function.DoubleSupplier;
  *
  * <h2>How a block is chosen</h2>
  * <ol>
- *   <li>Height on the face, as a percentage: 0 at {@code floor} (a fixed height, about the level
- *       of the valley floors), 100 where the snow cap begins on the piece that forms the ground
- *       here (a peak's main pyramid or one of its shoulders: {@code top_fraction} of its height
- *       above its base). So the darkest rock always sits right under each peak's own snow, and
- *       the light rock is only ever near the valley floor. In 0.4.7 the 0 was the piece's base
+ *   <li>Height on the face, as a percentage: 100 at the snow line ({@link SnowLine};
+ *       {@code top_fraction} of the piece's own height is only the fallback where there is none),
+ *       0 at {@code span} blocks below it (less where the peaks round about are small). So the
+ *       rocks come in bands of a set depth under the snow: the dark rocks in a band right under
+ *       it, mid-grey stone and tuff on the body of the mountain, the lightest only low down.
+ *       (0.4.8 measured from a fixed height, {@code floor}, about the valley floors; on a peak
+ *       whose foot is well above that, dark rock covered nearly the whole mountain.) In 0.4.7 the 0 was the piece's base
  *       level, the land under its summit, which is often 100 blocks above the valley: everything
  *       below it was the lightest rock, and whole mountainsides came out light grey (Sammi's
  *       screenshots, 12 Nov 2026). Without {@code floor} the piece's base level is still used.</li>
  *   <li>Wobble: the height is shifted up or down by up to {@code wobble} blocks with a slow 2-D
  *       noise, so the change from one rock to the next is not along one contour.</li>
- *   <li>Blend: between two stops the share of the upper rock rises from 0 to 1; the roll is a
- *       small 3-D noise (clumps a few blocks across) with a little per-block jitter, so the mix
- *       comes in small patches rather than salt and pepper.</li>
+ *   <li>Blend: between two stops the share of the upper rock rises from 0 to 1, over the middle
+ *       {@code blend_width} of the gap; the roll is half a small 3-D noise (clumps a few blocks
+ *       across) and half per-block jitter. With less jitter and the whole gap blended (0.4.7 and
+ *       0.4.8) the mix came out as camouflage blotches close up.</li>
  * </ol>
  */
-public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, double topFraction, int floor) implements MaterialRule {
+public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, double topFraction, int floor, double span) implements MaterialRule {
 
+    /** Peaks this tall or taller have bands of the full span; smaller ones in proportion, down to SMALL_SPAN of it. */
+    private static final double FULL_SPAN_HEIGHT = 170.0, SMALL_SPAN = 0.55;
     /** The value of floor that means "measure from each piece's own base level". */
     private static final int NO_FLOOR = -10000;
 
@@ -57,7 +62,8 @@ public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, dou
             Codec.FLOAT.optionalFieldOf("wobble", 8.0f).forGetter(PeakRockRule::wobble),
             Codec.FLOAT.optionalFieldOf("blend_width", 1.0f).forGetter(PeakRockRule::blendWidth),
             Codec.DOUBLE.optionalFieldOf("top_fraction", 0.8).forGetter(PeakRockRule::topFraction),
-            Codec.INT.optionalFieldOf("floor", NO_FLOOR).forGetter(PeakRockRule::floor)
+            Codec.INT.optionalFieldOf("floor", NO_FLOOR).forGetter(PeakRockRule::floor),
+            Codec.DOUBLE.optionalFieldOf("span", 0.0).forGetter(PeakRockRule::span)
     ).apply(i, PeakRockRule::new));
 
     private static final ResourceKey<NormalNoise> WOBBLE_NOISE = ResourceKey.create(Registries.NOISE, AtlasMountainsMod.id("rock_wobble"));
@@ -65,7 +71,7 @@ public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, dou
     /** The mottle noise mostly sits within +/-0.4; stretched so the rolls cover 0..1. */
     private static final double MOTTLE_SPREAD = 2.5;
     /** Weight of the per-block jitter against the mottle noise. */
-    private static final double JITTER = 0.25;
+    private static final double JITTER = 0.5;
 
     @Override
     public MapCodec<? extends MaterialRule> codec() { return CODEC; }
@@ -81,8 +87,11 @@ public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, dou
             if (horns == null || n == 0) return null;
             double[] c = horns.column(x, z);
             if (c[2] <= 0) return null;
-            double baseY = 128 + 128 * c[1], capY = baseY + topFraction * c[2];
-            double zero = floor == NO_FLOOR ? baseY : floor;
+            double baseY = 128 + 128 * c[1], capY = SnowLine.at(horns, x, z);
+            if (Double.isNaN(capY)) capY = baseY + topFraction * c[2];
+            // the bands are shallower on small peaks, so a small peak is not dark half-way down
+            double zero = span > 0 ? capY - span * Math.max(SMALL_SPAN, Math.min(1, SnowLine.peakHeight(horns, x, z) / FULL_SPAN_HEIGHT))
+                    : floor == NO_FLOOR ? baseY : floor;
             double h = 100 * (y + wobble * wobbleNoise.getAsDouble() - zero) / Math.max(8, capY - zero);
             if (n == 1 || h <= stops.get(0).at()) return stops.get(0).state();
             if (h >= stops.get(n - 1).at()) return stops.get(n - 1).state();

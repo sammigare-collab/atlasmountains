@@ -82,19 +82,23 @@ RIVER_WALL = 0.95     # ... and beside it a piece of a peak may rise only this m
 RIVER_WALL_MAX = 1.73 # a piece whose summit is too close to a river for that gets a steeper wall, up to this (60 degrees)
 PEAK_BIOME_FROM = 0.03 # peak biomes take over where a peak stands this far above the land (4 blocks) ...
 PEAK_BIOME_FULL = 0.09 # ... fully by here (12 blocks). Was 35 to 55 blocks, which left forest biomes (dirt, trees) round each foot
-PEAK_TEMPERATURE = 0.4 # below its snow cap a peak's biome is shown this temperature: vanilla's stony peaks (bare rock, no snow)
-SNOW_CAP = 0.28       # the snow cap is the top 28% of each peak's (or shoulder's) height, in cold and temperate country ...
-CAP_WARMEST = 0.55    # ... (vanilla temperature below this: its cold and temperate bands), shown as CAP_TEMPERATURE in the cap
+PEAK_TEMPERATURE = 0.4 # below the snow a peak's biome is shown this temperature: vanilla's stony peaks (bare rock, no snow)
+SNOW_BIOME_ABOVE = 25 # the cold peak biome starts this many blocks above the snow line (the line itself is one per range:
+                      # HornsFunction.snowLine and SnowLine.java), where the peaks' own snow is already complete ...
+CAP_WARMEST = 0.55    # ... in vanilla's cold and temperate bands (temperature below this), shown as CAP_TEMPERATURE there
 CAP_TEMPERATURE = -0.3 #    so the cap's biome is vanilla's jagged (or, colder, frozen) peaks
 CREST_PV = (0.15, 0.25) # vanilla's own land in mountain country with peaks-and-valleys above this (where vanilla puts its
                       # peak and snowy-slope biomes), where no peak stands, is shown PEAK_TEMPERATURE too
-SNOW_EDGE = 0.06      # ... its lower edge wanders up and down by this much (in offset units: about 8 blocks)
-DUST_FROM = 0.94      # in warm country only the top 6% gets a patchy dusting
-ROCK_FLOOR = 70       # the rock gradient is measured from this height (about the valley floors) up to each peak's snow cap ...
-ROCK = [               # ... in percent: light rock only in the bottom fifth or so, dark above (0.4.7: 20, 40, 60, 78, 94
-    ('minecraft:andesite', 6), ('minecraft:stone', 18), ('minecraft:tuff', 32),   # measured from the land under each summit,
-    ('minecraft:deepslate', 55), ('minecraft:smooth_basalt', 90)]                 # which left whole mountainsides light grey)
-COLD_PEAKS = ['minecraft:jagged_peaks', 'minecraft:frozen_peaks']
+SNOW_EDGE = 0.06      # the cold biome's lower edge wanders up and down by this much (in offset units: about 8 blocks)
+SNOW = {'edge': 9.0,   # the snow itself (PeakSnowCondition.java): its edge wanders up and down by this many blocks,
+        'gully': 14.0, # it reaches this much lower in the gullies and starts this much higher on the ribs,
+        'fringe': 12.0}  # and it is in patches for this many blocks above its edge, complete above that
+ROCK_SPAN = 220       # the rock gradient: 100% is the snow line, 0% is this many blocks below it (on the tallest peaks;
+ROCK = [               # in proportion on smaller ones). Dark smooth basalt and deepslate in a band about 30 blocks deep
+    ('minecraft:andesite', 5), ('minecraft:stone', 30), ('minecraft:tuff', 62),    # under the snow, tuff then stone on the
+    ('minecraft:deepslate', 86), ('minecraft:smooth_basalt', 95)]                  # body, andesite only about 200 down.
+                      # Aim: about a fifth dark, most of it mid-grey. 0.4.7 was two-thirds light grey; 0.4.8 two-thirds dark,
+ROCK_BLEND = 0.6      # which hid the ribs and clashed with vanilla's stone. ROCK_BLEND: how much of each gap is a mix
 PEAK_BIOME_W = 0.70   # the weirdness the biomes are shown there (a crest line is 2/3) ...
 PEAK_BIOME_E = -0.90  # ... and the erosion (vanilla's lowest band, the only one with peak biomes right down to the coast)
 CLEAN_FROM = 0.03     # where a peak stands this far above the land (4 blocks) its faces start to be cut clean ...
@@ -118,8 +122,9 @@ HORNS = {
     'shoulders': [2, 3],    # how many smaller peaks stand round a peak, one per face at most, joined to it by a notch (0.4.6: 1 or 2) ...
     'shoulder_size': 0.65,  # ... their height, as a fraction of the peak's, give or take a quarter (0.4.6: 0.7)
                             # (how far out they stand, and the steeper summits, are constants in HornsFunction)
-    'rib_depth': 10.0,      # straight ribs down each face, this many blocks deep
-    'rib_spacing': 34.0,    # blocks from one rib to the next
+    'rib_depth': -1.0,      # straight ribs down each face, this many blocks deep. BELOW ZERO = SAMPLER BUILD: every peak
+                            # gets one of three looks (A big spurs, B very big spurs, C buttresses; HornsFunction.java)
+    'rib_spacing': 34.0,    # blocks from one rib to the next (not used in a sampler build)
     # the skirt: the lowest part of a peak carries on down more gently until it meets the ground
     'skirt_from': 0.4,      # the lowest 40% of a peak's height is skirt ...
     'skirt_slope': 0.62,    # ... at this fraction of the face's steepness (about 30 degrees)
@@ -173,10 +178,10 @@ def extend_depth(node):
 
 
 def write_surface():
-    """8. The peaks' own surface (material rules). On a peak, above water: in a cold peak biome
-    (the cap, see step 6) the top block is snow, with a few bare holes; in warm country the very
-    top gets a patchy dusting; everywhere else on the peak, and under the snow, the rock gradient
-    (atlasmountains:peak_rock). Below water, and off the peaks, vanilla's own surface. This
+    """8. The peaks' own surface (material rules). On a peak, above water: the top block is snow
+    where atlasmountains:peak_snow says snow lies (above the range's snow line, lower in the
+    gullies, in patches at its edge); everywhere else on the peak, and under the snow, the rock
+    gradient (atlasmountains:peak_rock). Below water, and off the peaks, vanilla's own surface. This
     replaces vanilla's peak surfaces (snow and ice sheets on jagged and frozen peaks) and the
     dirt-and-grass collar round each foot."""
     rule = load('worldgen/material_rule/overworld.json')
@@ -188,14 +193,10 @@ def write_surface():
     snow = {'type': 'minecraft:block', 'result_state': 'minecraft:snow_block'}
     top = {'type': 'minecraft:stone_depth', 'offset': 0, 'surface_type': 'floor', 'add_surface_depth': False, 'secondary_depth_range': 0}
     deep = {'type': 'minecraft:stone_depth', 'offset': 8, 'surface_type': 'floor', 'add_surface_depth': True, 'secondary_depth_range': 0}
-    rock = {'type': f'{NS}:peak_rock', 'wobble': 8.0, 'blend_width': 1.0, 'top_fraction': 1 - SNOW_CAP, 'floor': ROCK_FLOOR,
+    rock = {'type': f'{NS}:peak_rock', 'wobble': 8.0, 'blend_width': ROCK_BLEND, 'top_fraction': 0.72, 'span': ROCK_SPAN,
             'stops': [{'state': b, 'at': a} for b, a in ROCK]}
     peak_surface = {'type': 'minecraft:sequence', 'sequence': [
-        cond(top, {'type': 'minecraft:sequence', 'sequence': [
-            cond({'type': 'minecraft:biome', 'biome_is': COLD_PEAKS},
-                 cond({'type': 'minecraft:not', 'invert': noise('snow_patches', 0.45, 10.0)}, snow)),
-            cond({'type': f'{NS}:on_peak', 'above_fraction': DUST_FROM}, cond(noise('snow_patches', -0.1, 10.0), snow)),
-        ]}),
+        cond(top, cond({'type': f'{NS}:peak_snow', **SNOW}, snow)),
         cond(deep, rock),
     ]}
     on_peak = cond({'type': f'{NS}:on_peak', 'tolerance': 3}, cond('minecraft:not_underwater', peak_surface))
@@ -236,7 +237,8 @@ def main():
     #    height with its slopes unchanged (HornsFunction, PeakStrength). Multiplying every column
     #    by the local value instead, as up to 0.4.2, squashed most peaks into rounded humps.
     write(f'{DF}/strength.json', cache(mul(AMP, RIVER)))
-    write(f'{DF}/river_wall.json', cache({'type': f'{NS}:river_wall', 'channel': CHANNEL, 'slope': RIVER_WALL, 'max_slope': RIVER_WALL_MAX}))
+    write(f'{DF}/river_wall.json', cache({'type': f'{NS}:river_wall', 'channel': CHANNEL, 'slope': RIVER_WALL, 'max_slope': RIVER_WALL_MAX,
+                                            'rib_room': 40.0 if HORNS['rib_depth'] < 0 else HORNS['rib_depth']}))
     valley = f'{NS}:overworld/river_wall'
     write(f'{DF}/horns.json', cache(dict({'type': f'{NS}:horns'}, **HORNS)))
     #    horns gives the level the peaks reach here (far below ground where there is none); a peak
@@ -282,9 +284,10 @@ def main():
     #    peak in warm country stays stony to the top (shown PEAK_TEMPERATURE there too: vanilla's
     #    hottest peaks would be badlands). Before 0.4.7 the whole upper part of every
     #    peak in cold country was jagged or frozen peaks, which covered it in snow and blue ice.
-    #    The cap line is per peak (atlasmountains:peak_cap); its edge wanders with a noise.
+    #    From 0.4.9 the snow itself is placed by the peaks' surface rule from one snow line per
+    #    range, and the cold biome only starts SNOW_BIOME_ABOVE over that line (atlasmountains:peak_cap).
     assert ns['noise_router']['temperature'] == 'minecraft:overworld/temperature', 'vanilla noise router changed'
-    write(f'{DF}/peak_cap.json', cache({'type': f'{NS}:peak_cap', 'cap': SNOW_CAP}))
+    write(f'{DF}/peak_cap.json', cache({'type': f'{NS}:peak_cap', 'above': SNOW_BIOME_ABOVE}))
     y_off = {'type': 'minecraft:gradient', 'axis': 'y', 'from_coordinate': -64, 'from_value': (-64 - 128) / 128.0,
              'to_coordinate': 512, 'to_value': (512 - 128) / 128.0}          # this block's height, in offset units
     edge = mul({'type': 'minecraft:noise', 'noise': f'{NS}:snow_edge', 'xz_scale': 1.0, 'y_scale': 0.0}, SNOW_EDGE)

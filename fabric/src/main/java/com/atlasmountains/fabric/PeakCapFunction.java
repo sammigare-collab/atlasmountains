@@ -8,30 +8,28 @@ import net.minecraft.world.level.levelgen.densityfunction.DensityFunction;
 
 /**
  * Density function "atlasmountains:peak_cap": the level, in vanilla's offset units (y = 128 + 128 *
- * value), where the snow cap of the peak at this column begins. The cap is the top {@code cap}
- * fraction of the height of whichever piece (a peak's main pyramid or one of its shoulders) forms
- * the ground here, so every peak and shoulder has a cap in proportion to its own size. Where no
- * peak reaches it returns 8, far above the world, so nothing there is ever in a cap.
+ * value), above which the biomes on a peak are vanilla's cold peak biomes. It is {@code above}
+ * blocks over the snow line at this column ({@link SnowLine}), so the cold biome (snowfall, and
+ * vanilla's own thin snow layer on any bare block) only ever covers ground the peaks' own snow
+ * has already whitened. Where there are no peaks about it returns 8, far above the world.
  * <p>
- * Used by the biome climate (build_overhaul.py, step 6): above this line the biomes see vanilla's
- * own temperature, so a peak in cold country has vanilla's cold peak biome (and so snow) in its
- * cap only, and bare rock biome below it.
+ * Used by the biome climate (build_overhaul.py, step 6). The snow itself is placed by the peaks'
+ * surface rule ({@link PeakSnowCondition}), not by the biome.
  */
-public record PeakCapFunction(double cap) implements ColumnFunction {
+public record PeakCapFunction(double above) implements ColumnFunction {
     public static final MapCodec<PeakCapFunction> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
-            Codec.DOUBLE.fieldOf("cap").forGetter(PeakCapFunction::cap)
+            Codec.DOUBLE.fieldOf("above").forGetter(PeakCapFunction::above)
     ).apply(i, PeakCapFunction::new));
 
-    /** Returned where no peak reaches: far above the world's top. */
+    /** Returned where there is no snow line: far above the world's top. */
     private static final double NONE = 8.0;
 
     @Override
     public double at(int blockX, int blockZ) {
         HornsFunction horns = HornsFunction.current;
         if (horns == null) return NONE;
-        double[] c = horns.column(blockX, blockZ);
-        if (c[0] <= HornsFunction.NO_PEAK + 1 || c[2] <= 0) return NONE;
-        return c[1] + (1 - cap) * c[2] / 128.0;
+        double line = SnowLine.at(horns, blockX, blockZ);
+        return Double.isNaN(line) ? NONE : (line + above - 128.0) / 128.0;
     }
 
     @Override

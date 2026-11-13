@@ -23,11 +23,12 @@ import net.minecraft.world.level.levelgen.densityfunction.DensityFunction;
  * median 83 blocks off), which made the fins, towers and domes in his screenshots of 12 Nov 2026.
  * Real distance from the river gives flat walls.
  */
-public record RiverWallFunction(double channel, double slope, double maxSlope) implements ColumnFunction {
+public record RiverWallFunction(double channel, double slope, double maxSlope, double ribRoom) implements ColumnFunction {
     public static final MapCodec<RiverWallFunction> CODEC = RecordCodecBuilder.mapCodec(i -> i.group(
             Codec.DOUBLE.fieldOf("channel").forGetter(RiverWallFunction::channel),
             Codec.DOUBLE.fieldOf("slope").forGetter(RiverWallFunction::slope),
-            Codec.DOUBLE.fieldOf("max_slope").forGetter(RiverWallFunction::maxSlope)
+            Codec.DOUBLE.fieldOf("max_slope").forGetter(RiverWallFunction::maxSlope),
+            Codec.DOUBLE.optionalFieldOf("rib_room", 0.0).forGetter(RiverWallFunction::ribRoom)
     ).apply(i, RiverWallFunction::new));
 
     /** The walls most recently built from the data pack; the peaks read their settings from it. */
@@ -39,11 +40,13 @@ public record RiverWallFunction(double channel, double slope, double maxSlope) i
 
     @Override
     public double at(int blockX, int blockZ) {
-        return RiverDistance.at(blockX, blockZ, channel) * maxSlope / 128.0;
+        // room above the steepest wall for the ribs a wall carries, which fade out at the river
+        double river = RiverDistance.at(blockX, blockZ, channel);
+        return (river * maxSlope + ribRoom * Math.min(1, river / HornsFunction.WALL_RIB_FADE)) / 128.0;
     }
 
     @Override
-    public Interval range() { return Interval.of(0.0f, (float) (RiverDistance.REACH * maxSlope / 128.0)); }
+    public Interval range() { return Interval.of(0.0f, (float) ((RiverDistance.REACH * maxSlope + ribRoom) / 128.0)); }
 
     @Override
     public MapCodec<? extends DensityFunction> codec() { return CODEC; }

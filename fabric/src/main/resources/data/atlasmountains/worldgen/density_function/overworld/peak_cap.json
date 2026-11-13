@@ -2,6 +2,6 @@
  "type": "minecraft:cache",
  "input": {
   "type": "atlasmountains:peak_cap",
-  "cap": 0.28
+  "above": 25
  }
 }

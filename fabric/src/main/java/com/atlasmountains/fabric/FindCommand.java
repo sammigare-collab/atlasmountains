@@ -182,6 +182,20 @@ public final class FindCommand {
                     java.util.List<double[]> all = horns.peaksNear(p.x, p.z, 6000);
                     all.sort(java.util.Comparator.comparingDouble(a -> Math.hypot(a[1] - p.x, a[2] - p.z)));
                     if (all.isEmpty()) { src.sendSuccess(() -> Component.literal("No peaks within 6,000 blocks."), false); return 1; }
+                    if (horns.sampler()) {
+                        // Sampler build: the two nearest good-sized peaks of each look.
+                        src.sendSuccess(() -> Component.literal("Sampler build. Nearest peaks of each look (click or type the /tp):"), false);
+                        for (int look = 0; look < HornsFunction.LOOK_NAMES.length; look++) {
+                            int shown = 0;
+                            for (double[] hit : all) {
+                                if ((int) hit[0] != look || hit[3] < 110) continue;
+                                String line = String.format("  %s:  /tp @s %d %d %d  (%d blocks away, %d tall)", HornsFunction.LOOK_NAMES[look], (int) hit[1], (int) hit[4] + 20, (int) hit[2], (int) Math.hypot(hit[1] - p.x, hit[2] - p.z), (int) hit[3]);
+                                src.sendSuccess(() -> Component.literal(line), false);
+                                if (++shown == 2) break;
+                            }
+                        }
+                        return 1;
+                    }
                     src.sendSuccess(() -> Component.literal("Nearest peaks:"), false);
                     for (double[] hit : all.subList(0, Math.min(6, all.size()))) {
                         String line = String.format("  /tp @s %d %d %d  (%d blocks away, %d tall)", (int) hit[1], (int) hit[4] + 20, (int) hit[2], (int) Math.hypot(hit[1] - p.x, hit[2] - p.z), (int) hit[3]);

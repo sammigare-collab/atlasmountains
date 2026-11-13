@@ -34,55 +34,17 @@
            "secondary_depth_range": 0
           },
           "then_run": {
-           "type": "minecraft:sequence",
-           "sequence": [
-            {
-             "type": "minecraft:condition",
-             "if_true": {
-              "type": "minecraft:biome",
-              "biome_is": [
-               "minecraft:jagged_peaks",
-               "minecraft:frozen_peaks"
-              ]
-             },
-             "then_run": {
-              "type": "minecraft:condition",
-              "if_true": {
-               "type": "minecraft:not",
-               "invert": {
-                "type": "minecraft:noise_threshold",
-                "noise": "atlasmountains:snow_patches",
-                "min_threshold": 0.45,
-                "max_threshold": 10.0
-               }
-              },
-              "then_run": {
-               "type": "minecraft:block",
-               "result_state": "minecraft:snow_block"
-              }
-             }
-            },
-            {
-             "type": "minecraft:condition",
-             "if_true": {
-              "type": "atlasmountains:on_peak",
-              "above_fraction": 0.94
-             },
-             "then_run": {
-              "type": "minecraft:condition",
-              "if_true": {
-               "type": "minecraft:noise_threshold",
-               "noise": "atlasmountains:snow_patches",
-               "min_threshold": -0.1,
-               "max_threshold": 10.0
-              },
-              "then_run": {
-               "type": "minecraft:block",
-               "result_state": "minecraft:snow_block"
-              }
-             }
-            }
-           ]
+           "type": "minecraft:condition",
+           "if_true": {
+            "type": "atlasmountains:peak_snow",
+            "edge": 9.0,
+            "gully": 14.0,
+            "fringe": 12.0
+           },
+           "then_run": {
+            "type": "minecraft:block",
+            "result_state": "minecraft:snow_block"
+           }
           }
          },
          {
@@ -97,29 +59,29 @@
           "then_run": {
            "type": "atlasmountains:peak_rock",
            "wobble": 8.0,
-           "blend_width": 1.0,
+           "blend_width": 0.6,
            "top_fraction": 0.72,
-           "floor": 70,
+           "span": 220,
            "stops": [
             {
              "state": "minecraft:andesite",
-             "at": 6
+             "at": 5
             },
             {
              "state": "minecraft:stone",
-             "at": 18
+             "at": 30
             },
             {
              "state": "minecraft:tuff",
-             "at": 32
+             "at": 62
             },
             {
              "state": "minecraft:deepslate",
-             "at": 55
+             "at": 86
             },
             {
              "state": "minecraft:smooth_basalt",
-             "at": 90
+             "at": 95
             }
            ]
           }

@@ -1,5 +1,60 @@
 # Changelog
 
+## 0.4.9 (unreleased, SAMPLER BUILD): realistic snow, mid-grey rock, and three face looks to choose from
+
+Sammi's in-game look at 0.4.8 (seven screenshots, seed 7926463379904956983): "there's still
+something off with them, they're looking okay but a bit weird". What the screenshots showed: a
+white cap on every shoulder half-way down a mountain ("white tents"); faces that read as plain
+flat pyramids again, the ribs invisible; near-black rock from a fifth of the way up, clashing with
+vanilla's light stone beside it; one dead-flat river wall hundreds of blocks wide; and blotchy rock
+close up. His reply: "make the snow more realistic for sure and do the other changes, shape needs
+work". Where peaks generate and their spacing are unchanged.
+
+Snow (new, PeakSnowCondition.java, SnowLine.java, HornsFunction.snowLine):
+- One smooth snow line over a whole range, not a cap on a share of every piece's own height. Each
+  main peak wants snow on its top quarter; at any column the line is the average of the nearby
+  peaks' wishes, the nearest counting most. Shoulders have no say, so they are only white if they
+  reach into their mountain's snow. (A first try, one flat line per range from its average summit,
+  left most of a row of peaks he had liked with no snow at all: summits in one range differ by 60
+  blocks or more.)
+- The snow reaches about 14 blocks lower in the gullies and starts as much higher on the ribs, so
+  tongues run down the gullies and dark ribs stand out of the cap's lower edge. The edge wanders
+  by about 9 blocks, and for 12 blocks above it the snow is in patches.
+- Warm country: the line is 30 blocks higher (a dusting on the tallest summits only). Vanilla's
+  coldest band: 12 lower. Vanilla's cold peak biome now starts 25 blocks above the line, where the
+  mod's own snow is already complete.
+
+Rock:
+- Bands measured down from the snow line: smooth basalt and deepslate in a band about 30 blocks
+  deep under the snow, tuff then stone on the body, andesite only about 200 blocks down (in
+  proportion on smaller peaks). 0.4.7 was two-thirds light grey, 0.4.8 two-thirds dark; this is
+  about a fifth dark, half mid-grey, under a third light.
+- Finer mix between rock types (half the roll is per-block, and only the middle 60% of each gap is
+  mixed), so no camouflage blotches close up.
+
+Shape (SAMPLER: rib_depth is -1, every peak gets one of three looks; `/atlasmountains peaks`
+lists the two nearest good-sized peaks of each with a teleport):
+- A big spurs: ridges and gullies 22 blocks deep, 44 apart.
+- B very big spurs: 32 deep, 56 apart.
+- C buttresses: flat panels 46 wide, each set up to 8 blocks in or out, with a sharp gully up to
+  20 deep between each pair.
+  (0.4.6 to 0.4.8: 10 deep, 34 apart, which in the game read as one smooth sheet.)
+- River walls carry the face's own ribs and gullies (fading out at the river), so a wall is no
+  longer one bare slab.
+
+Checked on a dev server on his seed, from real generated chunks, at his seven screenshot positions
+(renders sent with the build, beside his screenshots):
+- 768-block square at 6420 4760: rock on peaks andesite 29%, stone 27%, tuff 19%, deepslate 14%,
+  smooth basalt 7%, snow 4%. Of 7 separate summits above y 200, 6 have snow, reaching 11 to 58
+  blocks below the summit; the lowest (y 252) has none.
+- Snow cover against the line: under 1% more than 25 blocks below it, 11% in the 10 blocks below,
+  50% in the first 12 above, 91% in the next 13, complete above that.
+- Trees or grass where a peak stands 12+ blocks above the land: 0.09% of columns. Along river
+  channels a peak stands at most 8 blocks above the land.
+- The same square generated twice is identical block for block.
+- Generating a 640-block square took 2 min 22 s against 2 min 14 s for 0.4.8, run back to back.
+- Not rerun on the first test seed. The three looks have only been seen in renders.
+
 ## 0.4.8 (unreleased): straight river walls, darker rock, peak biome on the whole peak
 
 Sammi's in-game look at 0.4.7 (six screenshots, "........"): thin fins, rounded towers and domes,

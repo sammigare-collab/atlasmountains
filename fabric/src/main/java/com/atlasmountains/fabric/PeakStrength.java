@@ -44,6 +44,9 @@ final class PeakStrength {
     private static volatile DensityFunction landFunction;
     private static volatile DensityFunction aboveFunction;
     private static volatile DensityFunction weirdnessFunction;
+    private static volatile DensityFunction temperatureFunction;
+    private static final ResourceKey<DensityFunction> TEMPERATURE_KEY =
+            ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.withDefaultNamespace("overworld/temperature"));
     private static final ConcurrentHashMap<Long, Float> remembered = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Long, Float> rememberedLand = new ConcurrentHashMap<>();
 
@@ -62,6 +65,7 @@ final class PeakStrength {
         landFunction = null;
         aboveFunction = null;
         weirdnessFunction = null;
+        temperatureFunction = null;
         RiverDistance.reset();
         HornsFunction.forget();
         remembered.clear();
@@ -83,6 +87,7 @@ final class PeakStrength {
         landFunction = land.get().value();
         aboveFunction = above.map(h -> h.value()).orElse(null);
         weirdnessFunction = weird.map(h -> h.value()).orElse(null);
+        temperatureFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(TEMPERATURE_KEY).map(h -> h.value()).orElse(null);
     }
 
     /** Strength for the peak of cell (ix, iz), whose summit is at block (x, z). */
@@ -121,6 +126,13 @@ final class PeakStrength {
     static double land(int x, int z) {
         RandomState rs = state;
         DensityFunction fn = landFunction;
+        return (rs == null || fn == null) ? 0.0 : rs.sampleBlockValueUncached(fn, x, 64, z);
+    }
+
+    /** Vanilla's own temperature at a column (its climate map, before the mod touches what the biomes see); 0 with no world loaded. */
+    static double temperature(int x, int z) {
+        RandomState rs = state;
+        DensityFunction fn = temperatureFunction;
         return (rs == null || fn == null) ? 0.0 : rs.sampleBlockValueUncached(fn, x, 64, z);
     }
 
