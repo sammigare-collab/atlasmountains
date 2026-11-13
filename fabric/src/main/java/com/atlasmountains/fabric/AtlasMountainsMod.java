@@ -38,6 +38,7 @@ public final class AtlasMountainsMod implements ModInitializer {
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("horns"), HornsFunction.CODEC);
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("peak_cap"), PeakCapFunction.CODEC);
         Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("river_wall"), RiverWallFunction.CODEC);
+        Registry.register(BuiltInRegistries.DENSITY_FUNCTION_TYPE, id("peak_rocky"), PeakRockyFunction.CODEC);
         Registry.register(BuiltInRegistries.MATERIAL_CONDITION_TYPE, id("on_peak"), OnPeakCondition.CODEC);
         Registry.register(BuiltInRegistries.MATERIAL_CONDITION_TYPE, id("peak_snow"), PeakSnowCondition.CODEC);
         Registry.register(BuiltInRegistries.MATERIAL_RULE_TYPE, id("peak_rock"), PeakRockRule.CODEC);

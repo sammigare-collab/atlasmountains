@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.5.2 (unreleased, SAMPLER BUILD): grass up the gentle lower slopes, more structure, a height mistake put right
+
+Sammi's nine in-game screenshots of 0.5.1 (seed 5300383603861270436). Agreed reading: three
+mountains still "too soft" (plain smooth cones), two of the kind he wants (jagged tops, ribs),
+holes in some snow caps. He added: "the flats should be grass and go up the mountain a bit
+where it's less steep, but natural".
+
+- Grass. Low on a mountain, ground that is gentle enough keeps vanilla's own surface and biome
+  (grass, trees): at the foot anything under about 40 degrees, less and less higher up, none
+  above 38% of the mountain's height, with a wandering edge (`GRASS_SLOPE`, `GRASS_UP` in
+  ErodedPeaks.java; new density function `peak_rocky`). On his seed, 1024-block square at
+  -200 -450: of the mountains' area, rock 79% then 59%, grass and trees 10% then 34%.
+- A MISTAKE IN 0.5.0 AND 0.5.1, FIXED: every mountain stood about 20 blocks taller than its set
+  height. Claude had compared summits with the height the peaks command teleports to (20 above
+  the summit), "found" erosion taking 19 blocks off, and built every mountain 19 taller to make
+  up for it. Measured properly now: two summits at y 330 and 207 against set heights 328 and
+  207. Snow caps are smaller as a result (the snow line is a quarter of the height below the
+  summit).
+- Softness. The soft mountains in his screenshots were not all one sampler look (as far as ten
+  peaks in the test square can show: one soft one is an M, another an L or an S), so no look is
+  dropped. Every mountain gets one more leg (4, 3, 3 at least), stronger detail noise before
+  erosion (9 for 5.5), half as many droplets again and a deeper bite. Measured effect is small:
+  on the two big M mountains, how far the downhill direction turns away from "straight down
+  from the summit" (0 on a perfect cone) went from 34 to 41 degrees. Expect a modest change.
+- Snow holes: NOT confirmed fixed. Two changes (only real gullies, not sediment, count as
+  gullies for the snow; sheltered hollows hold snow lower). Claude's count of bare columns
+  inside caps did not go down, and the large holes of his screenshots did not show up in
+  renders of this square in either version.
+- Erosion now takes 318 ms per region on average, 658 at worst, on the test server (0.5.1: 175
+  and 391).
+- `/atlasmountains peaks` can list more than three per look on a test server
+  (`-Datlasmountains.list=60`); players see three as before.
+
+Not touched: the steep walls where a mountain meets a river or the coast, and the overhanging
+ledge at a mountain's foot (both seen in his screenshots, neither asked for).
+Not tested: in the game; any other seed; cold biomes.
+
 ## 0.5.1 (unreleased, SAMPLER BUILD): no rock patches without a mountain; mountains by rivers keep their summits
 
 Sammi's first in-game looks at 0.5.0. (1) A screenshot at -9837 -2238, seed -3550034452994718772:

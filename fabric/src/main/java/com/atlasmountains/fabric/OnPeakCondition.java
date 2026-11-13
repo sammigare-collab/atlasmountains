@@ -53,7 +53,8 @@ public record OnPeakCondition(int tolerance, double minAbove, double rockBelow) 
             int x = context.blockX(), y = context.blockY(), z = context.blockZ();
             double[] c = horns.column(x, z);
             if (c[0] > HornsFunction.NO_PEAK + 1 && c[2] > 0 && y <= 128 + 128 * c[0] + tolerance
-                    && PeakStrength.aboveLand(x, z) >= minAbove) return true;
+                    && PeakStrength.aboveLand(x, z) >= minAbove
+                    && (!HornsFunction.ERODED || ErodedPeaks.rocky(horns, x, z) > 0.5)) return true;
             double line = SnowLine.at(horns, x, z);
             return !Double.isNaN(line) && y + WANDER * edgeNoise.getAsDouble() >= line - rockBelow
                     && PeakStrength.mountainCountry(x, z) >= MOUNTAIN_COUNTRY;

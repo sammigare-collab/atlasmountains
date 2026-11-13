@@ -280,7 +280,10 @@ def main():
     #    formed along the rock line (first test of 0.4.10).
     ROCKY = mul(clamp(mul(add(above_cap, (SNOW_BIOME_ABOVE + ROCK_BELOW) / 128.0), 100000.0), 0.0, 1.0),
                 clamp(mul(add(AMP, -0.45), 100000.0), 0.0, 1.0))
-    K = {'type': 'minecraft:max', 'left': smooth('peak_biome', ramp(PEAK, PEAK_BIOME_FROM, PEAK_BIOME_FULL)), 'right': ROCKY}
+    #    0.5.2: only where the mountain is bare rock. On its gentle lower slopes (peak_rocky is 0) the
+    #    land keeps vanilla's own biome, so grass and trees run a little way up the mountain.
+    write(f'{DF}/peak_rocky.json', cache({'type': f'{NS}:peak_rocky'}))
+    K = mul(smooth('peak_biome', ramp(PEAK, PEAK_BIOME_FROM, PEAK_BIOME_FULL)), f'{NS}:overworld/peak_rocky')
     sign = clamp(mul(W, 10000.0), -1.0, 1.0)
     write(f'{DF}/biome_ridges.json', add(W, mul(K, add(mul(sign, PEAK_BIOME_W), mul(-1.0, W)))))
     ns = load('worldgen/noise_settings/overworld.json')

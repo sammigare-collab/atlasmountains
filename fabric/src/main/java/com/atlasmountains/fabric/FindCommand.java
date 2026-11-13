@@ -32,6 +32,8 @@ import java.util.Locale;
  * that happens to sit on a low hill.
  */
 public final class FindCommand {
+    /** How many peaks of each look "/atlasmountains peaks" lists. 3 for players; a test server can ask for more with -Datlasmountains.list=60. */
+    private static final int LIST = Integer.getInteger("atlasmountains.list", 3);
     private FindCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -192,10 +194,10 @@ public final class FindCommand {
                         for (int foot = 0; foot < HornsFunction.FOOT_NAMES.length; foot++) {
                             int shown = 0;
                             for (double[] hit : all) {
-                                if ((int) hit[0] != foot || hit[3] < 110) continue;
+                                if ((int) hit[0] != foot || hit[3] < (LIST > 3 ? 0 : 110)) continue;
                                 String line = String.format("  %s:  /tp @s %d %d %d  (%d blocks away, %d tall)", HornsFunction.FOOT_NAMES[foot], (int) hit[1], (int) hit[4] + 20, (int) hit[2], (int) Math.hypot(hit[1] - p.x, hit[2] - p.z), (int) hit[3]);
                                 src.sendSuccess(() -> Component.literal(line), false);
-                                if (++shown == 3) break;
+                                if (++shown == LIST) break;
                             }
                         }
                         return 1;

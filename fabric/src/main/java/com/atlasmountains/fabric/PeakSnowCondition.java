@@ -55,7 +55,9 @@ public record PeakSnowCondition(double edge, double gully, double fringe) implem
             if (Double.isNaN(line)) return false;
             double above = context.blockY() - line;
             if (above < -(edge + gully) * 1.5) return false;                         // far below: skip the noises
-            double rib = Math.max(-1, Math.min(1, horns.column(x, z)[3] / FULL_RIB));
+            // on the eroded mountains: real gullies and sheltered hollows both hold snow lower down
+            double depth = HornsFunction.ERODED ? horns.column(x, z)[3] + 3 * ErodedPeaks.shelter(horns, x, z) : horns.column(x, z)[3];
+            double rib = Math.max(-1, Math.min(1, depth / FULL_RIB));
             above += edge * Math.max(-1.5, Math.min(1.5, 2 * edgeNoise.getAsDouble())) + gully * rib;
             if (above < 0) return false;
             if (above >= fringe) return true;

@@ -116,7 +116,10 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
             if (relief < 0.01) return;
         }
         double land = PeakStrength.land(blockX, blockZ);
-        out[0] = land + relief / 128.0; out[1] = land; out[2] = relief; out[3] = e[1];
+        // Only real gullies count for the snow (it reaches lower in them). Where erosion dropped
+        // its load the number is below zero, which the snow rule, written for the 0.4 ribs, read
+        // as a rib standing proud and left bare: the holes in the caps in Sammi's screenshots.
+        out[0] = land + relief / 128.0; out[1] = land; out[2] = relief; out[3] = Math.max(0, e[1]);
     }
 
     /** One line per peak whose summit is within radius blocks of (x, z): style, summit x, summit z, height. */

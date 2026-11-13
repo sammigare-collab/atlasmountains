@@ -73,7 +73,7 @@ final class ErodedPeaks {
     static final double LEG_ANGLE_MIN = 15, LEG_ANGLE_MAX = 50, LEG_FALL = 0.5, LEG_SIDE = 1.1, LEG_PEAKS = 60,
             LEG_NOTCH = 14, LEG_FADE_FROM = 0.8, LEG_REACH = 1.3, LEG_BEND = 0.3;
     /** Detail noise laid on before erosion so the droplets have something to follow. */
-    static final double DETAIL = 5.5, DETAIL_LENGTH = 44, DETAIL_POWER = 2.0;
+    static final double DETAIL = 9.0, DETAIL_LENGTH = 44, DETAIL_POWER = 2.0;   // 5.5 in the old mod and in 0.5.0/0.5.1; see LEGS
     static final int DETAIL_OCTAVES = 3;
     /** Thermal erosion: the steepest rock and flank can stand (as slopes), the band between them, and how fast it works. */
     static final double THERMAL_ROCK = Math.sqrt(1.25 * 1.25 + 0.75 * 0.75), THERMAL_FLANK = Math.tan(Math.toRadians(36)),
@@ -85,9 +85,9 @@ final class ErodedPeaks {
      * only (not wasted on the flat ground between), three times as thickly: the first test of
      * 0.5.0 at the old rate left smooth cones with gullies too faint to see.
      */
-    static final double DROPLETS_PER_SAMPLE = 3 * 50_000.0 / (640 * 640), ERODE_BELOW_ROCK = 8, ERODE_BAND = 16,
+    static final double DROPLETS_PER_SAMPLE = 4.5 * 50_000.0 / (640 * 640), ERODE_BELOW_ROCK = 8, ERODE_BAND = 16,
             INERTIA = 0.1, CAPACITY = 2.5, MIN_SLOPE_CAPACITY = 0.01, DEPOSIT = 0.3, ERODE = 0.3, EVAPORATE = 0.015,
-            GRAVITY = 0.5, MAX_SPEED = 3, MAX_ERODE = 0.3, FLOOR_DIG = 5, FAN = 2.0;
+            GRAVITY = 0.5, MAX_SPEED = 3, MAX_ERODE = 0.4, FLOOR_DIG = 5, FAN = 2.0;
     static final int DROPLET_LIFE = 120;
     /** Fine noise added when the 4-block grid is read back, so faces are not glassy. */
     static final double FINE = 1.5, FINE_LENGTH = 7;
@@ -99,7 +99,12 @@ final class ErodedPeaks {
     /** The lesser summits along a crest are this share of the main one, at least and at most. */
     static final double LESSER_MIN = 0.90, LESSER_MAX = 0.99;
     /** How many legs a mountain of each look has at least; half of them have one more. The near-point of look S is a horn: three or four aretes. */
-    static final int[] LEGS = {3, 2, 2};
+    static final int[] LEGS = {4, 3, 3};
+    // 0.5.2: Sammi in the game on 0.5.0 and 0.5.1: "sometimes nice and angularly eroded, sometimes too
+    // soft". The soft ones in his screenshots (plain smooth cones) were not all one sampler look,
+    // so every mountain gets more structure: one more leg each (was 3, 2, 2), stronger detail
+    // noise before erosion (9 for 5.5), half as many droplets again and a deeper bite per step
+    // (0.4 for 0.3).
     /**
      * Erosion treats the top three quarters of a mountain as rock (steep ground stands, droplets
      * dig). The old mod drew that line half-way up, where its grass began; these mountains are
@@ -108,11 +113,13 @@ final class ErodedPeaks {
      */
     static final double ERODED_FRACTION = 0.75;
     /**
-     * Erosion takes about this many blocks off every summit (measured on four peaks of 121 to 159
-     * blocks: 18 or 19 each). Each mountain is built this much taller, in proportion, so that it
-     * ends up the height HornsFunction gave it and the snow line sits where it should.
+     * Extra height built in to make up for what erosion takes off a summit: none. 0.5.0 and 0.5.1
+     * had 19 here by mistake: Claude compared the summits with the height the /atlasmountains
+     * peaks command teleports to, which is 20 blocks above the summit, and "corrected" a loss
+     * that was not there, so every mountain in those two builds stood about 20 blocks taller
+     * than its set height. Measured again for 0.5.2 against the real summit heights.
      */
-    static final double SUMMIT_LOSS = 19.0;
+    static final double SUMMIT_LOSS = 0.0;
     /** How far the main summit may sit from the middle of its crest, as a share of the half-length. */
     static final double SUMMIT_OFF = 0.6;
 
@@ -250,6 +257,61 @@ final class ErodedPeaks {
     /** Half the side of the square a mountain fits in. */
     private static double boxOf(Peak p) {
         return (LEG_REACH * HALF_WIDTH + CREST_HALF[p.look] * (1 + SUMMIT_OFF)) * (p.h + SUMMIT_LOSS) / RELIEF;
+    }
+
+    // ---- grass on the gentle lower slopes (0.5.2) ------------------------------------------------
+    // Sammi: "the flats should be grass and go up the mountain a bit where it's less steep, but
+    // natural". Low on a mountain, ground that is gentle enough keeps vanilla's own surface and
+    // biome (grass, trees); the steeper it is and the higher up, the less. At the foot, ground up
+    // to GRASS_SLOPE is grass; the slope allowed shrinks to nothing GRASS_UP of the way up the
+    // mountain. Two slow noises make the edge wander.
+    static final double GRASS_SLOPE = 0.85, GRASS_UP = 0.38;   // first try 0.80 and 0.50: a tongue of grass ran two thirds of the way up a valley between two peaks
+    private static final ThreadLocal<double[]> ROCKY = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, 0, 0, 0});
+
+    /** 1 where a mountain's surface is bare rock at this column, 0 where it is grass (or there is no mountain). Remembers the last column per thread. */
+    static double rocky(HornsFunction horns, int x, int z) {
+        double[] c = ROCKY.get();
+        if (c[0] == x && c[1] == z && c[3] == System.identityHashCode(horns) && c[4] == AtlasMountainsMod.seed()) return c[2];
+        double v = rockyUncached(horns, x, z);
+        c[0] = x; c[1] = z; c[2] = v; c[3] = System.identityHashCode(horns); c[4] = AtlasMountainsMod.seed();
+        return v;
+    }
+
+    private static final ThreadLocal<double[]> ROCKY_OUT = ThreadLocal.withInitial(() -> new double[2]);
+
+    private static double rockyUncached(HornsFunction horns, int x, int z) {
+        double[] o = ROCKY_OUT.get();
+        sample(horns, x, z, o);
+        double relief = o[0];
+        if (relief < 2) return 0;
+        double tall = SnowLine.peakHeight(horns, x, z);
+        if (!(tall > 20)) tall = 120;
+        long seed = AtlasMountainsMod.seed();
+        double up = relief / tall + 0.06 * HornsFunction.valueNoise(x / 37.0, z / 37.0, seed + 771);
+        if (up >= GRASS_UP) return 1;
+        sample(horns, x + 3, z, o); double e = o[0];
+        sample(horns, x - 3, z, o); double w = o[0];
+        sample(horns, x, z + 3, o); double s = o[0];
+        sample(horns, x, z - 3, o); double n = o[0];
+        double slope = Math.hypot(e - w, s - n) / 6.0;
+        double limit = GRASS_SLOPE * (1 - up / GRASS_UP) + 0.12 * HornsFunction.valueNoise(x / 19.0, z / 19.0, seed + 772);
+        return slope < limit ? 0 : 1;
+    }
+
+    /**
+     * How sheltered a column is, for the snow: how far its ground lies below the ground 8 blocks
+     * away on four sides, in blocks (0 on a slope or a rib, above zero in a hollow). Snow gathers
+     * in hollows; without this the small hollows among a mountain's summits fell under the
+     * wandering snow line and showed as bare holes in the cap (Sammi's screenshots of 0.5.1).
+     */
+    static double shelter(HornsFunction horns, int x, int z) {
+        double[] o = ROCKY_OUT.get();
+        sample(horns, x, z, o); double here = o[0];
+        sample(horns, x + 8, z, o); double sum = o[0];
+        sample(horns, x - 8, z, o); sum += o[0];
+        sample(horns, x, z + 8, o); sum += o[0];
+        sample(horns, x, z - 8, o); sum += o[0];
+        return Math.max(0, sum / 4 - here);
     }
 
     private static void finish(int x, int z, double[] out) {
