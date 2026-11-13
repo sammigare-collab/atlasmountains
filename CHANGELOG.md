@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.11 (unreleased): look C+ on every peak
+
+Sammi, from the 0.4.10 sampler in the game: "I think C+ is the best but still not perfect". What
+is not perfect is not yet said; this build only makes C+ the look of every peak so he can judge
+a whole world of it. Nothing else changes.
+
+- Faces: buttresses (flat panels 46 wide, each set up to 8 blocks in or out, with a sharp gully
+  up to 20 deep between each pair). Top: the steeper horn top (top 30% at 58 degrees, 49 below).
+- The sampler and the looks passed over (A big spurs, A+, C with the old shallower top) are removed.
+
+Checked on a dev server on his seed, from real generated chunks:
+- The C+ peak at 6506 4687 is the same as in the sampler: within 40 blocks of its summit 99.6% of
+  columns have the same height (the rest, up to 6 blocks, are where neighbours that had other
+  looks overlap it).
+- 768-block square at 6420 4760: no snow or ice more than 30 blocks below the snow line; rock on
+  peaks andesite 32%, stone 25%, tuff 24%, deepslate 13%, smooth basalt 3%, snow 2.2%; 16.5% of
+  the peak area steeper than 65 degrees; no errors in the server log. Generated in 3 min 10 s.
+
 ## 0.4.10 (unreleased, SAMPLER BUILD): stepped edges, less regular sides, four looks, a rock line
 
 Sammi and Claude agreed 0.4.9's shape was "a pyramid with decoration" and to work on the outline.

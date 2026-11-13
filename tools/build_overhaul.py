@@ -122,9 +122,8 @@ HORNS = {
     'shoulders': [1, 2],    # how many steps (sub-summits) a peak has on its edges; see the piece loop in HornsFunction.java
     'shoulder_size': 0.65,  # not used since 0.4.10 (a step's height comes from the edge it stands on)
                             # (how far out they stand, and the steeper summits, are constants in HornsFunction)
-    'rib_depth': -1.0,      # straight ribs down each face, this many blocks deep. BELOW ZERO = SAMPLER BUILD: every peak
-                            # gets one of four looks (A, A+, C, C+; HornsFunction.java)
-    'rib_spacing': 34.0,    # blocks from one rib to the next (not used in a sampler build)
+    'rib_depth': 20.0,      # buttresses: the gully between two panels of a face is up to this many blocks deep ...
+    'rib_spacing': 46.0,    # ... and a panel is this many blocks wide (look C+ of the 0.4.10 sampler, Sammi's choice)
     # the skirt: the lowest part of a peak carries on down more gently until it meets the ground
     'skirt_from': 0.4,      # the lowest 40% of a peak's height is skirt ...
     'skirt_slope': 0.62,    # ... at this fraction of the face's steepness (about 30 degrees)
@@ -238,7 +237,7 @@ def main():
     #    by the local value instead, as up to 0.4.2, squashed most peaks into rounded humps.
     write(f'{DF}/strength.json', cache(mul(AMP, RIVER)))
     write(f'{DF}/river_wall.json', cache({'type': f'{NS}:river_wall', 'channel': CHANNEL, 'slope': RIVER_WALL, 'max_slope': RIVER_WALL_MAX,
-                                            'rib_room': 40.0 if HORNS['rib_depth'] < 0 else HORNS['rib_depth']}))
+                                            'rib_room': 40.0}))
     valley = f'{NS}:overworld/river_wall'
     write(f'{DF}/horns.json', cache(dict({'type': f'{NS}:horns'}, **HORNS)))
     #    horns gives the level the peaks reach here (far below ground where there is none); a peak
