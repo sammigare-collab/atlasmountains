@@ -46,6 +46,11 @@ final class PeakStrength {
     private static volatile DensityFunction weirdnessFunction;
     private static volatile DensityFunction temperatureFunction;
     private static volatile DensityFunction countryFunction;
+    private static volatile DensityFunction raisedFunction, maskFunction;
+    private static final ResourceKey<DensityFunction> RAISED_KEY =
+            ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/raised_land"));
+    private static final ResourceKey<DensityFunction> MASK_KEY =
+            ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/floor_mask"));
     private static final ResourceKey<DensityFunction> COUNTRY_KEY =
             ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/amp"));
     private static final ResourceKey<DensityFunction> TEMPERATURE_KEY =
@@ -70,6 +75,8 @@ final class PeakStrength {
         weirdnessFunction = null;
         temperatureFunction = null;
         countryFunction = null;
+        raisedFunction = null;
+        maskFunction = null;
         RiverDistance.reset();
         HornsFunction.forget();
         remembered.clear();
@@ -93,6 +100,8 @@ final class PeakStrength {
         weirdnessFunction = weird.map(h -> h.value()).orElse(null);
         temperatureFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(TEMPERATURE_KEY).map(h -> h.value()).orElse(null);
         countryFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(COUNTRY_KEY).map(h -> h.value()).orElse(null);
+        raisedFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(RAISED_KEY).map(h -> h.value()).orElse(null);
+        maskFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(MASK_KEY).map(h -> h.value()).orElse(null);
     }
 
     /** Strength for the peak of cell (ix, iz), whose summit is at block (x, z). */
@@ -145,6 +154,20 @@ final class PeakStrength {
     static double mountainCountry(int x, int z) {
         RandomState rs = state;
         DensityFunction fn = countryFunction;
+        return (rs == null || fn == null) ? 0.0 : rs.sampleBlockValueUncached(fn, x, 64, z);
+    }
+
+    /** The land's target height at a column once the valley floor is raised under it (offset units); vanilla's own where there is no floor. */
+    static double raisedLand(int x, int z) {
+        RandomState rs = state;
+        DensityFunction fn = raisedFunction;
+        return (rs == null || fn == null) ? land(x, z) : rs.sampleBlockValueUncached(fn, x, 64, z);
+    }
+
+    /** How fully the raised valley floor applies at a column, 0 to 1 (the data pack's "floor_mask"). */
+    static double floorMask(int x, int z) {
+        RandomState rs = state;
+        DensityFunction fn = maskFunction;
         return (rs == null || fn == null) ? 0.0 : rs.sampleBlockValueUncached(fn, x, 64, z);
     }
 

@@ -1,0 +1,8 @@
+{
+ "type": "minecraft:cache",
+ "input": {
+  "type": "minecraft:add",
+  "left": "atlasmountains:overworld/vanilla_offset",
+  "right": "atlasmountains:overworld/floor_lift"
+ }
+}

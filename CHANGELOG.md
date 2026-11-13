@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.4.13 (unreleased): a high valley floor; the peaks rise straight out of it
+
+Sammi drew lines on a comparison of 0.4.11 and 0.4.12, just under the peaks' dark faces:
+"Everything below those lines looks quite bad." Traced back onto the terrain his lines were 65 to
+100 blocks under the snow line (median 79), about the level of the land under the summits. Below
+them the mountains ran on down another 100 blocks into vanilla's river valleys: 73% of the square
+was below the line (half of that vanilla's own slopes, a fifth river wall, a fifth peak faces).
+Shown two mock-ups, A (same shape, grass and trees below the line) and B (the ground raised to
+the line), he chose B.
+
+What changed:
+- The land in mountain country is raised to a valley floor 79 blocks under the snow line
+  (`FLOOR_BELOW` in HornsFunction.java), rolling by a few blocks. Land already higher is left
+  alone. Fully raised within 160 blocks of the peaks, sloping down to vanilla's land by 400
+  blocks out with a wandering outline (`FLOOR_FULL`, `FLOOR_END`, `FLOOR_EDGE` in
+  build_overhaul.py), and coming up out of the sea and lakes over the coast (`FLOOR_COAST`).
+- On the raised floor 70% of vanilla's lumpy 3-D terrain noise is taken off (`FLOOR_CALM`).
+- The floor keeps vanilla's own surface: grass, trees, whatever the biome puts there. The rock
+  line moved up to match (`ROCK_BELOW` 100 to 60), so rock starts about 20 blocks above the floor.
+- River walls are off where the floor is raised (the rivers are under it). They still stand at
+  the outer edge of mountain country.
+- The foot sampler of 0.4.12 is switched off with F1 (faces straight down, no skirt) on every
+  peak. Sammi did not choose between F1 and F2; Claude chose, because the floor buries most of
+  the difference.
+- Where peaks generate, their spacing, their heights and their shape above the line are unchanged
+  (erosion, inland, river settings and "cell" untouched; the six nearest peaks at the test spot
+  are at the same places with the same heights as in 0.4.12).
+
+This bends an earlier rule on purpose: until now vanilla's land always stayed at its own height.
+It is now raised (never lowered) around the peaks.
+
+Checked on a dev server on his seed (-4547848503839837251), from real generated chunks:
+- The 896-block square of his screenshots (at 6480 -6050), 0.4.12 then 0.4.13: bare rock 52% then
+  27% of the surface; grass, trees and other growth 40% then 67%; water 7.4% then 4.6%; the
+  middle ground height y 103 then y 146.
+- A 1408-block square round the same spot: land raised on 62% of it, by 42 blocks in the middle
+  case, 81 at the ninetieth percentile, 141 at most. The floor lies at y 130 to 184. Its slope:
+  8 degrees typical, 17 at the ninetieth percentile. The outer slope: 21 degrees typical, 53 at
+  the ninetieth percentile (vanilla's own roughness shows through there).
+- The nine summits in it stand 57 to 129 blocks above the open ground round them. (The six
+  nearest summits are at y 207 to 327; in 0.4.12 their faces and river walls ran down to rivers
+  at y 62.)
+- Peak faces still running more than 10 blocks below the line: 2.0% of the square, nearly all
+  at lake and sea shores, where the floor is not raised (the left peak at his screenshot 2).
+- A second place by the sea (896 square at -5600 2700): same picture, three summits 98 to 110
+  above the ground round them.
+- No errors in the server log in any run. No snow on the floor at either place.
+
+Known consequences, none of them seen in the game yet:
+- The mountains are smaller to the eye: rock peaks 60 to 130 blocks tall standing on green high
+  ground, where 0.4.12 had bare rock 200 blocks from river to summit. From outside, mountain
+  country is a broad green rise with the rock peaks on top.
+- Rivers stop at the outer slope and their valleys inside mountain country are filled in.
+  Strips of river biome are left on the floor without water.
+- Peaks differ less in visible height than before, because the floor follows the peaks up.
+- Not tested: cold biomes (vanilla lays snow on high ground in taiga and the like, so a raised
+  floor there may be snow-covered), villages and other structures on raised ground, and how long
+  generation takes compared with 0.4.12.
+
 ## 0.4.12 (unreleased, SAMPLER BUILD): the skirt goes; two ways to end a peak
 
 Sammi's in-game look at 0.4.11 (six screenshots, new world, seed -4547848503839837251): "looking a

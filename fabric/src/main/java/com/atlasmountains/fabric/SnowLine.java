@@ -13,7 +13,7 @@ final class SnowLine {
     static final double COLD_FULL = -0.55, COLD_FROM = -0.35, COLD_DROP = 12.0;
 
     private static final ThreadLocal<double[]> LAST = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, Double.NaN, 0, 0, 0});
-    private static final ThreadLocal<double[]> HEIGHT = ThreadLocal.withInitial(() -> new double[1]);
+    private static final ThreadLocal<double[]> HEIGHT = ThreadLocal.withInitial(() -> new double[2]);
 
     private SnowLine() {
     }

@@ -22,7 +22,7 @@
   "shoulder_size": 0.65,
   "rib_depth": 20.0,
   "rib_spacing": 46.0,
-  "skirt_from": 0.4,
-  "skirt_slope": 0.62
+  "skirt_from": 0.0,
+  "skirt_slope": 1.2
  }
 }

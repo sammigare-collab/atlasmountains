@@ -82,7 +82,13 @@ RIVER_WALL = 0.95     # ... and beside it a piece of a peak may rise only this m
 RIVER_WALL_MAX = 1.73 # a piece whose summit is too close to a river for that gets a steeper wall, up to this (60 degrees)
 PEAK_TEMP_FROM, PEAK_TEMP_FULL = 3 / 128.0, 6.5 / 128.0  # the temperature the biomes see is taken over where a peak stands 3 to 6.5 blocks above the land ...
 PEAK_BIOME_FROM, PEAK_BIOME_FULL = 7 / 128.0, 9 / 128.0  # ... and the weirdness and erosion from 7 to 9 (after it, so no snowy slope biome can form a ring between)
-ROCK_BELOW = 100       # the rock line: in mountain country, ground higher than this many blocks under the snow line is rock
+FLOOR_FULL = 160.0    # the valley floor is fully raised within this many blocks of the peaks ...
+FLOOR_END = 400.0     # ... and slopes down to vanilla's land by this far out (the outer slope of mountain country)
+FLOOR_EDGE = 30.0     # the outer slope's outline wanders in and out by about this many blocks, so it is not a circle round the peaks
+FLOOR_COAST = (-0.19, -0.05)  # the floor comes up out of the sea and lakes: nothing at the shoreline (continentalness at the first), fully raised from the second (where peaks can first stand, INLAND_FROM)
+FLOOR_ROLL = 7.0      # the floor rolls up and down by about this many blocks
+FLOOR_CALM = 0.7      # this share of vanilla's 3-D terrain noise is taken off on the raised floor
+ROCK_BELOW = 60       # the rock line: in mountain country, ground higher than this many blocks under the snow line is rock
 OFF_PEAK_E = -0.30    # the erosion the biomes are shown on vanilla's own land in mountain country (its third band: meadow, forest, taiga)
 PEAK_TEMPERATURE = 0.4 # below the snow a peak's biome is shown this temperature: vanilla's stony peaks (bare rock, no snow)
 SNOW_BIOME_ABOVE = 25 # the cold peak biome starts this many blocks above the snow line (the line itself is one per range:
@@ -124,9 +130,9 @@ HORNS = {
                             # (how far out they stand, and the steeper summits, are constants in HornsFunction)
     'rib_depth': 20.0,      # buttresses: the gully between two panels of a face is up to this many blocks deep ...
     'rib_spacing': 46.0,    # ... and a panel is this many blocks wide (look C+ of the 0.4.10 sampler, Sammi's choice)
-    # the skirt: the lowest part of a peak carries on down more gently until it meets the ground
-    'skirt_from': 0.4,      # the lowest 40% of a peak's height is skirt ...
-    'skirt_slope': 0.62,    # ... at this fraction of the face's steepness (about 30 degrees)
+    # the foot. 0.4.6 to 0.4.11 had a skirt (lowest 40% at 30 degrees): slabs and ramps, a third of the peak area
+    'skirt_from': 0.0,      # no skirt since 0.4.12/0.4.13: the faces run straight on down to the ground (look F1) ...
+    'skirt_slope': 1.2,     # ... at their own steepness (HornsFunction.MID_STEEP)
 }
 
 
@@ -229,8 +235,28 @@ def main():
     # vanilla's own target height, under our name so the new offset can read it
     write(f'{DF}/vanilla_offset.json', cache(offset['input']['second']))
     VOFF = f'{NS}:overworld/vanilla_offset'
-    # 2. the land is vanilla's, untouched
-    land = VOFF
+    # 2. the land: vanilla's, with a high valley floor raised under the peaks (0.4.13).
+    #    Sammi drew a line across views of 0.4.12, just under the peaks' dark faces: "everything
+    #    below those lines looks quite bad". Below it the mountains ran on down another 100 blocks
+    #    into vanilla's river valleys. He chose to have the ground raised to the line, so that the
+    #    peaks rise straight out of a valley floor. The floor's level and how near the peaks must
+    #    be are in HornsFunction.valleyFloor; here it is kept inland (no filling in the sea), given
+    #    a gentle roll, and vanilla's land is lifted to it. Land already higher is left alone.
+    #    (Vanilla's land otherwise stays at its own height: pressing it DOWN under the peaks was
+    #    rejected on 12 Nov 2026 and is still not done.)
+    write(f'{DF}/floor_distance.json', cache({'type': f'{NS}:valley_floor', 'part': 'distance'}))
+    edge = mul({'type': 'minecraft:noise', 'noise': f'{NS}:floor_edge', 'xz_scale': 1.0, 'y_scale': 0.0}, FLOOR_EDGE)
+    near = smooth('floor_near', ramp(add(f'{NS}:overworld/floor_distance', edge), FLOOR_END, FLOOR_FULL))
+    inland = smooth('floor_inland', ramp(CONT, FLOOR_COAST[0], FLOOR_COAST[1]))
+    write(f'{DF}/floor_mask.json', cache(mul(near, inland)))
+    MASK = f'{NS}:overworld/floor_mask'
+    roll = mul({'type': 'minecraft:noise', 'noise': f'{NS}:floor_roll', 'xz_scale': 1.0, 'y_scale': 0.0}, FLOOR_ROLL / 128.0)
+    write(f'{DF}/floor_level.json', cache(add({'type': f'{NS}:valley_floor', 'part': 'level'}, roll)))
+    lift = {'type': 'minecraft:max', 'left': 0.0, 'right': add(f'{NS}:overworld/floor_level', mul(-1.0, VOFF))}
+    write(f'{DF}/floor_lift.json', cache(mul(MASK, lift)))                  # how far the land is raised here, in offset units
+    LIFT = f'{NS}:overworld/floor_lift'
+    write(f'{DF}/raised_land.json', cache(add(VOFF, LIFT)))
+    land = f'{NS}:overworld/raised_land'
     # 3. the peaks
     #    Each peak reads "strength" once, at its own summit, and is that fraction of its full
     #    height with its slopes unchanged (HornsFunction, PeakStrength). Multiplying every column
@@ -238,11 +264,13 @@ def main():
     write(f'{DF}/strength.json', cache(mul(AMP, RIVER)))
     write(f'{DF}/river_wall.json', cache({'type': f'{NS}:river_wall', 'channel': CHANNEL, 'slope': RIVER_WALL, 'max_slope': RIVER_WALL_MAX,
                                             'rib_room': 40.0}))
-    valley = f'{NS}:overworld/river_wall'
+    #    Where the valley floor is raised the rivers lie under it and the walls are off
+    #    (HornsFunction.WALLS_END); this outer limit steps aside there too.
+    valley = add(f'{NS}:overworld/river_wall', mul(clamp(mul(MASK, 10.0), 0.0, 1.0), 8.0))
     write(f'{DF}/horns.json', cache(dict({'type': f'{NS}:horns'}, **HORNS)))
     #    horns gives the level the peaks reach here (far below ground where there is none); a peak
     #    is a solid of its own, so what it adds to the land is whatever of it stands above the land.
-    above = {'type': 'minecraft:max', 'left': 0.0, 'right': add(f'{NS}:overworld/horns', mul(-1.0, VOFF))}
+    above = {'type': 'minecraft:max', 'left': 0.0, 'right': add(f'{NS}:overworld/horns', mul(-1.0, land))}
     write(f'{DF}/peak_height.json', cache({'type': 'minecraft:min', 'left': above, 'right': valley}))
     PEAK = f'{NS}:overworld/peak_height'      # how far the peaks stand above the land here, in offset units
     offset['input']['second'] = add(land, PEAK)
@@ -324,7 +352,7 @@ def main():
     push = mul(KT, add(1.0, mul(-1.0, in_cap)))                             # on a peak, below its cap
     write(f'{DF}/biome_temperature.json', lerp(t_base, PEAK_TEMPERATURE, push))
     ns['noise_router']['temperature'] = f'{NS}:overworld/biome_temperature'
-    for name, octave, count in (('snow_edge', -5, 2), ('snow_patches', -4, 3), ('rock_wobble', -8, 2), ('rock_mottle', -2, 2)):
+    for name, octave, count in (('snow_edge', -5, 2), ('snow_patches', -4, 3), ('rock_wobble', -8, 2), ('rock_mottle', -2, 2), ('floor_roll', -7, 2), ('floor_edge', -8, 2)):
         write(f'{NS}/worldgen/noise/{name}.json', {'base_amplitude': 0.9494731054427981, 'base_octave': octave, 'octave_count': count})
     write_surface()
 
@@ -361,7 +389,10 @@ def main():
     #    clean cut and no hollow is left between the two under the solid shell.
     sc = load('worldgen/density_function/overworld/sloped_cheese.json')
     assert sc['type'] == 'minecraft:cache' and sc['input']['right'] == 'minecraft:overworld/base_3d_noise', 'vanilla sloped_cheese changed'
-    sc['input']['right'] = mul('minecraft:overworld/base_3d_noise', add(1.0, mul(-1.0, CLEAN)))
+    #    On the raised valley floor most of it is faded out as well (FLOOR_CALM), so the floor is
+    #    gently rolling ground, not the lumpy hills vanilla makes in low-erosion country.
+    calm = mul(FLOOR_CALM, mul(MASK, clamp(mul(LIFT, 128.0 / 8.0), 0.0, 1.0)))   # where the land is raised 8 blocks or more; not on the outer slope, which keeps vanilla's roughness
+    sc['input']['right'] = mul('minecraft:overworld/base_3d_noise', add(1.0, mul(-1.0, {'type': 'minecraft:max', 'left': CLEAN, 'right': calm})))
     write('minecraft/worldgen/density_function/overworld/sloped_cheese.json', sc)
     write('minecraft/worldgen/density_function/overworld/final_density.json', fd)
     psl = load('worldgen/density_function/overworld/preliminary_surface_level.json')
