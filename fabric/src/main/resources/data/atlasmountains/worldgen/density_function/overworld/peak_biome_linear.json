@@ -7,9 +7,9 @@
    "left": {
     "type": "minecraft:add",
     "left": "atlasmountains:overworld/peak_height",
-    "right": -0.03
+    "right": -0.0546875
    },
-   "right": 16.666666666666668
+   "right": 64.0
   },
   "min": 0.0,
   "max": 1.0

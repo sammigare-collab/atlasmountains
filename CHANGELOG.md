@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.4.10 (unreleased, SAMPLER BUILD): stepped edges, less regular sides, four looks, a rock line
+
+Sammi and Claude agreed 0.4.9's shape was "a pyramid with decoration" and to work on the outline.
+His three reference pictures arrived on 13 Nov 2026 (a row of horn peaks over a lake valley; one
+big summit with ridges stepping down from it; a WorldPainter row of sharp, uneven peaks at
+sunset). Agreed plan: steps on the edges, ribs to the summit, less regular sides, skirt left
+alone. Where peaks generate and their spacing are unchanged.
+
+Shape:
+- Steps on the edges. A peak's one or two smaller pieces now stand ON its edges (the lines where
+  two faces meet), so an edge drops into a notch, rises to a sub-summit and carries on down. On
+  two different edges, or both on one. In 0.4.7 to 0.4.9 they stood in front of the middle of a
+  face and read as small pyramids stuck on.
+- Less regular sides: each face's steepness varies by a quarter (35 to 50 degrees), was an eighth.
+- Ribs nearer the summit: they come in over 15 blocks (was 50), but are never more than half the
+  drop of the face they are on. Without that limit one test summit was cut to a needle (64 columns
+  across, 12 blocks below its point; 110 with it).
+- SAMPLER, four looks (`/atlasmountains peaks` lists the two nearest of each):
+  A big spurs; A+ big spurs with a steeper horn top; C buttresses; C+ buttresses with a steeper
+  horn top. The horn top (top 30% at 58 degrees, 49 below it) is from the reference pictures; it
+  is an option, not the default, because he chose the shallowest profile for 0.4.2. 0.4.9's B
+  (very big spurs) is dropped.
+
+Surface:
+- Rock line: in mountain country, ground higher than about 100 blocks under the snow line is
+  rock, vanilla's own land included. Vanilla hills coming through a peak's face used to keep
+  their own surface, a white or green patch high on a rock face.
+- No vanilla snow on the valley sides: vanilla's own land in low-erosion country inland is shown
+  one erosion band up to the biomes, so it is meadow, forest or taiga by its climate, not snowy
+  slopes and grove under peaks that are bare rock up to their snow line. (Frozen climates stay snowy.)
+- The temperature the biomes see is taken over a few blocks before the weirdness and erosion, so
+  no ring of snowy-slope biome can form round a peak's foot.
+
+Checked on a dev server on his seed (7926463379904956983), from real generated chunks:
+- 768-block square at 6420 4760. Snow or ice more than 30 blocks below the snow line: none
+  (0.4.9: 4.8% of the square). Grass or trees higher than 92 blocks under the snow line: none.
+  Rock on peaks: andesite 31%, stone 24%, tuff 24%, deepslate 14%, smooth basalt 5%, snow 2.7%.
+- Separate points above y 180 with a notch of 15+ blocks behind them: 5 (0.4.9: 7). The steps
+  have shallower notches than the old face shoulders; that is the cost of putting them on edges.
+- Steepness on peaks about as 0.4.9 (16.7% of the peak area steeper than 65 degrees).
+- Generating that square took 2 min 46 s (0.4.9: 3 min 14 s).
+- Known: a patch of meadow still shows on one face about 100 blocks under the snow line, at the
+  rock line's lower edge; the A+ summit is still slim (398 columns across, 24 blocks below its
+  point, against 800 to 1,400 for the other looks).
+- The test server ran out of memory once, after generating four large squares in a row and then
+  five map dumps at once. Rerun on a fresh server without error. Not seen in normal use, not
+  investigated further.
+
 ## 0.4.9 (unreleased, SAMPLER BUILD): realistic snow, mid-grey rock, and three face looks to choose from
 
 Sammi's in-game look at 0.4.8 (seven screenshots, seed 7926463379904956983): "there's still

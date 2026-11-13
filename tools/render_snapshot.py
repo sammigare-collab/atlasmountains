@@ -38,6 +38,10 @@ COLOURS = {
     'lava': (207, 92, 20), 'magma_block': (142, 63, 31), 'netherrack': (97, 38, 38), 'obsidian': (15, 10, 24),
     'seagrass': (60, 90, 200), 'tall_seagrass': (60, 90, 200), 'mossy_cobblestone': (110, 118, 94),
     'cobblestone': (127, 127, 127), 'stone_bricks': (122, 121, 122),
+    'cherry_leaves': (229, 172, 194), 'cherry_log': (54, 33, 44), 'pink_petals': (150, 170, 110),
+    'azure_bluet': (110, 155, 75), 'cornflower': (110, 155, 75), 'oxeye_daisy': (110, 155, 75), 'allium': (110, 155, 75),
+    'lilac': (110, 155, 75), 'peony': (110, 155, 75), 'rose_bush': (110, 155, 75), 'sweet_berry_bush': (60, 100, 60),
+    'pumpkin': (198, 118, 24), 'bee_nest': (196, 150, 77), 'dripstone_block': (134, 107, 92), 'pointed_dripstone': (134, 107, 92),
 }
 DEFAULT = (200, 0, 200)   # anything not in the table shows magenta, so it is noticed
 

@@ -1,32 +1,91 @@
 {
- "type": "minecraft:cache",
- "input": {
-  "type": "minecraft:add",
-  "left": "minecraft:overworld/ridges",
-  "right": {
-   "type": "minecraft:mul",
+ "type": "minecraft:add",
+ "left": "minecraft:overworld/ridges",
+ "right": {
+  "type": "minecraft:mul",
+  "left": {
+   "type": "minecraft:max",
    "left": "atlasmountains:overworld/peak_biome",
    "right": {
-    "type": "minecraft:add",
+    "type": "minecraft:mul",
     "left": {
-     "type": "minecraft:mul",
-     "left": {
-      "type": "minecraft:clamp",
-      "input": {
-       "type": "minecraft:mul",
-       "left": "minecraft:overworld/ridges",
-       "right": 10000.0
+     "type": "minecraft:clamp",
+     "input": {
+      "type": "minecraft:mul",
+      "left": {
+       "type": "minecraft:add",
+       "left": {
+        "type": "minecraft:add",
+        "left": {
+         "type": "minecraft:add",
+         "left": {
+          "type": "minecraft:gradient",
+          "axis": "y",
+          "from_coordinate": -64,
+          "from_value": -1.5,
+          "to_coordinate": 512,
+          "to_value": 3.0
+         },
+         "right": {
+          "type": "minecraft:mul",
+          "left": {
+           "type": "minecraft:noise",
+           "noise": "atlasmountains:snow_edge",
+           "xz_scale": 1.0,
+           "y_scale": 0.0
+          },
+          "right": 0.06
+         }
+        },
+        "right": {
+         "type": "minecraft:mul",
+         "left": -1.0,
+         "right": "atlasmountains:overworld/peak_cap"
+        }
+       },
+       "right": 0.9765625
       },
-      "min": -1.0,
-      "max": 1.0
+      "right": 100000.0
      },
-     "right": 0.7
+     "min": 0.0,
+     "max": 1.0
     },
     "right": {
-     "type": "minecraft:mul",
-     "left": -1.0,
-     "right": "minecraft:overworld/ridges"
+     "type": "minecraft:clamp",
+     "input": {
+      "type": "minecraft:mul",
+      "left": {
+       "type": "minecraft:add",
+       "left": "atlasmountains:overworld/amp",
+       "right": -0.45
+      },
+      "right": 100000.0
+     },
+     "min": 0.0,
+     "max": 1.0
     }
+   }
+  },
+  "right": {
+   "type": "minecraft:add",
+   "left": {
+    "type": "minecraft:mul",
+    "left": {
+     "type": "minecraft:clamp",
+     "input": {
+      "type": "minecraft:mul",
+      "left": "minecraft:overworld/ridges",
+      "right": 10000.0
+     },
+     "min": -1.0,
+     "max": 1.0
+    },
+    "right": 0.7
+   },
+   "right": {
+    "type": "minecraft:mul",
+    "left": -1.0,
+    "right": "minecraft:overworld/ridges"
    }
   }
  }

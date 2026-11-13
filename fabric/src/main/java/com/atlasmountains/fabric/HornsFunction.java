@@ -55,19 +55,20 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     /** The size of the wander that warp adds, in blocks. */
     private static final double WARP_LENGTH = 120.0;
 
-    // ---- SAMPLER BUILD (0.4.9, temporary) -----------------------------------------------------
-    // With rib_depth below zero every peak is given one of three looks for its faces, so Sammi
-    // can fly round one world, compare them in the game itself and name one (as with 0.4.5, the
-    // way that worked). /atlasmountains peaks lists the nearest peak of each look. Once he has
-    // chosen, the chosen numbers go into rib_depth and rib_spacing (and LOOK_PANELS) and this goes.
-    //   A  big spurs:      ridges and gullies 22 blocks deep, 44 apart
-    //   B  very big spurs: 32 deep, 56 apart
-    //   C  buttresses:     flat panels 46 wide, each set up to 8 blocks in or out, with a sharp
-    //                      gully up to 20 deep between each pair
-    // (0.4.6 to 0.4.8 had 10 deep, 34 apart, which in the game read as one smooth flat sheet.)
-    static final String[] LOOK_NAMES = {"A big spurs", "B very big spurs", "C buttresses"};
-    private static final double[] LOOK_DEPTH = {22, 32, 20}, LOOK_SPACING = {44, 56, 46};
-    private static final boolean[] LOOK_PANELS = {false, false, true};
+    // ---- SAMPLER BUILD (0.4.10, temporary) ----------------------------------------------------
+    // With rib_depth below zero every peak is given one of four looks, so Sammi can fly round one
+    // world, compare them in the game itself and name one (as with 0.4.5, the way that worked).
+    // /atlasmountains peaks lists the nearest peaks of each look. Once he has chosen, the chosen
+    // numbers go into rib_depth and rib_spacing (and LOOK_PANELS, LOOK_HORN) and this goes.
+    //   A   big spurs:  ridges and gullies 22 blocks deep, 44 apart; the profile of 0.4.7 to 0.4.9
+    //   A+  big spurs, with a steeper horn top (see standing)
+    //   C   buttresses: flat panels 46 wide, each set up to 8 blocks in or out, with a sharp
+    //                   gully up to 20 deep between each pair; the profile of 0.4.7 to 0.4.9
+    //   C+  buttresses, with a steeper horn top
+    // (0.4.9 also had B, very big spurs: A with 32 deep, 56 apart. Dropped to keep this to four.)
+    static final String[] LOOK_NAMES = {"A big spurs", "A+ big spurs, steeper horn top", "C buttresses", "C+ buttresses, steeper horn top"};
+    private static final double[] LOOK_DEPTH = {22, 22, 20, 20}, LOOK_SPACING = {44, 44, 46, 46};
+    private static final boolean[] LOOK_PANELS = {false, false, true, true}, LOOK_HORN = {false, true, false, true};
     /** How far a buttress panel is set in or out, in blocks. */
     private static final double PANEL_STEP = 8;
     /** The half-width of the gully between two buttresses, as a fraction of the spacing. */
@@ -75,13 +76,13 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
 
     boolean sampler() { return ribDepth < 0; }
 
-    /** Which look (0, 1, 2) a peak has in a sampler build; -1 otherwise. */
+    /** Which look (0 to 3) a peak has in a sampler build; -1 otherwise. */
     int lookOf(long ix, long iz, long seed) { return sampler() ? (int) Math.floor(hash(ix, iz, seed + 11) * LOOK_NAMES.length) : -1; }
 
     private double depthOf(int look) { return look < 0 ? ribDepth : LOOK_DEPTH[look]; }
 
     /** The deepest any rib or gully can be, in blocks. */
-    double deepestRib() { return sampler() ? 32 + PANEL_STEP : ribDepth; }
+    double deepestRib() { return sampler() ? 22 + PANEL_STEP : ribDepth; }
 
     /** The peak field most recently built from the data pack; the debug command asks it about peaks. */
     static volatile HornsFunction current;
@@ -172,8 +173,10 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     static final double TOP_PART = 0.18;
     /** ... by this factor: a 44 degree face becomes about 55 degrees near the summit. */
     static final double TOP_STEEP = 1.5;
-    /** A shoulder's summit stands between SHOULDER_NEAR and SHOULDER_FAR times the peak's height from the peak's summit. */
-    static final double SHOULDER_NEAR = 0.55, SHOULDER_FAR = 0.85;
+    /** The steeper horn top (sampler looks A+ and C+): the top HORN_TOP of the height at HORN_TOP_STEEP times the face's steepness (58 degrees) ... */
+    static final double HORN_TOP = 0.30, HORN_TOP_STEEP = 1.7;
+    /** ... and everything from there down to the skirt at HORN_MID_STEEP times (49 degrees). */
+    static final double HORN_MID_STEEP = 1.2;
 
     /**
      * How high above its base level a pyramid h blocks tall stands where its faces have dropped by
@@ -187,13 +190,18 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
      *       it a peak stopped at a line part-way down and sat on a collar of vanilla hills ("not
      *       connected to the rest of the terrain", Sammi, 12 Nov 2026).</li>
      * </ol>
+     * With "horn" the top two bands are steeper and the top one deeper (HORN_ constants): the
+     * slender tops, steep at the summit and flaring out to the base, of Sammi's three reference
+     * pictures (13 Nov 2026). It is a sampler option because he chose the shallowest of three
+     * profiles for 0.4.2.
      */
-    private double standing(double h, double fall) {
-        double topFall = TOP_PART * h / TOP_STEEP;                 // fall at which the steep top ends
-        if (fall <= topFall) return h - fall * TOP_STEEP;
-        double faceDrop = (1 - skirtFrom - TOP_PART) * h;          // height the face band covers
-        double faceEnd = topFall + faceDrop;
-        if (fall <= faceEnd) return (1 - TOP_PART) * h - (fall - topFall);
+    private double standing(double h, double fall, boolean horn) {
+        double part = horn ? HORN_TOP : TOP_PART, steep = horn ? HORN_TOP_STEEP : TOP_STEEP, mid = horn ? HORN_MID_STEEP : 1.0;
+        double topFall = part * h / steep;                         // fall at which the steep top ends
+        if (fall <= topFall) return h - fall * steep;
+        double faceDrop = (1 - skirtFrom - part) * h;              // height the face band covers
+        double faceEnd = topFall + faceDrop / mid;
+        if (fall <= faceEnd) return (1 - part) * h - (fall - topFall) * mid;
         return skirtFrom * h - (fall - faceEnd) * skirtSlope;
     }
 
@@ -220,8 +228,10 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         return turnAll + (f + (hash(ix, iz, seed + 20 + f) - 0.5) * sideJitter) * sector;
     }
 
-    /** Ribs and gullies come in to full depth over this many blocks out from the summit, which stays a clean point. */
-    private static final double RIB_FADE = 50.0;
+    /** Ribs and gullies come in to full depth over this many blocks out from the summit, so they start right under the point (50 up to 0.4.9, which left the top third of a small peak a bare pyramid). */
+    private static final double RIB_FADE = 15.0;
+    /** A rib or gully is never more than this share of the drop of the face it is on. */
+    private static final double RIB_SHARE = 0.5;
 
     /**
      * How far one pyramid has dropped at (dx, dz) from its own summit; ribOut[0] is set to the
@@ -268,6 +278,11 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
                     rib = level + cut;
                 }
                 rib *= Math.min(1, out / RIB_FADE);
+                // Never deeper (or prouder) than RIB_SHARE of what the face itself has dropped here.
+                // Without this, full-depth gullies 15 blocks from the summit cut one test peak's
+                // top into a needle (64 columns across, 12 blocks below the point; now see CHANGELOG).
+                double most = RIB_SHARE * down;
+                rib = Math.max(-most, Math.min(most, rib));
                 down += rib;
             }
             if (down > fall) { fall = down; ribOfFall = rib; }
@@ -315,7 +330,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         // Beyond this distance nothing of even the tallest peak, or of a shoulder standing off from
         // it, is left. The loop looks three cells each way, which covers at least 3.15 cells (724
         // blocks at cell 230) in every direction.
-        double maxReach = Math.max(reach(height), shHigh > 0 ? SHOULDER_FAR * height + reach(1.25 * shoulderSize * height) : 0);
+        double maxReach = reach(height) + (shHigh > 0 ? STEP_FAR * height : 0);
         double best = NO_PEAK, bestBase = 0, bestH = 0, bestRib = 0;
         double[] ribOut = RIB.get();
         // The river walls (see wallSlope). The land's level and the distance to the nearest river at
@@ -345,23 +360,47 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
                 // more distinct peaks"). In 0.4.6 they stood closer in and in any direction, and in
                 // that check only 28% showed their own summit, none with a real notch.
                 // Each piece is first held under its own river wall, then the highest piece wins.
+                //
+                // The pieces after the first are the steps on the peak's edges (0.4.10). An edge
+                // (the line where two faces meet) no longer runs dead straight from summit to
+                // foot: part-way down it a sub-summit stands up out of it, so the edge drops into
+                // a notch, rises to a smaller point and carries on down, as on the right-hand side
+                // of the 0.4.6 peak Sammi picked out and the ridges of his reference pictures. A
+                // step is a small copy of the peak itself, turned the same way, with its summit on
+                // the edge and a little higher than the edge is there. A peak has one or two: on
+                // two different edges, or both on one edge, one below the other. Never more, so
+                // an edge does not become a row of peaks (ridge spam, rejected). In 0.4.7 to 0.4.9
+                // these pieces stood in front of the middle of a face instead, where they read as
+                // small pyramids stuck on.
                 int look = lookOf(ix, iz, seed);
-                for (int piece = 0, pieces = 1; piece < pieces; piece++) {
+                boolean horn = look >= 0 && LOOK_HORN[look];
+                int faces = faceCount(ix, iz, seed);
+                int steps = (int) Math.floor(shLow + hash(ix, iz, seed + 8) * (shHigh - shLow + 1));
+                for (int piece = 0; piece <= steps; piece++) {
                     double px = sx, pz = sz, ph = h;
-                    long salt = seed;
-                    if (piece == 0) {
-                        int faces = faceCount(ix, iz, seed);
-                        pieces = 1 + Math.min(faces, (int) Math.floor(shLow + hash(ix, iz, seed + 8) * (shHigh - shLow + 1)));
-                    } else {
-                        int j = piece - 1, faces = faceCount(ix, iz, seed);
-                        int firstFace = (int) Math.floor(hash(ix, iz, seed + 9) * faces);
-                        salt = seed + 200 + 100L * j;
-                        double away = h * (SHOULDER_NEAR + (SHOULDER_FAR - SHOULDER_NEAR) * hash(ix, iz, salt + 1));
-                        double turn = faceAngle(ix, iz, seed, (firstFace + j) % faces, faces) + 0.15 * (2 * hash(ix, iz, salt + 2) - 1);
-                        ph = h * shoulderSize * (0.75 + 0.5 * hash(ix, iz, salt + 3));
-                        px = sx + away * Math.cos(turn); pz = sz + away * Math.sin(turn);
+                    if (piece > 0) {
+                        int j = piece - 1;
+                        long stepSalt = seed + 200 + 100L * j;
+                        int firstEdge = (int) Math.floor(hash(ix, iz, seed + 9) * faces);
+                        boolean sameEdge = hash(ix, iz, seed + 12) < 0.5;
+                        int edge = j == 0 || sameEdge ? firstEdge : (firstEdge + 1 + (int) Math.floor(hash(ix, iz, seed + 13) * (faces - 1))) % faces;
+                        double along = h * (STEP_NEAR + STEP_SPREAD * hash(ix, iz, seed + 201));
+                        if (j > 0 && sameEdge) along += h * (STEP_GAP + STEP_SPREAD * hash(ix, iz, stepSalt + 1));
+                        else if (j > 0) along = h * (STEP_NEAR + STEP_SPREAD * hash(ix, iz, stepSalt + 1));
+                        // where the edge between this face and the next runs, and how fast it drops
+                        double a1 = faceAngle(ix, iz, seed, edge, faces), a2 = faceAngle(ix, iz, seed, (edge + 1) % faces, faces);
+                        double between = a2 - a1;
+                        while (between <= 0) between += 2 * Math.PI;
+                        double s1 = slope * (1 + slopeVar * (2 * hash(ix, iz, seed + 30 + edge) - 1));
+                        double s2 = slope * (1 + slopeVar * (2 * hash(ix, iz, seed + 30 + (edge + 1) % faces) - 1));
+                        double off = Math.atan2(s1 - s2 * Math.cos(between), s2 * Math.sin(between));
+                        double drop = Math.max(edgeMin * slope, s1 * Math.cos(off));
+                        ph = standing(h, along * drop, horn) + h * (STEP_RISE + STEP_RISE * hash(ix, iz, stepSalt + 3));
+                        if (ph < 25) continue;
+                        px = sx + along * Math.cos(a1 + off); pz = sz + along * Math.sin(a1 + off);
                     }
-                    double top = base + standing(ph, pyramid(wx - px, wz - pz, ix, iz, salt, look, ribOut)) / 128.0;
+                    long salt = seed;
+                    double top = base + standing(ph, pyramid(wx - px, wz - pz, ix, iz, salt, look, ribOut), horn) / 128.0;
                     if (top <= best) continue;
                     double rib = ribOut[0];
                     if (walls != null) {
@@ -390,6 +429,11 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
 
     /** Forgets the remembered wall slopes: called when a world starts or stops. */
     static void forget() { WALL_SLOPES.clear(); }
+
+    /** A step stands on its edge between STEP_NEAR and STEP_NEAR + STEP_SPREAD of the peak's height out from the summit; a second one on the same edge at least STEP_GAP further out. */
+    static final double STEP_NEAR = 0.30, STEP_SPREAD = 0.15, STEP_GAP = 0.25, STEP_FAR = STEP_NEAR + STEP_GAP + 2 * STEP_SPREAD;
+    /** A step's summit stands this share of the peak's height (once to twice it) above the edge it sits on. */
+    static final double STEP_RISE = 0.07;
 
     /** The ribs on a river wall come in to full depth over this many blocks from the river. */
     static final double WALL_RIB_FADE = 40.0;

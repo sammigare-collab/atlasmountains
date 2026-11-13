@@ -86,9 +86,11 @@ public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, dou
             HornsFunction horns = HornsFunction.current;
             if (horns == null || n == 0) return null;
             double[] c = horns.column(x, z);
-            if (c[2] <= 0) return null;
             double baseY = 128 + 128 * c[1], capY = SnowLine.at(horns, x, z);
-            if (Double.isNaN(capY)) capY = baseY + topFraction * c[2];
+            if (Double.isNaN(capY)) {
+                if (c[2] <= 0) return null;
+                capY = baseY + topFraction * c[2];
+            }
             // the bands are shallower on small peaks, so a small peak is not dark half-way down
             double zero = span > 0 ? capY - span * Math.max(SMALL_SPAN, Math.min(1, SnowLine.peakHeight(horns, x, z) / FULL_SPAN_HEIGHT))
                     : floor == NO_FLOOR ? baseY : floor;

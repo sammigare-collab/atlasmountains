@@ -45,6 +45,9 @@ final class PeakStrength {
     private static volatile DensityFunction aboveFunction;
     private static volatile DensityFunction weirdnessFunction;
     private static volatile DensityFunction temperatureFunction;
+    private static volatile DensityFunction countryFunction;
+    private static final ResourceKey<DensityFunction> COUNTRY_KEY =
+            ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/amp"));
     private static final ResourceKey<DensityFunction> TEMPERATURE_KEY =
             ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.withDefaultNamespace("overworld/temperature"));
     private static final ConcurrentHashMap<Long, Float> remembered = new ConcurrentHashMap<>();
@@ -66,6 +69,7 @@ final class PeakStrength {
         aboveFunction = null;
         weirdnessFunction = null;
         temperatureFunction = null;
+        countryFunction = null;
         RiverDistance.reset();
         HornsFunction.forget();
         remembered.clear();
@@ -88,6 +92,7 @@ final class PeakStrength {
         aboveFunction = above.map(h -> h.value()).orElse(null);
         weirdnessFunction = weird.map(h -> h.value()).orElse(null);
         temperatureFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(TEMPERATURE_KEY).map(h -> h.value()).orElse(null);
+        countryFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(COUNTRY_KEY).map(h -> h.value()).orElse(null);
     }
 
     /** Strength for the peak of cell (ix, iz), whose summit is at block (x, z). */
@@ -133,6 +138,13 @@ final class PeakStrength {
     static double temperature(int x, int z) {
         RandomState rs = state;
         DensityFunction fn = temperatureFunction;
+        return (rs == null || fn == null) ? 0.0 : rs.sampleBlockValueUncached(fn, x, 64, z);
+    }
+
+    /** How strongly mountain country holds at a column, 0 to 1 (low erosion, inland: the data pack's "amp"); 0 with no world loaded. */
+    static double mountainCountry(int x, int z) {
+        RandomState rs = state;
+        DensityFunction fn = countryFunction;
         return (rs == null || fn == null) ? 0.0 : rs.sampleBlockValueUncached(fn, x, 64, z);
     }
 

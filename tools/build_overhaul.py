@@ -80,15 +80,15 @@ RIVER_WALL = 0.95     # ... and beside it a piece of a peak may rise only this m
                       # straight-sided V. Up to 0.4.7 the limit was a multiple of weirdness itself (VALLEY_STEEP),
                       # a noise: lumpy, 22 to 71 degrees, and the cause of the fins, towers and domes Sammi found
 RIVER_WALL_MAX = 1.73 # a piece whose summit is too close to a river for that gets a steeper wall, up to this (60 degrees)
-PEAK_BIOME_FROM = 0.03 # peak biomes take over where a peak stands this far above the land (4 blocks) ...
-PEAK_BIOME_FULL = 0.09 # ... fully by here (12 blocks). Was 35 to 55 blocks, which left forest biomes (dirt, trees) round each foot
+PEAK_TEMP_FROM, PEAK_TEMP_FULL = 3 / 128.0, 6.5 / 128.0  # the temperature the biomes see is taken over where a peak stands 3 to 6.5 blocks above the land ...
+PEAK_BIOME_FROM, PEAK_BIOME_FULL = 7 / 128.0, 9 / 128.0  # ... and the weirdness and erosion from 7 to 9 (after it, so no snowy slope biome can form a ring between)
+ROCK_BELOW = 100       # the rock line: in mountain country, ground higher than this many blocks under the snow line is rock
+OFF_PEAK_E = -0.30    # the erosion the biomes are shown on vanilla's own land in mountain country (its third band: meadow, forest, taiga)
 PEAK_TEMPERATURE = 0.4 # below the snow a peak's biome is shown this temperature: vanilla's stony peaks (bare rock, no snow)
 SNOW_BIOME_ABOVE = 25 # the cold peak biome starts this many blocks above the snow line (the line itself is one per range:
                       # HornsFunction.snowLine and SnowLine.java), where the peaks' own snow is already complete ...
 CAP_WARMEST = 0.55    # ... in vanilla's cold and temperate bands (temperature below this), shown as CAP_TEMPERATURE there
 CAP_TEMPERATURE = -0.3 #    so the cap's biome is vanilla's jagged (or, colder, frozen) peaks
-CREST_PV = (0.15, 0.25) # vanilla's own land in mountain country with peaks-and-valleys above this (where vanilla puts its
-                      # peak and snowy-slope biomes), where no peak stands, is shown PEAK_TEMPERATURE too
 SNOW_EDGE = 0.06      # the cold biome's lower edge wanders up and down by this much (in offset units: about 8 blocks)
 SNOW = {'edge': 9.0,   # the snow itself (PeakSnowCondition.java): its edge wanders up and down by this many blocks,
         'gully': 14.0, # it reaches this much lower in the gullies and starts this much higher on the ribs,
@@ -112,18 +112,18 @@ HORNS = {
     'sides': [3, 4],        # flat faces per peak. Five and more read as a cone, not a pyramid
     'side_jitter': 0.3,     # how unevenly the faces are turned (0 = a regular pyramid)
     'slope': 0.95,          # how steep a face is: blocks down per block out (0.95 is 44 degrees) ...
-    'slope_var': 0.12,      # ... give or take this fraction, face by face (39 to 47 degrees)
+    'slope_var': 0.25,      # ... give or take this fraction, face by face (35 to 50 degrees): one steeper side, one longer (0.12 to 0.4.9)
     'edge_min': 0.45,       # no edge between two faces is shallower than this fraction of 'slope'
     'warp': 3.0,            # edges wander this many blocks from a ruler line
     'height': 172.0,        # the tallest peaks, above the land they stand on
     'height_var': 0.42,     # other peaks are up to this much lower
     'min_height': 60.0,     # a peak that would be shorter than this (weak mountain country) is left out
     # Look D, which Sammi picked from four in the game (12 Nov 2026): strong ribs and shoulders
-    'shoulders': [2, 3],    # how many smaller peaks stand round a peak, one per face at most, joined to it by a notch (0.4.6: 1 or 2) ...
-    'shoulder_size': 0.65,  # ... their height, as a fraction of the peak's, give or take a quarter (0.4.6: 0.7)
+    'shoulders': [1, 2],    # how many steps (sub-summits) a peak has on its edges; see the piece loop in HornsFunction.java
+    'shoulder_size': 0.65,  # not used since 0.4.10 (a step's height comes from the edge it stands on)
                             # (how far out they stand, and the steeper summits, are constants in HornsFunction)
     'rib_depth': -1.0,      # straight ribs down each face, this many blocks deep. BELOW ZERO = SAMPLER BUILD: every peak
-                            # gets one of three looks (A big spurs, B very big spurs, C buttresses; HornsFunction.java)
+                            # gets one of four looks (A, A+, C, C+; HornsFunction.java)
     'rib_spacing': 34.0,    # blocks from one rib to the next (not used in a sampler build)
     # the skirt: the lowest part of a peak carries on down more gently until it meets the ground
     'skirt_from': 0.4,      # the lowest 40% of a peak's height is skirt ...
@@ -199,7 +199,7 @@ def write_surface():
         cond(top, cond({'type': f'{NS}:peak_snow', **SNOW}, snow)),
         cond(deep, rock),
     ]}
-    on_peak = cond({'type': f'{NS}:on_peak', 'tolerance': 3}, cond('minecraft:not_underwater', peak_surface))
+    on_peak = cond({'type': f'{NS}:on_peak', 'tolerance': 3, 'rock_below': float(ROCK_BELOW)}, cond('minecraft:not_underwater', peak_surface))
     seq[i]['then_run'] = {'type': 'minecraft:sequence', 'sequence': [on_peak, 'minecraft:overworld/surface']}
     write('minecraft/worldgen/material_rule/overworld.json', rule)
 
@@ -263,9 +263,22 @@ def main():
     #    pushed to a crest value on the upper part of each peak: below PEAK_BIOME_FROM above the
     #    land the biome is whatever vanilla had (forest, meadow...), above PEAK_BIOME_FULL it is
     #    vanilla's peak biome for that climate, and vanilla's slope biomes come in between.
-    K = smooth('peak_biome', ramp(PEAK, PEAK_BIOME_FROM, PEAK_BIOME_FULL))
+    #    The rock line (0.4.10): in mountain country any ground higher than ROCK_BELOW blocks under
+    #    the snow line counts as peak too, vanilla's own land included (see OnPeakCondition.java).
+    #    It depends on height, so nothing built from it may be wrapped in a (2-D) cache.
+    write(f'{DF}/peak_cap.json', cache({'type': f'{NS}:peak_cap', 'above': SNOW_BIOME_ABOVE}))
+    y_off = {'type': 'minecraft:gradient', 'axis': 'y', 'from_coordinate': -64, 'from_value': (-64 - 128) / 128.0,
+             'to_coordinate': 512, 'to_value': (512 - 128) / 128.0}          # this block's height, in offset units
+    edge = mul({'type': 'minecraft:noise', 'noise': f'{NS}:snow_edge', 'xz_scale': 1.0, 'y_scale': 0.0}, SNOW_EDGE)
+    above_cap = add(add(y_off, edge), mul(-1.0, f'{NS}:overworld/peak_cap'))    # offset units above the cold-biome line
+    #    A hard step, not a ramp: half-way through a ramp the biomes would see erosion low enough
+    #    and a temperature cold enough for vanilla's snowy slopes, and a line of snow patches
+    #    formed along the rock line (first test of 0.4.10).
+    ROCKY = mul(clamp(mul(add(above_cap, (SNOW_BIOME_ABOVE + ROCK_BELOW) / 128.0), 100000.0), 0.0, 1.0),
+                clamp(mul(add(AMP, -0.45), 100000.0), 0.0, 1.0))
+    K = {'type': 'minecraft:max', 'left': smooth('peak_biome', ramp(PEAK, PEAK_BIOME_FROM, PEAK_BIOME_FULL)), 'right': ROCKY}
     sign = clamp(mul(W, 10000.0), -1.0, 1.0)
-    write(f'{DF}/biome_ridges.json', cache(add(W, mul(K, add(mul(sign, PEAK_BIOME_W), mul(-1.0, W))))))
+    write(f'{DF}/biome_ridges.json', add(W, mul(K, add(mul(sign, PEAK_BIOME_W), mul(-1.0, W)))))
     ns = load('worldgen/noise_settings/overworld.json')
     assert ns['noise_router']['ridges'] == 'minecraft:overworld/ridges', 'vanilla noise router changed'
     ns['noise_router']['ridges'] = f'{NS}:overworld/biome_ridges'
@@ -275,7 +288,19 @@ def main():
     #    seed that left whole peaks in those biomes: no snow caps, stray trees, and a savanna
     #    village built up a rock wall. Only vanilla's lowest erosion band has peak biomes everywhere.
     assert ns['noise_router']['erosion'] == 'minecraft:overworld/erosion', 'vanilla noise router changed'
-    write(f'{DF}/biome_erosion.json', cache(add(EROSION, mul(K, add({'type': 'minecraft:min', 'left': EROSION, 'right': PEAK_BIOME_E}, mul(-1.0, EROSION))))))
+    #    Off the peaks, the other way (0.4.10): vanilla's own land in mountain country is shown
+    #    erosion OFF_PEAK_E. At the erosion it really has, vanilla makes its slopes snowy slopes
+    #    and grove in every cool climate, so there was snow, powder snow and ice on valley sides
+    #    far below peaks that were bare rock up to their snow line, and where vanilla land poked
+    #    through a peak's face it made a white patch in the middle of it. One erosion band up the
+    #    same land is meadow, forest or taiga by its own climate (still snowy in frozen country).
+    def lerp(a, b, t): return add(a, mul(t, add(b, mul(-1.0, a))))
+    #    The lift covers all of vanilla's two lowest erosion bands inland (they end at -0.375),
+    #    not just where peaks stand: slopes on the approach to mountain country were snowy too.
+    lift = mul(ramp(EROSION, -0.365, -0.385), clamp(mul(ramp(CONT, INLAND_FROM, INLAND_FULL), 8.0), 0.0, 1.0))
+    e_off = lerp(EROSION, {'type': 'minecraft:max', 'left': EROSION, 'right': OFF_PEAK_E}, lift)
+    write(f'{DF}/biome_erosion_off_peak.json', cache(e_off))
+    write(f'{DF}/biome_erosion.json', lerp(f'{NS}:overworld/biome_erosion_off_peak', {'type': 'minecraft:min', 'left': EROSION, 'right': PEAK_BIOME_E}, K))
     ns['noise_router']['erosion'] = f'{NS}:overworld/biome_erosion'
     #    And the temperature the biomes see: on a peak, below its snow cap, it is PEAK_TEMPERATURE,
     #    so the biome there is vanilla's stony peaks (bare rock, no snow layers, no trees) in any
@@ -287,24 +312,17 @@ def main():
     #    From 0.4.9 the snow itself is placed by the peaks' surface rule from one snow line per
     #    range, and the cold biome only starts SNOW_BIOME_ABOVE over that line (atlasmountains:peak_cap).
     assert ns['noise_router']['temperature'] == 'minecraft:overworld/temperature', 'vanilla noise router changed'
-    write(f'{DF}/peak_cap.json', cache({'type': f'{NS}:peak_cap', 'above': SNOW_BIOME_ABOVE}))
-    y_off = {'type': 'minecraft:gradient', 'axis': 'y', 'from_coordinate': -64, 'from_value': (-64 - 128) / 128.0,
-             'to_coordinate': 512, 'to_value': (512 - 128) / 128.0}          # this block's height, in offset units
-    edge = mul({'type': 'minecraft:noise', 'noise': f'{NS}:snow_edge', 'xz_scale': 1.0, 'y_scale': 0.0}, SNOW_EDGE)
-    in_cap = clamp(mul(add(add(y_off, edge), mul(-1.0, f'{NS}:overworld/peak_cap')), 128.0 / 4.0), 0.0, 1.0)
+    in_cap = clamp(mul(above_cap, 128.0 / 4.0), 0.0, 1.0)
     #    In the cap, temperate country (vanilla's stony band) is shown cold too, so its peaks get
-    #    caps as in Sammi's reference, not just a dusting; only warm country stays bare. And
-    #    vanilla's own crest land between the peaks (peaks-and-valleys above CREST_PV, in mountain country) is shown
-    #    PEAK_TEMPERATURE as well, so it is bare rock rather than vanilla's snow and blue ice sheets.
+    #    caps as in Sammi's reference, not just a dusting; only warm country stays bare. (0.4.7 to
+    #    0.4.9 also showed vanilla's crest land between the peaks PEAK_TEMPERATURE; the erosion
+    #    shown off the peaks, above, does that job now.)
     T = 'minecraft:overworld/temperature'
-    def lerp(a, b, t): return add(a, mul(t, add(b, mul(-1.0, a))))
+    KT = {'type': 'minecraft:max', 'left': smooth('peak_biome_temperature', ramp(PEAK, PEAK_TEMP_FROM, PEAK_TEMP_FULL)), 'right': ROCKY}
     not_warm = clamp(mul(add(CAP_WARMEST, mul(-1.0, T)), 1000.0), 0.0, 1.0)
     t_cap = lerp(PEAK_TEMPERATURE, {'type': 'minecraft:min', 'left': T, 'right': CAP_TEMPERATURE}, not_warm)
-    t_base = lerp(T, t_cap, mul(K, in_cap))
-    pv = add(1.0, mul(-1.0, {'type': 'minecraft:abs', 'input': add(mul(3.0, {'type': 'minecraft:abs', 'input': W}), -2.0)}))
-    high = ramp(pv, CREST_PV[0], CREST_PV[1])
-    push = add(mul(K, add(1.0, mul(-1.0, in_cap))),                         # on a peak, below its cap
-               mul(mul(add(1.0, mul(-1.0, K)), AMP), high))                 # off the peaks, vanilla's crest land
+    t_base = lerp(T, t_cap, mul(KT, in_cap))
+    push = mul(KT, add(1.0, mul(-1.0, in_cap)))                             # on a peak, below its cap
     write(f'{DF}/biome_temperature.json', lerp(t_base, PEAK_TEMPERATURE, push))
     ns['noise_router']['temperature'] = f'{NS}:overworld/biome_temperature'
     for name, octave, count in (('snow_edge', -5, 2), ('snow_patches', -4, 3), ('rock_wobble', -8, 2), ('rock_mottle', -2, 2)):

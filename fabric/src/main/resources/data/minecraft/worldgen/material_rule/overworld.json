@@ -16,7 +16,8 @@
       "type": "minecraft:condition",
       "if_true": {
        "type": "atlasmountains:on_peak",
-       "tolerance": 3
+       "tolerance": 3,
+       "rock_below": 100.0
       },
       "then_run": {
        "type": "minecraft:condition",
