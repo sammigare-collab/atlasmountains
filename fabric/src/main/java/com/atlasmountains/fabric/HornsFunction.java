@@ -87,7 +87,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
                 double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
                 h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
                 if (h < minHeight) continue;
-                found.add(new double[]{-1, sx, sz, h,
+                found.add(new double[]{footOf(ix, iz, seed), sx, sz, h,
                         128 + 128 * PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + h});
             }
         }
@@ -171,14 +171,33 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
      * tops, steep at the summit and flaring out to the base, as in his reference pictures. 0.4.7 to
      * 0.4.9 had the top 18% at 1.5 times and the face at 1.
      */
-    private double standing(double h, double fall) {
+    private double standing(double h, double fall, int foot) {
         double topFall = TOP_PART * h / TOP_STEEP;                 // fall at which the horn top ends
         if (fall <= topFall) return h - fall * TOP_STEEP;
-        double faceDrop = (1 - skirtFrom - TOP_PART) * h;          // height the face band covers
+        if (foot == 0) return (1 - TOP_PART) * h - (fall - topFall) * MID_STEEP;   // no skirt: the face runs on to the ground
+        double from = foot == 1 ? FLARE_FROM : skirtFrom, gentle = foot == 1 ? FLARE_SLOPE : skirtSlope;
+        double faceDrop = (1 - from - TOP_PART) * h;               // height the face band covers
         double faceEnd = topFall + faceDrop / MID_STEEP;
         if (fall <= faceEnd) return (1 - TOP_PART) * h - (fall - topFall) * MID_STEEP;
-        return skirtFrom * h - (fall - faceEnd) * skirtSlope;
+        return from * h - (fall - faceEnd) * gentle;
     }
+
+    // ---- SAMPLER BUILD (0.4.12, temporary): how a peak ends at its foot -------------------------
+    // Sammi, 13 Nov 2026, on a view of the tops of three peaks: "this top part looks good, I don't
+    // like the bottom parts; if we just had the mountain more or less stop here". Measured on his
+    // seed, only 24% of the peak area was the peaks' own tops and faces; 33% was the gentle skirt
+    // (the huge flat slab and the ramp in his screenshots) and 43% river wall. So the skirt of
+    // 0.4.6 to 0.4.11 (the lowest 40% of the height, at 30 degrees) goes. Every peak gets one of
+    // two feet for him to compare; /atlasmountains peaks lists the nearest of each.
+    //   F1  no skirt: the faces run straight on down, at their own 49 degrees, to the ground
+    //   F2  short flare: only the lowest 15% of the height eases out, to about 39 degrees
+    // Once he has chosen, FOOT_SAMPLER goes and skirt_from / skirt_slope carry the choice.
+    static final boolean FOOT_SAMPLER = true;
+    static final String[] FOOT_NAMES = {"F1 no skirt", "F2 short flare"};
+    static final double FLARE_FROM = 0.15, FLARE_SLOPE = 0.85;
+
+    /** Which foot a peak has: 0 or 1 in the sampler build, 2 (skirt_from and skirt_slope) otherwise. */
+    int footOf(long ix, long iz, long seed) { return FOOT_SAMPLER ? (int) Math.floor(hash(ix, iz, seed + 14) * FOOT_NAMES.length) : 2; }
 
     /**
      * How far from its summit a pyramid h blocks tall is looked for. Beyond this it is left out, so
@@ -342,7 +361,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
                 // an edge does not become a row of peaks (ridge spam, rejected). In 0.4.7 to 0.4.9
                 // these pieces stood in front of the middle of a face instead, where they read as
                 // small pyramids stuck on.
-                int faces = faceCount(ix, iz, seed);
+                int faces = faceCount(ix, iz, seed), foot = footOf(ix, iz, seed);
                 int steps = (int) Math.floor(shLow + hash(ix, iz, seed + 8) * (shHigh - shLow + 1));
                 for (int piece = 0; piece <= steps; piece++) {
                     double px = sx, pz = sz, ph = h;
@@ -363,12 +382,12 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
                         double s2 = slope * (1 + slopeVar * (2 * hash(ix, iz, seed + 30 + (edge + 1) % faces) - 1));
                         double off = Math.atan2(s1 - s2 * Math.cos(between), s2 * Math.sin(between));
                         double drop = Math.max(edgeMin * slope, s1 * Math.cos(off));
-                        ph = standing(h, along * drop) + h * (STEP_RISE + STEP_RISE * hash(ix, iz, stepSalt + 3));
+                        ph = standing(h, along * drop, foot) + h * (STEP_RISE + STEP_RISE * hash(ix, iz, stepSalt + 3));
                         if (ph < 25) continue;
                         px = sx + along * Math.cos(a1 + off); pz = sz + along * Math.sin(a1 + off);
                     }
                     long salt = seed;
-                    double top = base + standing(ph, pyramid(wx - px, wz - pz, ix, iz, salt, ribOut)) / 128.0;
+                    double top = base + standing(ph, pyramid(wx - px, wz - pz, ix, iz, salt, ribOut), foot) / 128.0;
                     if (top <= best) continue;
                     double rib = ribOut[0];
                     if (walls != null) {

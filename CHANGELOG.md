@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.12 (unreleased, SAMPLER BUILD): the skirt goes; two ways to end a peak
+
+Sammi's in-game look at 0.4.11 (six screenshots, new world, seed -4547848503839837251): "looking a
+bit weird in a few places, not very realistic at all": a giant flat tilted slab, a dome, a ramp,
+faces striped like a corrugated roof. Then, on a view of three peaks' tops: "this top part looks
+good, I don't like the bottom parts; if we just had the mountain more or less stop here".
+
+Measured on his seed, 896-block square at 6480 -6050: of the ground the peaks formed, only a
+quarter was their own tops and faces; a third was the gentle skirt (the slab and the ramp, with
+the buttress stripes running on down it) and the rest river wall (the dome, and the cliff under
+the slab). So the skirt of 0.4.6 to 0.4.11 (lowest 40% of the height, at 30 degrees) is removed.
+Where peaks generate and their spacing are unchanged; tops, faces, steps, snow and rock unchanged.
+
+SAMPLER: every peak has one of two feet (`/atlasmountains peaks` lists the three nearest of each):
+- F1 no skirt: the faces run straight on down, at their own 49 degrees, to the ground.
+- F2 short flare: only the lowest 15% of the height eases out, to about 39 degrees.
+
+Checked on a dev server on his seed, from real generated chunks, same square, 0.4.11 then 0.4.12:
+- Peaks cover 73% then 53% of the square. Their own tops and faces: 18% then 28% of the square.
+  Gentle ground: 24% then 6%. River wall: 31% then 19%. Grass or trees: 21% then 35%.
+- The slab at his screenshot 3 is gone and the ramp at screenshot 4 is a narrow ridge. The dome
+  at screenshot 4 is still there: it is river wall, which this build does not touch.
+- Risk: the skirt was added (0.4.6) because the hills at a peak's foot looked "not connected to the
+  rest of the terrain". More vanilla land shows between peaks again.
+- Erosion (the old mod ran a real erosion simulation; this overhaul has none) was proposed as the
+  route to realism and is parked.
+
 ## 0.4.11 (unreleased): look C+ on every peak
 
 Sammi, from the 0.4.10 sampler in the game: "I think C+ is the best but still not perfect". What
