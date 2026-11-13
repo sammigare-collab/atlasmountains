@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.5.1 (unreleased, SAMPLER BUILD): no rock patches without a mountain; mountains by rivers keep their summits
+
+Sammi's first in-game looks at 0.5.0. (1) A screenshot at -9837 -2238, seed -3550034452994718772:
+a flat patch of bare rock in a grassy hollow, no mountain. (2) Six screenshots on seed
+-4410578526466350703: "some times nice and angularly eroded, sometimes too soft" (a sharply
+gullied snowy horn on one hand; smooth bullet-shaped cones with rounded tops and a low smooth
+dome on the other).
+
+- The rock patch was the rock line of 0.4.10 (in mountain country, ground higher than 100 blocks
+  under the snow line is rock). Next to a small, low peak that line fell below the ordinary land
+  around it. Claude first blamed the fade towards rivers and was wrong: the patch was still there
+  with the fade changed, and the peak-height map showed no mountain under it at all. The rock
+  line is now off (`ROCK_BELOW` in build_overhaul.py); the eroded mountains sit on top of the
+  land, so there is no land showing through them for it to cover. Checked on his seed and spot:
+  bare rock within 110 blocks of it 7,969 columns before, 625 after (vanilla's own stone and
+  gravel); across the 640-block square, rock with no mountain under it 24,464 then 4,382.
+- The fade towards rivers was a flat 90 blocks, applied after erosion. A summit nearer a river
+  than that was squashed into a rounded bullet or a dome. Each mountain now fades over 0.7 of
+  its own summit's distance to the river (16 to 90 blocks), before erosion, so the summit is not
+  touched and the river side is carved like the rest. Checked by rendering 0.5.1 from four of
+  his six camera spots on his seed: the bullets and the dome in his screenshots are pointed,
+  gullied mountains (or, for the dome, grass) in the renders. Not measured, and not seen in game.
+- Not changed: the three sampler looks, erosion strength, snow and rock bands. "Too soft" is
+  only answered as far as the river fade caused it; plain smooth faces are as they were.
+
+Test-server note: a 1280-block debug snapshot ran the server out of memory after it was written
+(the same happened with a 1408 snapshot on 0.4.13). Whether the eroded regions in memory (up to
+36, 1.2 MB each) add to that in normal play is not known.
+
 ## 0.5.0 (unreleased, SAMPLER BUILD): the old mod's eroded mountains, one per peak, in a normal world
 
 Sammi's in-game verdict on 0.4.13 (four screenshots from above, a badlands area): "these feel too

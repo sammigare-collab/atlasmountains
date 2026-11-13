@@ -116,6 +116,17 @@ final class ErodedPeaks {
     /** How far the main summit may sit from the middle of its crest, as a share of the half-length. */
     static final double SUMMIT_OFF = 0.6;
 
+    /**
+     * Rivers. A mountain fades out towards a river so the river keeps its valley. The fade is
+     * worked out for each mountain from how far its own summit is from the river: it is complete
+     * within RIVER_SHARE of that distance (at most RIVER_FADE blocks, at least RIVER_FADE_MIN), so
+     * the summit itself is never touched. It is applied before erosion, so the side facing the
+     * river is carved like the rest. 0.5.0 faded every mountain over a flat 90 blocks, after
+     * erosion: a summit nearer a river than that was squashed to a low mound of bare rock
+     * (Sammi's screenshot at -9837 -2238, seed -3550034452994718772).
+     */
+    static final double RIVER_FADE = 90, RIVER_FADE_MIN = 16, RIVER_SHARE = 0.7;
+
     /** One peak as HornsFunction places it: summit (in its warped coordinates), height, sampler look, cell. */
     record Peak(double x, double z, double h, int look, long ix, long iz) {}
 
@@ -390,6 +401,8 @@ final class ErodedPeaks {
         }
         if (!any) return r;                       // no mountains here: all zeros, nothing to erode
 
+        RiverWallFunction walls = RiverWallFunction.current;
+        double[] fadeOf = new double[cw * ch];     // each mountain's own fade width, worked out when first needed
         float[] h = new float[n * n], before = new float[n * n], rock = new float[n * n];
         boolean[] floor = new boolean[n * n];
         for (int gz = 0; gz < n; gz++) {
@@ -398,14 +411,23 @@ final class ErodedPeaks {
                 double x = r.originX + gx * (double) SPACING;
                 double wx = horns.warpX(x, z, seed), wz = horns.warpZ(x, z, seed);
                 long cx = (long) Math.floor(wx / cell), cz = (long) Math.floor(wz / cell);
-                double best = 0, owner = RELIEF;
+                double best = 0, owner = RELIEF, river = Double.NaN;
                 for (long jz = cz - 2; jz <= cz + 2; jz++) {
                     if (jz < c0z || jz > c1z) continue;
                     for (long jx = cx - 2; jx <= cx + 2; jx++) {
                         if (jx < c0x || jx > c1x) continue;
-                        Peak p = peaks[(int) (jz - c0z) * cw + (int) (jx - c0x)];
+                        int pi = (int) (jz - c0z) * cw + (int) (jx - c0x);
+                        Peak p = peaks[pi];
                         if (p == null) continue;
                         double m = mountain(p, wx - p.x, wz - p.z, seed);
+                        if (m <= best) continue;
+                        if (walls != null) {
+                            if (Double.isNaN(river)) river = RiverDistance.at((int) Math.floor(x), (int) Math.floor(z), walls.channel());
+                            if (fadeOf[pi] == 0) fadeOf[pi] = Math.max(RIVER_FADE_MIN, Math.min(RIVER_FADE,
+                                    RIVER_SHARE * RiverDistance.at((int) Math.floor(p.x()), (int) Math.floor(p.z()), walls.channel())));
+                            double t = river / fadeOf[pi];
+                            if (t < 1) m *= t <= 0 ? 0 : t * t * (3 - 2 * t);
+                        }
                         if (m > best) { best = m; owner = p.h; }
                     }
                 }

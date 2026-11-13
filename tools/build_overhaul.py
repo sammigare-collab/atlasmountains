@@ -82,7 +82,12 @@ RIVER_WALL = 0.95     # ... and beside it a piece of a peak may rise only this m
 RIVER_WALL_MAX = 1.73 # a piece whose summit is too close to a river for that gets a steeper wall, up to this (60 degrees)
 PEAK_TEMP_FROM, PEAK_TEMP_FULL = 3 / 128.0, 6.5 / 128.0  # the temperature the biomes see is taken over where a peak stands 3 to 6.5 blocks above the land ...
 PEAK_BIOME_FROM, PEAK_BIOME_FULL = 7 / 128.0, 9 / 128.0  # ... and the weirdness and erosion from 7 to 9 (after it, so no snowy slope biome can form a ring between)
-ROCK_BELOW = 100       # the rock line: in mountain country, ground higher than this many blocks under the snow line is rock
+ROCK_BELOW = -10000    # the rock line is OFF since 0.5.1 (a huge negative number: no ground is ever that far above the snow line).
+#                        It was: in mountain country, ground higher than 100 blocks under the snow line is rock, so that
+#                        vanilla land showing between the flat-plane peaks high up was not meadow (0.4.10). The eroded
+#                        mountains of 0.5.0 sit on top of the land, so no land shows through them, and next to a small low
+#                        peak the line fell below the ordinary ground around it: Sammi's screenshot at -9837 -2238 (seed
+#                        -3550034452994718772) is a flat patch of bare rock in a grassy hollow with no mountain on it.
 OFF_PEAK_E = -0.30    # the erosion the biomes are shown on vanilla's own land in mountain country (its third band: meadow, forest, taiga)
 PEAK_TEMPERATURE = 0.4 # below the snow a peak's biome is shown this temperature: vanilla's stony peaks (bare rock, no snow)
 SNOW_BIOME_ABOVE = 25 # the cold peak biome starts this many blocks above the snow line (the line itself is one per range:

@@ -82,8 +82,8 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     // buttresses, steps and feet is the 0.4 shape, which is then not used; it stays in the file
     // until he has seen the eroded mountains in the game, and goes once he has chosen.
     static final boolean ERODED = true;
-    /** The mountains fade out over this many blocks towards a river, so rivers keep their valleys. Replaces the straight river walls of 0.4.8, which cut flat slabs. */
-    static final double RIVER_EASE = 90.0;
+    /** The last few blocks beside a river are kept clear whatever erosion left there. The real fade towards rivers is each mountain's own (ErodedPeaks.RIVER_FADE). */
+    static final double RIVER_EASE = 12.0;
 
     /** The peak of one cell as it has always been placed (summit in the warped coordinates, height), or null if the cell has none. */
     ErodedPeaks.Peak peakOf(long ix, long iz, long seed) {
