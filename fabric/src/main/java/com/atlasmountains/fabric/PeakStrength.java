@@ -72,6 +72,7 @@ final class PeakStrength {
         countryFunction = null;
         RiverDistance.reset();
         HornsFunction.forget();
+        ErodedPeaks.reset();
         remembered.clear();
         rememberedLand.clear();
         if (server == null) return;

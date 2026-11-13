@@ -1,5 +1,117 @@
 # Changelog
 
+## 0.5.0 (unreleased, SAMPLER BUILD): the old mod's eroded mountains, one per peak, in a normal world
+
+Sammi's in-game verdict on 0.4.13 (four screenshots from above, a badlands area): "these feel too
+geometric and far away from my reference images". Agreed reading: every 0.4 peak is flat planes
+with flat panels; the references are eroded shapes. Then: "scrap this newer one as the mountains
+looked better on the old mountains, we just need to find a way to get them to generate singularly
+like these", meaning "the old old one where we had to change the world gen type", and "is there
+any way to get them in vanilla world gen as a 1 for 1 of vanilla mountains?" That is this build.
+(He asked for a "rectangular" top and withdrew it ten minutes later; it is not built.)
+
+What changed:
+- Shape (new file `ErodedPeaks.java`): each peak is one stand-alone mountain of the old mod's
+  design: a short crest through the summit, the old cross profile (rock face at 53 degrees for
+  the upper half, concave flank below), two to four legs with small notched peaks running out
+  from the summit, the old detail noise, then the old erosion (thermal, water droplets, valley
+  fill, thermal). The old design is scaled as a whole to each peak's height.
+- Erosion runs on a 1024-block region at a time, the first time a column in it is needed, and is
+  kept in memory (not on disk). Regions hand over to each other across a 128-block band.
+- Different from the old mod: droplets land only on mountains and three times as thickly, and
+  erosion treats the top three quarters of a mountain as rock (the old mod: the top half). The
+  first test at the old numbers gave smooth cones with gullies too faint to see.
+- The mountain's height is laid on top of vanilla's land at each column. Near a river it fades
+  out over 90 blocks; the straight river walls of 0.4.8 (the flat slabs and domes) are gone.
+- Unchanged: where peaks generate, their spacing and their heights; snow, rock bands, biomes;
+  normal world type. The 0.4 flat-plane shape is still in `HornsFunction.java` but not used
+  (`ERODED = true`); it goes once he has chosen a look.
+- 0.4.13 (the raised valley floor) is reverted.
+
+SAMPLER: every peak has one of three looks (`/atlasmountains peaks` lists the nearest of each):
+- S very short crest: nearly a point, with three or four legs (a horn).
+- M short crest, two or three legs.
+- L medium crest (room for a second, lower summit), two or three legs.
+
+Checked on a dev server on his seed (-4547848503839837251), from real generated chunks, the
+896-block square of his earlier screenshots (at 6480 -6050):
+- The four nearest peaks are where they were in 0.4.12 and their summits come out at the heights
+  they were given (y 313, 328, 326, 254 against 313, 327, 326, 253). Erosion takes about 19
+  blocks off a summit; each mountain is built that much bigger to make up for it.
+- Mountains cover 45% of the square (0.4.12: 53%). Slope on them: 37 degrees typical, 58 at the
+  ninetieth percentile. Surface: bare rock 40%, snow 3.0%, grass and trees 48%, water 9.7%.
+- Erosion: 21 regions with mountains, 175 ms each on average, slowest 391 ms. The server started
+  in 10 seconds and generated the square in 183 seconds (0.4.13: about 210).
+- No errors in the server log.
+
+Not tested: in the game by eye; any second place or seed; cold biomes; badlands (where his 0.4.13
+screenshots were taken); what the fade towards rivers looks like close up; a long flight (regions
+are dropped from memory beyond 36 and eroded again if revisited); other mods. The rock and snow
+rules were written for the flat-plane peaks and have not been retuned.
+
+Known risks: a very short crest (look S) can read as a round cone, which he rejected on
+6 Nov 2026. The lower half of each mountain is the old concave flank, in bare rock here where the
+old mod had grass; he rejected a gentle skirt on the 0.4 peaks.
+
+## 0.4.13 (unreleased, SCRAPPED in 0.5.0): a high valley floor; the peaks rise straight out of it
+
+Sammi drew lines on a comparison of 0.4.11 and 0.4.12, just under the peaks' dark faces:
+"Everything below those lines looks quite bad." Traced back onto the terrain his lines were 65 to
+100 blocks under the snow line (median 79), about the level of the land under the summits. Below
+them the mountains ran on down another 100 blocks into vanilla's river valleys: 73% of the square
+was below the line (half of that vanilla's own slopes, a fifth river wall, a fifth peak faces).
+Shown two mock-ups, A (same shape, grass and trees below the line) and B (the ground raised to
+the line), he chose B.
+
+What changed:
+- The land in mountain country is raised to a valley floor 79 blocks under the snow line
+  (`FLOOR_BELOW` in HornsFunction.java), rolling by a few blocks. Land already higher is left
+  alone. Fully raised within 160 blocks of the peaks, sloping down to vanilla's land by 400
+  blocks out with a wandering outline (`FLOOR_FULL`, `FLOOR_END`, `FLOOR_EDGE` in
+  build_overhaul.py), and coming up out of the sea and lakes over the coast (`FLOOR_COAST`).
+- On the raised floor 70% of vanilla's lumpy 3-D terrain noise is taken off (`FLOOR_CALM`).
+- The floor keeps vanilla's own surface: grass, trees, whatever the biome puts there. The rock
+  line moved up to match (`ROCK_BELOW` 100 to 60), so rock starts about 20 blocks above the floor.
+- River walls are off where the floor is raised (the rivers are under it). They still stand at
+  the outer edge of mountain country.
+- The foot sampler of 0.4.12 is switched off with F1 (faces straight down, no skirt) on every
+  peak. Sammi did not choose between F1 and F2; Claude chose, because the floor buries most of
+  the difference.
+- Where peaks generate, their spacing, their heights and their shape above the line are unchanged
+  (erosion, inland, river settings and "cell" untouched; the six nearest peaks at the test spot
+  are at the same places with the same heights as in 0.4.12).
+
+This bends an earlier rule on purpose: until now vanilla's land always stayed at its own height.
+It is now raised (never lowered) around the peaks.
+
+Checked on a dev server on his seed (-4547848503839837251), from real generated chunks:
+- The 896-block square of his screenshots (at 6480 -6050), 0.4.12 then 0.4.13: bare rock 52% then
+  27% of the surface; grass, trees and other growth 40% then 67%; water 7.4% then 4.6%; the
+  middle ground height y 103 then y 146.
+- A 1408-block square round the same spot: land raised on 62% of it, by 42 blocks in the middle
+  case, 81 at the ninetieth percentile, 141 at most. The floor lies at y 130 to 184. Its slope:
+  8 degrees typical, 17 at the ninetieth percentile. The outer slope: 21 degrees typical, 53 at
+  the ninetieth percentile (vanilla's own roughness shows through there).
+- The nine summits in it stand 57 to 129 blocks above the open ground round them. (The six
+  nearest summits are at y 207 to 327; in 0.4.12 their faces and river walls ran down to rivers
+  at y 62.)
+- Peak faces still running more than 10 blocks below the line: 2.0% of the square, nearly all
+  at lake and sea shores, where the floor is not raised (the left peak at his screenshot 2).
+- A second place by the sea (896 square at -5600 2700): same picture, three summits 98 to 110
+  above the ground round them.
+- No errors in the server log in any run. No snow on the floor at either place.
+
+Known consequences, none of them seen in the game yet:
+- The mountains are smaller to the eye: rock peaks 60 to 130 blocks tall standing on green high
+  ground, where 0.4.12 had bare rock 200 blocks from river to summit. From outside, mountain
+  country is a broad green rise with the rock peaks on top.
+- Rivers stop at the outer slope and their valleys inside mountain country are filled in.
+  Strips of river biome are left on the floor without water.
+- Peaks differ less in visible height than before, because the floor follows the peaks up.
+- Not tested: cold biomes (vanilla lays snow on high ground in taiga and the like, so a raised
+  floor there may be snow-covered), villages and other structures on raised ground, and how long
+  generation takes compared with 0.4.12.
+
 ## 0.4.12 (unreleased, SAMPLER BUILD): the skirt goes; two ways to end a peak
 
 Sammi's in-game look at 0.4.11 (six screenshots, new world, seed -4547848503839837251): "looking a

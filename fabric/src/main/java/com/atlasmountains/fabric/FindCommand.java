@@ -183,8 +183,12 @@ public final class FindCommand {
                     all.sort(java.util.Comparator.comparingDouble(a -> Math.hypot(a[1] - p.x, a[2] - p.z)));
                     if (all.isEmpty()) { src.sendSuccess(() -> Component.literal("No peaks within 6,000 blocks."), false); return 1; }
                     if (HornsFunction.FOOT_SAMPLER) {
-                        // Sampler build: the three nearest good-sized peaks of each foot.
-                        src.sendSuccess(() -> Component.literal("Sampler build. Nearest peaks of each foot (click or type the /tp):"), false);
+                        // Sampler build: the three nearest good-sized peaks of each look.
+                        src.sendSuccess(() -> Component.literal("Sampler build. Nearest peaks of each look (click or type the /tp):"), false);
+                        if (ErodedPeaks.eroded > 0) {
+                            String timing = String.format("Erosion so far: %d regions with mountains, %d ms each on average, slowest %d ms.", ErodedPeaks.eroded, ErodedPeaks.erodedMillis / ErodedPeaks.eroded, ErodedPeaks.slowestBuildMillis);
+                            src.sendSuccess(() -> Component.literal(timing), false);
+                        }
                         for (int foot = 0; foot < HornsFunction.FOOT_NAMES.length; foot++) {
                             int shown = 0;
                             for (double[] hit : all) {

@@ -73,6 +73,52 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         current = this;
     }
 
+    // ---- 0.5.0: the old mod's eroded mountains on these peaks ----------------------------------
+    // Sammi, 13 Nov 2026, of 0.4.13 in the game: "too geometric and far away from my reference
+    // images", then "scrap this newer one as the mountains looked better on the old mountains, we
+    // just need to find a way to get them to generate singularly like these". With ERODED on, this
+    // class still decides where the peaks stand and how tall they are, exactly as before, and
+    // ErodedPeaks gives each one the old mod's shape and erosion. Everything below about planes,
+    // buttresses, steps and feet is the 0.4 shape, which is then not used; it stays in the file
+    // until he has seen the eroded mountains in the game, and goes once he has chosen.
+    static final boolean ERODED = true;
+    /** The mountains fade out over this many blocks towards a river, so rivers keep their valleys. Replaces the straight river walls of 0.4.8, which cut flat slabs. */
+    static final double RIVER_EASE = 90.0;
+
+    /** The peak of one cell as it has always been placed (summit in the warped coordinates, height), or null if the cell has none. */
+    ErodedPeaks.Peak peakOf(long ix, long iz, long seed) {
+        double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * JITTER) * cell;
+        double sz = (iz + 0.5 + (hash(ix, iz, seed + 4) - 0.5) * JITTER) * cell;
+        double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
+        h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
+        if (h < minHeight) return null;
+        return new ErodedPeaks.Peak(sx, sz, h, footOf(ix, iz, seed), ix, iz);
+    }
+
+    /** A world position as the peaks see it (they are laid out on a slightly wandering grid). */
+    double warpX(double x, double z, long seed) { return x + warp * fbm(x / WARP_LENGTH, z / WARP_LENGTH, seed + 1, 3); }
+    double warpZ(double x, double z, long seed) { return z + warp * fbm(x / WARP_LENGTH, z / WARP_LENGTH, seed + 2, 3); }
+
+    private static final ThreadLocal<double[]> ERODED_OUT = ThreadLocal.withInitial(() -> new double[2]);
+
+    /** column() for the eroded mountains: the mountain's height here is laid on top of vanilla's land at this column. */
+    private void evaluateEroded(int blockX, int blockZ, double[] out) {
+        out[0] = NO_PEAK; out[1] = 0; out[2] = 0; out[3] = 0;
+        double[] e = ERODED_OUT.get();
+        ErodedPeaks.sample(this, blockX, blockZ, e);
+        double relief = e[0];
+        if (relief < 0.01) return;
+        RiverWallFunction walls = RiverWallFunction.current;
+        if (walls != null) {
+            double t = RiverDistance.at(blockX, blockZ, walls.channel()) / RIVER_EASE;
+            if (t <= 0) return;
+            if (t < 1) relief *= t * t * (3 - 2 * t);
+            if (relief < 0.01) return;
+        }
+        double land = PeakStrength.land(blockX, blockZ);
+        out[0] = land + relief / 128.0; out[1] = land; out[2] = relief; out[3] = e[1];
+    }
+
     /** One line per peak whose summit is within radius blocks of (x, z): style, summit x, summit z, height. */
     java.util.List<double[]> peaksNear(double x, double z, double radius) {
         long seed = AtlasMountainsMod.seed();
@@ -119,7 +165,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     // ---- hashing and noise ---------------------------------------------------------------
 
     /** A number in [0, 1) from two integers and a seed; the same on every thread and every run. */
-    private static double hash(long ix, long iz, long seed) {
+    static double hash(long ix, long iz, long seed) {
         long n = ix * 0x9E3779B97F4A7C15L + iz * 0xC2B2AE3D27D4EB4FL + seed * 0x165667B19E3779F9L;
         n ^= n >>> 29; n *= 0xBF58476D1CE4E5B9L;
         n ^= n >>> 32; n *= 0x94D049BB133111EBL;
@@ -128,7 +174,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     }
 
     /** Smooth value noise in -1..1. */
-    private static double valueNoise(double x, double z, long seed) {
+    static double valueNoise(double x, double z, long seed) {
         double fx0 = Math.floor(x), fz0 = Math.floor(z);
         long ix = (long) fx0, iz = (long) fz0;
         double fx = x - fx0, fz = z - fz0;
@@ -192,8 +238,8 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     //   F1  no skirt: the faces run straight on down, at their own 49 degrees, to the ground
     //   F2  short flare: only the lowest 15% of the height eases out, to about 39 degrees
     // Once he has chosen, FOOT_SAMPLER goes and skirt_from / skirt_slope carry the choice.
-    static final boolean FOOT_SAMPLER = true;
-    static final String[] FOOT_NAMES = {"F1 no skirt", "F2 short flare"};
+    static final boolean FOOT_SAMPLER = true;   // 0.5.0: the sampler is now the three crest lengths of ErodedPeaks; F1/F2 below are only read by the unused 0.4 shape
+    static final String[] FOOT_NAMES = ERODED ? ErodedPeaks.LOOK_NAMES : new String[]{"F1 no skirt", "F2 short flare"};
     static final double FLARE_FROM = 0.15, FLARE_SLOPE = 0.85;
 
     /** Which foot a peak has: 0 or 1 in the sampler build, 2 (skirt_from and skirt_slope) otherwise. */
@@ -310,6 +356,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     private static final ThreadLocal<double[]> RESULT = ThreadLocal.withInitial(() -> new double[4]);
 
     private void evaluate(int blockX, int blockZ, double[] out) {
+        if (ERODED) { evaluateEroded(blockX, blockZ, out); return; }
         long seed = AtlasMountainsMod.seed();
         double x = blockX, z = blockZ;
         double wx = x + warp * fbm(x / WARP_LENGTH, z / WARP_LENGTH, seed + 1, 3);
