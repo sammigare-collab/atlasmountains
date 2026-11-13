@@ -95,7 +95,23 @@ final class ErodedPeaks {
     // ---- new in 0.5.0: one mountain per peak ---------------------------------------------------
     /** SAMPLER: half the length of the crest for a full-size peak, for looks 0, 1, 2 (a 120-block peak has 0.7 of this). */
     static final double[] CREST_HALF = {8, 30, 60};
-    static final String[] LOOK_NAMES = {"S very short crest", "M short crest", "L medium crest"};
+    /**
+     * SAMPLER since 0.5.3: how deeply the faces are scooped out between the legs, for looks 0, 1, 2
+     * (blocks, for a full-size peak). A real face between two ridges is a hollow bowl; these were
+     * rounded cones with scratches on them. The crest length (the 0.5.0 sampler, never chosen
+     * between) is now drawn separately for each peak and not labelled.
+     */
+    static final double[] SCOOP = {14, 22, 30};
+    static final String[] LOOK_NAMES = {"S light scoop", "M medium scoop", "L deep scoop"};
+    /** A face is scooped to full depth this far from the nearest leg (blocks, full-size peak). */
+    static final double SCOOP_WIDTH = 45;
+    /**
+     * The shared base (0.5.3): peaks in a group stand on one raised swell of ground and meet at
+     * saddles, instead of each standing alone on the flat. Every peak lifts the ground round it
+     * by SWELL of its height, fading over SWELL_SIGMA cells; where peaks are close the lifts add
+     * up, never beyond SWELL_CAP of the nearest peak's height. Summits are not raised.
+     */
+    static final double SWELL = 0.25, SWELL_SIGMA = 0.5, SWELL_CUT = 2.0, SWELL_CAP = 0.40;
     /** The lesser summits along a crest are this share of the main one, at least and at most. */
     static final double LESSER_MIN = 0.90, LESSER_MAX = 0.99;
     /** How many legs a mountain of each look has at least; half of them have one more. The near-point of look S is a horn: three or four aretes. */
@@ -247,7 +263,7 @@ final class ErodedPeaks {
             for (long jx = cx - 2; jx <= cx + 2; jx++) {
                 Peak p = horns.peakOf(jx, jz, seed);
                 if (p == null) continue;
-                double reach = boxOf(p) + 16;
+                double reach = Math.max(boxOf(p), 2.9 * SWELL_SIGMA * cell) + 16;   // the mountain itself or the swell round it
                 if (Math.abs(wx - p.x) <= reach && Math.abs(wz - p.z) <= reach) return true;
             }
         }
@@ -256,7 +272,7 @@ final class ErodedPeaks {
 
     /** Half the side of the square a mountain fits in. */
     private static double boxOf(Peak p) {
-        return (LEG_REACH * HALF_WIDTH + CREST_HALF[p.look] * (1 + SUMMIT_OFF)) * (p.h + SUMMIT_LOSS) / RELIEF;
+        return (LEG_REACH * HALF_WIDTH + CREST_HALF[2] * (1 + SUMMIT_OFF)) * (p.h + SUMMIT_LOSS) / RELIEF;
     }
 
     // ---- grass on the gentle lower slopes (0.5.2) ------------------------------------------------
@@ -265,11 +281,18 @@ final class ErodedPeaks {
     // biome (grass, trees); the steeper it is and the higher up, the less. At the foot, ground up
     // to GRASS_SLOPE is grass; the slope allowed shrinks to nothing GRASS_UP of the way up the
     // mountain. Two slow noises make the edge wander.
-    static final double GRASS_SLOPE = 0.85, GRASS_UP = 0.38;   // first try 0.80 and 0.50: a tongue of grass ran two thirds of the way up a valley between two peaks
+    // 0.5.3, bands as on a real mountain (Sammi: "more realistic"): trees only on the lowest part
+    // (vanilla's own biome), then open grass with no trees, then grass in patches among the stone,
+    // then rock. 0.5.2 had one band, vanilla's biome up to 38% of the height: a strip of trees ran
+    // most of the way up a rib and a wood sat half-way up between two peaks.
+    static final double GRASS_SLOPE = 0.85, TREES_UP = 0.12, GRASS_UP = 0.24, PATCH_UP = 0.34;
     private static final ThreadLocal<double[]> ROCKY = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, 0, 0, 0});
 
     /** 1 where a mountain's surface is bare rock at this column, 0 where it is grass (or there is no mountain). Remembers the last column per thread. */
-    static double rocky(HornsFunction horns, int x, int z) {
+    static double rocky(HornsFunction horns, int x, int z) { return Math.min(1, cover(horns, x, z)); }
+
+    /** What covers a mountain at this column: 0 vanilla's own surface and biome (trees), 1 open grass with no trees, 2 rock. Remembers the last column per thread. */
+    static double cover(HornsFunction horns, int x, int z) {
         double[] c = ROCKY.get();
         if (c[0] == x && c[1] == z && c[3] == System.identityHashCode(horns) && c[4] == AtlasMountainsMod.seed()) return c[2];
         double v = rockyUncached(horns, x, z);
@@ -288,30 +311,42 @@ final class ErodedPeaks {
         if (!(tall > 20)) tall = 120;
         long seed = AtlasMountainsMod.seed();
         double up = relief / tall + 0.06 * HornsFunction.valueNoise(x / 37.0, z / 37.0, seed + 771);
-        if (up >= GRASS_UP) return 1;
+        if (up >= PATCH_UP) return 2;
         sample(horns, x + 3, z, o); double e = o[0];
         sample(horns, x - 3, z, o); double w = o[0];
         sample(horns, x, z + 3, o); double s = o[0];
         sample(horns, x, z - 3, o); double n = o[0];
         double slope = Math.hypot(e - w, s - n) / 6.0;
-        double limit = GRASS_SLOPE * (1 - up / GRASS_UP) + 0.12 * HornsFunction.valueNoise(x / 19.0, z / 19.0, seed + 772);
-        return slope < limit ? 0 : 1;
+        double limit = GRASS_SLOPE * (1 - up / PATCH_UP) + 0.12 * HornsFunction.valueNoise(x / 19.0, z / 19.0, seed + 772);
+        if (slope >= limit) return 2;                 // too steep for anything to hold: rock, even low down
+        if (up < TREES_UP) return 0;
+        if (up < GRASS_UP) return 1;
+        return HornsFunction.valueNoise(x / 6.0, z / 6.0, seed + 773) > 2 * (up - GRASS_UP) / (PATCH_UP - GRASS_UP) - 1 ? 1 : 2;
     }
 
+    private static final int[] RING_X = {20, 14, 0, -14, -20, -14, 0, 14}, RING_Z = {0, 14, 20, 14, 0, -14, -20, -14};
+
     /**
-     * How sheltered a column is, for the snow: how far its ground lies below the ground 8 blocks
-     * away on four sides, in blocks (0 on a slope or a rib, above zero in a hollow). Snow gathers
-     * in hollows; without this the small hollows among a mountain's summits fell under the
-     * wandering snow line and showed as bare holes in the cap (Sammi's screenshots of 0.5.1).
+     * How the snow line shifts at a column (blocks; above zero means snow lies lower here). Real
+     * snow gathers in hollows and blows and slides off steep ribs; 0.5.1 and 0.5.2 had it the
+     * other way round (white along the ribs, bare in the hollows between: Sammi's screenshot at
+     * 163 331 -523), because one level line was compared with each column's own height. Here the
+     * line is compared with the ground 20 blocks round about instead: a hollow counts as being as
+     * high as its rim. Ground steeper than about 50 degrees loses up to 7 blocks.
      */
-    static double shelter(HornsFunction horns, int x, int z) {
+    static double snowShift(HornsFunction horns, int x, int z) {
         double[] o = ROCKY_OUT.get();
         sample(horns, x, z, o); double here = o[0];
-        sample(horns, x + 8, z, o); double sum = o[0];
-        sample(horns, x - 8, z, o); sum += o[0];
-        sample(horns, x, z + 8, o); sum += o[0];
-        sample(horns, x, z - 8, o); sum += o[0];
-        return Math.max(0, sum / 4 - here);
+        double ring = 0;
+        for (int i = 0; i < 8; i++) { sample(horns, x + RING_X[i], z + RING_Z[i], o); ring += o[0]; }
+        sample(horns, x + 3, z, o); double e = o[0];
+        sample(horns, x - 3, z, o); double w = o[0];
+        sample(horns, x, z + 3, o); double s = o[0];
+        sample(horns, x, z - 3, o); double n = o[0];
+        double t = Math.max(0, Math.min(1, (Math.hypot(e - w, s - n) / 6.0 - 1.15) / 0.5));
+        // A first try took up to 10 blocks off every rib and summit as well and 12 off steep ground:
+        // the caps shrank to a few patches. Ribs now lose 3 at most and steep ground 7.
+        return Math.max(-3, Math.min(28, ring / 8 - here)) - 7 * t * t * (3 - 2 * t);
     }
 
     private static void finish(int x, int z, double[] out) {
@@ -387,12 +422,13 @@ final class ErodedPeaks {
      * small notched peaks, and it fades out a little beyond the foot of the flank. Two or three to
      * a mountain, at least one on each side.
      */
-    private static double legs(Peak p, double a, double v, double d, long seed) {
+    private static double legs(Peak p, int crest, double a, double v, double d, long seed, double[] nearest) {
+        nearest[0] = 1e9;
         double reach = LEG_REACH * HALF_WIDTH, fadeFrom = LEG_FADE_FROM * HALF_WIDTH;
         if (d >= reach) return 0;
         double fade = 1;
         if (d > fadeFrom) { double t = (d - fadeFrom) / (reach - fadeFrom); fade = 1 - t * t * (3 - 2 * t); }
-        int count = LEGS[p.look] + (HornsFunction.hash(p.ix, p.iz, seed + 70) < 0.5 ? 1 : 0);
+        int count = LEGS[crest] + (HornsFunction.hash(p.ix, p.iz, seed + 70) < 0.5 ? 1 : 0);
         int first = HornsFunction.hash(p.ix, p.iz, seed + 71) < 0.5 ? 1 : -1;
         double best = 0;
         for (int j = 0; j < count; j++) {
@@ -407,6 +443,7 @@ final class ErodedPeaks {
             if (run < 0) continue;
             double bend = (2 * HornsFunction.hash(p.ix, p.iz, salt + 2) - 1) * LEG_BEND * run * run / reach;
             double w = Math.abs(a * cs - vv * sn - bend);
+            if (w < nearest[0]) nearest[0] = w;
             double period = LEG_PEAKS * (0.8 + 0.4 * HornsFunction.hash(p.ix, p.iz, salt + 3));
             double notch = LEG_NOTCH * 0.5 * (1 - Math.cos(2 * Math.PI * run / period));
             double hh = (RELIEF - LEG_FALL * run - notch - LEG_SIDE * w) * fade;
@@ -414,6 +451,8 @@ final class ErodedPeaks {
         }
         return best;
     }
+
+    private static final ThreadLocal<double[]> NEAREST = ThreadLocal.withInitial(() -> new double[1]);
 
     /** One mountain's height above the ground, before erosion, at (dx, dz) from its summit; blocks. */
     static double mountain(Peak p, double dx, double dz, long seed) {
@@ -424,12 +463,18 @@ final class ErodedPeaks {
         double cs = Math.cos(turn), sn = Math.sin(turn);
         double a = (dx * cs + dz * sn) / k, v = (dz * cs - dx * sn) / k;
         double off = SUMMIT_OFF * (2 * HornsFunction.hash(p.ix, p.iz, seed + 41) - 1);
-        double half = CREST_HALF[p.look], lo = half * (1 + off), hi = half * (1 - off);
+        int crestLook = (int) Math.floor(HornsFunction.hash(p.ix, p.iz, seed + 15) * CREST_HALF.length);
+        double half = CREST_HALF[crestLook], lo = half * (1 + off), hi = half * (1 - off);
         double past = a < -lo ? -lo - a : a > hi ? a - hi : 0;
         double d = past <= 0 ? Math.abs(v) : Math.hypot(v, past);   // a rounded end, as a ridge's end was in the old mod
         double c = crest(p, Math.max(-lo, Math.min(hi, a)), lo, hi, seed);
         double h = cross(c, d);
-        double leg = legs(p, a, v, d, seed);
+        double[] nearest = NEAREST.get();
+        double leg = legs(p, crestLook, a, v, d, seed, nearest);
+        // the scoop: away from the legs the face is lowered, most half-way up, nothing at the summit or the foot
+        double share = Math.max(0, Math.min(1, h / RELIEF));
+        double t = Math.min(1, nearest[0] / SCOOP_WIDTH);
+        h = Math.max(0, h - SCOOP[p.look] * t * t * (3 - 2 * t) * 4 * share * (1 - share));
         return Math.max(h, leg) * k;
     }
 
@@ -450,7 +495,7 @@ final class ErodedPeaks {
         r.originX = rx * REGION - OVERLAP * SPACING;
         r.originZ = rz * REGION - OVERLAP * SPACING;
         int n = GRID;
-        double cell = horns.cell();
+        double cell = horns.cell(), sigma = SWELL_SIGMA * cell;
         // every peak that could reach into the region: the cells under it and two more each way
         long c0x = (long) Math.floor((r.originX - 8.0) / cell) - 2, c0z = (long) Math.floor((r.originZ - 8.0) / cell) - 2;
         long c1x = (long) Math.floor((r.originX + (double) n * SPACING + 8.0) / cell) + 2, c1z = (long) Math.floor((r.originZ + (double) n * SPACING + 8.0) / cell) + 2;
@@ -473,7 +518,7 @@ final class ErodedPeaks {
                 double x = r.originX + gx * (double) SPACING;
                 double wx = horns.warpX(x, z, seed), wz = horns.warpZ(x, z, seed);
                 long cx = (long) Math.floor(wx / cell), cz = (long) Math.floor(wz / cell);
-                double best = 0, owner = RELIEF, river = Double.NaN;
+                double best = 0, owner = RELIEF, river = Double.NaN, swell = 0, strongest = 0, swellOwner = RELIEF;
                 for (long jz = cz - 2; jz <= cz + 2; jz++) {
                     if (jz < c0z || jz > c1z) continue;
                     for (long jx = cx - 2; jx <= cx + 2; jx++) {
@@ -481,7 +526,11 @@ final class ErodedPeaks {
                         int pi = (int) (jz - c0z) * cw + (int) (jx - c0x);
                         Peak p = peaks[pi];
                         if (p == null) continue;
-                        double m = mountain(p, wx - p.x, wz - p.z, seed);
+                        double ddx = wx - p.x, ddz = wz - p.z;
+                        double lift = SWELL * p.h * Math.exp(-(ddx * ddx + ddz * ddz) / (2 * sigma * sigma));
+                        swell += lift;
+                        if (lift > strongest) { strongest = lift; swellOwner = p.h; }
+                        double m = mountain(p, ddx, ddz, seed);
                         if (m <= best) continue;
                         if (walls != null) {
                             if (Double.isNaN(river)) river = RiverDistance.at((int) Math.floor(x), (int) Math.floor(z), walls.channel());
@@ -493,6 +542,13 @@ final class ErodedPeaks {
                         if (m > best) { best = m; owner = p.h; }
                     }
                 }
+                swell = Math.min(swell - SWELL_CUT, SWELL_CAP * swellOwner);
+                if (swell > best && walls != null) {
+                    if (Double.isNaN(river)) river = RiverDistance.at((int) Math.floor(x), (int) Math.floor(z), walls.channel());
+                    double t = river / RIVER_FADE;
+                    if (t < 1) swell *= t <= 0 ? 0 : t * t * (3 - 2 * t);
+                }
+                if (swell > best) { best = swell; owner = swellOwner; }
                 int i = gz * n + gx;
                 floor[i] = best <= 1e-6;
                 if (!floor[i]) {

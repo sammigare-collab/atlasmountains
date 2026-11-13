@@ -201,6 +201,11 @@ def write_surface():
             'stops': [{'state': b, 'at': a} for b, a in ROCK]}
     peak_surface = {'type': 'minecraft:sequence', 'sequence': [
         cond(top, cond({'type': f'{NS}:peak_snow', **SNOW}, snow)),
+        # 0.5.3: the open-grass band above the trees (on_peak with tolerance -1 asks for that band): grass on top, dirt under
+        cond({'type': f'{NS}:on_peak', 'tolerance': -1, 'rock_below': float(ROCK_BELOW)}, {'type': 'minecraft:sequence', 'sequence': [
+            cond(top, {'type': 'minecraft:block', 'result_state': 'minecraft:grass_block'}),
+            cond({'type': 'minecraft:stone_depth', 'offset': 2, 'surface_type': 'floor', 'add_surface_depth': False, 'secondary_depth_range': 0},
+                 {'type': 'minecraft:block', 'result_state': 'minecraft:dirt'})]}),
         cond(deep, rock),
     ]}
     on_peak = cond({'type': f'{NS}:on_peak', 'tolerance': 3, 'rock_below': float(ROCK_BELOW)}, cond('minecraft:not_underwater', peak_surface))

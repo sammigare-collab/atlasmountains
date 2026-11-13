@@ -51,6 +51,8 @@ public record OnPeakCondition(int tolerance, double minAbove, double rockBelow) 
             HornsFunction horns = HornsFunction.current;
             if (horns == null) return false;
             int x = context.blockX(), y = context.blockY(), z = context.blockZ();
+            // a tolerance below zero turns this into a different question: is this the open-grass band of a mountain?
+            if (tolerance < 0) return HornsFunction.ERODED && ErodedPeaks.cover(horns, x, z) == 1;
             double[] c = horns.column(x, z);
             if (c[0] > HornsFunction.NO_PEAK + 1 && c[2] > 0 && y <= 128 + 128 * c[0] + tolerance
                     && PeakStrength.aboveLand(x, z) >= minAbove

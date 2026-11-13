@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.5.3 (unreleased, SAMPLER BUILD): "more realistic": snow in the hollows, bands of growth, scooped faces, a shared base
+
+Sammi on five in-game screenshots of 0.5.2: "I want them to be more realistic". Claude listed
+five differences from real mountains and his reference pictures; he chose four: (1) snow in the
+wrong places, (2) no bands of vegetation, (3) faces that bulge where real ones are scooped,
+(5) peaks standing on flat ground like separate objects. Not chosen: (4) every side alike.
+
+- Snow (1). The snow line is now compared with the ground 20 blocks round about, not with each
+  column's own height, so a hollow counts as being as high as its rim and holds snow; ribs lose
+  up to 3 blocks and ground steeper than about 50 degrees up to 7 (`snowShift`). At his spot
+  (163 331 -523) 0.5.2 had white along the ribs and bare hollows; 0.5.3 has white in the hollows
+  and bare ribs. It is patches there, not one cap. Bare columns inside caps: 0.63% then 0.25%
+  of snow columns.
+- Bands (2). From the foot up: vanilla's own biome with its trees (lowest 12% of the height),
+  open grass with no trees (to 24%), grass in patches among the stone (to 34%), then rock; ground
+  too steep for its height is rock anywhere. The open grass is the peak biome with grass and
+  dirt laid by the surface rule. On the mountains' area: rock 59% then 43%, open grass 21% then
+  36%, trees 9% then 12%.
+- Scoop (3), THE SAMPLER: away from the legs each face is lowered, most half-way up, so the legs
+  stand as edges round a bowl. Three depths, 14, 22 and 30 blocks for a full-size peak:
+  S light, M medium, L deep (`/atlasmountains peaks` lists the nearest of each). The crest
+  length, the old sampler he never chose between, is now drawn for each peak and not labelled.
+- Shared base (5): every peak lifts the ground round it by a quarter of its height, fading over
+  about half a cell; lifts add up where peaks are close (capped at 40% of the nearer peak), so a
+  group stands on one swell and meets at saddles. Summits are not raised (two checked: y 330
+  and 207, as in 0.5.2). Mountains now cover 46% of the test square (0.5.2: 33%).
+- Erosion: 411 ms per region on average, 870 at worst, on the test server (0.5.2: 318 and 658).
+
+Checked on a dev server on his seed 5300383603861270436, 1024-block square at -200 -450, real
+generated chunks, no errors in the log. Not tested: in the game; other seeds; cold biomes.
+
+Known: trees still run up between two peaks at his spot 165 139 -868. That ground is a vanilla
+hill the mountains sit on, low on the mountains by the rule. The swell raises land beside the
+sea and lakes too; what that does to coasts is unchecked. The steep walls beside water and the
+overhanging ledge of his 0.5.1 screenshots are untouched.
+
 ## 0.5.2 (unreleased, SAMPLER BUILD): grass up the gentle lower slopes, more structure, a height mistake put right
 
 Sammi's nine in-game screenshots of 0.5.1 (seed 5300383603861270436). Agreed reading: three
