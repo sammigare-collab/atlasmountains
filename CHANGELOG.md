@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.5.7 (unreleased): the tower, the domes, the hard line where rock meets forest
+
+Three things Claude had listed from Sammi's screenshots of 0.5.4 (seed 6021084639467433954) and
+he asked to have tried: "Nice try those next". Three changes in one build, at his asking.
+
+- The tower (summit -7616 5824, seen from -7732 5949). Cause, measured: the mountain's own slope
+  was 43 degrees, but vanilla's land under it fell 60 blocks in the same 108 towards a river:
+  56 degrees in all. Slopes were only measured on the mountain, as if the ground were flat.
+  Now the water and the rock slides work on the real ground (vanilla's land plus the mountain).
+- Found on the way, and behind steep sides everywhere: erosion left most mountains well short of
+  their set height and a last step stretched them up to it, which also stretched 52-degree
+  slopes past 60. Now each mountain rises as fast as it needs to arrive at its set height
+  during the erosion (it gets within about a tenth), and the last stretch is at most 1.2.
+  A FIRST TRY without this, only capping the stretch, was not sent: summits 30 to 45 blocks low
+  and flat-topped.
+- THIS CHANGES HEIGHTS, which he has said not to touch unless he asks: a mountain hemmed in by
+  a river and falling land now comes out LOWER than set instead of as a wall. On the test
+  square, six summits, 0.5.6 then 0.5.7: y 225 230, 269 268, 289 277, 218 219, 259 242, 252 254.
+- Domes. Cause: the noise on the lumps is smooth and up to 34 blocks, so near a summit it made a
+  rounded bump that became the summit. It now fades out within 70 blocks of every summit.
+- The hard line. Cause: the feet of these mountains are steeper than the old flanks, so nearly
+  all of the foot counted as too steep for anything to grow. `GRASS_SLOPE` 0.85 to 1.1 (about
+  48 degrees at the very foot, less and less higher up, as before).
+
+Checked on a dev server on his seed, 1024-block square at -7500 5600, real generated chunks, no
+errors in the log. South from the tower's summit the ground went y 252, 233, 211, 183, 166,
+148, 121, 102, 94 every 12 blocks; it now goes 212, 194, 181, 173, 158, 145, 130, 116, 100
+(the top of that mountain has moved a little; its highest point is y 254). Erosion 1428 ms per
+region on average, 1895 at worst (0.5.6: 787 and 1370): the land is now looked up for every
+sample.
+
+Seen in renders from his camera spots: the tower is a group of sharper, lower-angled peaks;
+grass runs up the feet. The big mountain of his first screenshot still has a broad snowy top.
+
+Not tested: in the game by eye; other seeds; cold biomes; a river with water in it running
+between two peaks (0.5.6).
+
 ## 0.5.6 (unreleased): a river valley between two peaks of a group is covered
 
 Sammi on the 0.5.5 comparison: "the valley running through is forcing that side to be silly

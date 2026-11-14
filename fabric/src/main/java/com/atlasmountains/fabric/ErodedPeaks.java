@@ -192,7 +192,9 @@ final class ErodedPeaks {
     // (vanilla's own biome), then open grass with no trees, then grass in patches among the stone,
     // then rock. 0.5.2 had one band, vanilla's biome up to 38% of the height: a strip of trees ran
     // most of the way up a rib and a wood sat half-way up between two peaks.
-    static final double GRASS_SLOPE = 0.85, TREES_UP = 0.12, GRASS_UP = 0.24, PATCH_UP = 0.34;
+    // 0.5.7: GRASS_SLOPE 0.85 to 1.1. The feet of the water-made mountains are steeper than the old flanks
+    // (37 degrees and up), so nearly all of the foot counted as too steep and rock met forest at a hard line.
+    static final double GRASS_SLOPE = 1.1, TREES_UP = 0.12, GRASS_UP = 0.24, PATCH_UP = 0.34;
     private static final ThreadLocal<double[]> ROCKY = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, 0, 0, 0});
 
     /** 1 where a mountain's surface is bare rock at this column, 0 where it is grass (or there is no mountain). Remembers the last column per thread. */
