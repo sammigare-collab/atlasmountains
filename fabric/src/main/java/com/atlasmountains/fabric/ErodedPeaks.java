@@ -32,8 +32,8 @@ final class ErodedPeaks {
 
     /** Fine noise added when the 4-block grid is read back, so faces are not glassy. */
     static final double FINE = 1.5, FINE_LENGTH = 7;
-    /** No sampler in 0.5.4: every peak is the one look. (The debug command lists peaks by look.) */
-    static final String[] LOOK_NAMES = {"peak"};
+    /** SAMPLER since 0.5.11: see Massif.LOOK_CARVE. */
+    static final String[] LOOK_NAMES = {"A as before", "B deeper carving", "C sharper, deeper carving"};
 
     /**
      * Rivers. A mountain fades out towards a river so the river keeps its valley. The fade is

@@ -50,10 +50,13 @@ public final class FindCommand {
      * box). The y is the real ground at the top, found by asking the generator, so the teleport
      * lands on the summit and not inside it or in the air.
      */
-    private static int locate(CommandSourceStack src, boolean tallest) {
+    private static int locate(CommandSourceStack src, boolean tallest, int wanted) {
         HornsFunction horns = HornsFunction.current;
         Vec3 p = src.getPosition();
-        List<double[]> all = horns == null ? List.of() : horns.peaksNear(p.x, p.z, LOCATE_RADIUS);
+        List<double[]> all0 = horns == null ? List.of() : horns.peaksNear(p.x, p.z, LOCATE_RADIUS);
+        List<double[]> all = all0;
+        // sampler: /locate mountain a|b|c finds the nearest good-sized one of that look
+        if (wanted >= 0) all = all.stream().filter(c -> (int) c[0] == wanted && c[3] >= 110).toList();
         if (all.isEmpty()) {
             src.sendFailure(Component.literal("Could not find a mountain within " + LOCATE_RADIUS + " blocks"));
             return 0;
@@ -73,13 +76,13 @@ public final class FindCommand {
         }
         // getBaseHeight is the first free block above the ground: where feet go
         final int x = sx, y = by, z = sz,
-        away = (int) Math.hypot(sx - p.x, sz - p.z), tall = (int) Math.round(hit[3]);
+        away = (int) Math.hypot(sx - p.x, sz - p.z), tall = (int) Math.round(hit[3]), look = (int) hit[0];
         Component where = net.minecraft.network.chat.ComponentUtils.wrapInSquareBrackets(Component.translatable("chat.coordinates", x, y, z))
                 .withStyle(style -> style.withColor(net.minecraft.ChatFormatting.GREEN)
                         .withClickEvent(new net.minecraft.network.chat.ClickEvent.SuggestCommand("/tp @s " + x + " " + y + " " + z))
                         .withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(Component.translatable("chat.coordinates.tooltip"))));
         src.sendSuccess(() -> Component.literal("The " + (tallest ? "tallest" : "nearest") + " mountain is at ").append(where)
-                .append(Component.literal(" (" + away + " blocks away, " + tall + " blocks tall)")), false);
+                .append(Component.literal(" (" + away + " blocks away, " + tall + " blocks tall)" + (HornsFunction.FOOT_NAMES.length > 1 ? ". Look " + HornsFunction.FOOT_NAMES[look] : ""))), false);
         return away;
     }
 
@@ -88,8 +91,11 @@ public final class FindCommand {
         // vanilla's command and keeps its permission (cheats on, or an operator), as /locate biome has.
         dispatcher.register(Commands.literal("locate")
                 .then(Commands.literal("mountain")
-                        .executes(ctx -> locate(ctx.getSource(), false))
-                        .then(Commands.literal("tallest").executes(ctx -> locate(ctx.getSource(), true)))));
+                        .executes(ctx -> locate(ctx.getSource(), false, -1))
+                        .then(Commands.literal("tallest").executes(ctx -> locate(ctx.getSource(), true, -1)))
+                        .then(Commands.literal("a").executes(ctx -> locate(ctx.getSource(), false, 0)))
+                        .then(Commands.literal("b").executes(ctx -> locate(ctx.getSource(), false, 1)))
+                        .then(Commands.literal("c").executes(ctx -> locate(ctx.getSource(), false, 2)))));
 
         dispatcher.register(Commands.literal("atlasmountains")
                 .executes(ctx -> {

@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.11 (unreleased, SAMPLER BUILD): three looks for the shape
+
+Sammi after 0.5.10: "im not sure if the mountain shape is right yet". Claude agreed (faces
+plain close up, lone peaks near cones, some humped tops) and proposed a sampler, the method he
+has said works best; he said "show me".
+
+Every peak has one of three looks, blended smoothly between neighbours:
+- A as before (0.5.6's shape).
+- B the faces carved twice as deep (cut and noise both doubled: `LOOK_CARVE`).
+- C the same deep carve on a sharper mountain: its height as a share of the summit's is raised
+  to the power 1.4 (`LOOK_SHARP`), which keeps the summit, steepens the upper faces, narrows the
+  top and eases the lower slopes.
+`/locate mountain a`, `b`, `c` find the nearest good-sized one of each; `/locate mountain` now
+says which look a mountain is.
+
+Checked on a dev server, real chunks, seed -5999978045571072206 at 4200 -650, each look forced
+on every peak in turn: five summits at y 193, 198, 280, 283, 270 in A and B; 189, 196, 280,
+279, 266 in C (up to 4 lower). In renders from his camera spots C is plainly sharper; A and B
+are hard to tell apart without sun and shadow. The commands answer; no errors in the log.
+Not tested: B and C on the snowy seed (the run was cut short); in the game.
+
 ## 0.5.10 (unreleased): biomes: no jungle on mountain feet, no snow patches beside the mountains
 
 Sammi, seed -6677413799414465054, six screenshots: "somethings messing with the biomes". A round

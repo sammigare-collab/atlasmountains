@@ -121,12 +121,51 @@ final class Massif {
             carve[i] = (float) (b - v);
             buried[i] = (float) Math.max(0, Math.min(1, cubicAt(m.bury, m.n, gx * step, gz * step)));
         }
-        if (GULLY_RUNS > 0) gullies(relief, carve, size, spacing, originX, originZ, seed);
+        // SAMPLER (0.5.11): each peak has one of three looks; what differs is blended smoothly between neighbouring peaks
+        float[] ref = m.spread(size, spacing, -1, null), deep = m.spread(size, spacing, 0, LOOK_CARVE), sharp = m.spread(size, spacing, 0, LOOK_SHARP);
+        for (int i = 0; i < relief.length; i++) {
+            if (sharp[i] <= 1.001f || relief[i] <= 0 || relief[i] >= ref[i]) continue;
+            // look C: the profile is made hollow (height as a share of the summit's, raised to a power): the
+            // summit stays, the upper faces steepen, the top narrows, the lower slopes ease
+            float was = relief[i];
+            relief[i] = (float) (ref[i] * Math.pow(was / ref[i], sharp[i]));
+            carve[i] += was - relief[i];
+        }
+        if (GULLY_RUNS > 0) gullies(relief, carve, deep, size, spacing, originX, originZ, seed);
         return true;
     }
 
+    // ---- SAMPLER (0.5.11): three looks, for Sammi to compare in the game ("im not sure if the mountain shape is right yet") ----
+    // A as it was. B the faces carved about twice as deep (the "deep" carve he passed over in renders on 14 Nov, where
+    // there was no sun or shadow to judge it by). C the same deep carve on a sharper mountain: hollow profile, steeper
+    // upper faces, narrower top (aimed at the cones and humps).
+    /** How much deeper than GULLY_CUT and FACE_NOISE each look's faces are carved, and the power of its profile (1: unchanged). */
+    static final double[] LOOK_CARVE = {1.0, 2.0, 2.0}, LOOK_SHARP = {1.0, 1.0, 1.4};
+    /** For testing: a file /tmp/atlas_look holding 0, 1 or 2 gives every peak that look. */
+    static final int FORCE_LOOK = forced();
+    private static int forced() {
+        try { return Integer.parseInt(java.nio.file.Files.readString(java.nio.file.Path.of("/tmp/atlas_look")).trim()); } catch (Exception e) { return -1; }
+    }
+
+    /** One number per peak (its set height if perLook is null, else perLook[its look]) spread smoothly over a fine grid. */
+    private float[] spread(int size, int spacing, int unused, double[] perLook) {
+        float[] out = new float[size * size];
+        double sig = 0.35 * cell;
+        for (int gz = 0; gz < size; gz++) for (int gx = 0; gx < size; gx++) {
+            double x = ox + gx * spacing, z = oz + gz * spacing, sw = 1e-6, sv = 0;
+            for (ErodedPeaks.Peak p : peaks) {
+                double dx = x - p.x(), dz = z - p.z();
+                if (Math.abs(dx) > 4 * sig || Math.abs(dz) > 4 * sig) continue;
+                double w = Math.exp(-(dx * dx + dz * dz) / (2 * sig * sig));
+                sw += w; sv += w * (perLook == null ? p.h() : perLook[FORCE_LOOK >= 0 ? FORCE_LOOK : p.look()]);
+            }
+            out[gz * size + gx] = sw < 1e-5 ? (perLook == null ? 120f : 1f) : (float) (sv / sw);
+        }
+        return out;
+    }
+
     /** The faces' own pass: see FACE_NOISE. Lowers relief, and adds what it cut to carve (the snow lies lower in gullies). */
-    private static void gullies(float[] h, float[] carve, int n, double sp, int originX, int originZ, long seed) {
+    private static void gullies(float[] h, float[] carve, float[] deep, int n, double sp, int originX, int originZ, long seed) {
         int N = n * n;
         float[] before = h.clone(), weight = new float[N];
         boolean[] out = new boolean[N];
@@ -178,13 +217,13 @@ final class Massif {
             for (int i = 0; i < N; i++) {
                 if (out[i] || weight[i] <= 0) continue;
                 // nothing where only the cell itself drains (crests and summits keep their height)
-                double cut = GULLY_CUT * weight[i] * Math.min(1, Math.sqrt(Math.max(0, area[i] - 1.5) / GULLY_FULL));
+                double cut = GULLY_CUT * deep[i] * weight[i] * Math.min(1, Math.sqrt(Math.max(0, area[i] - 1.5) / GULLY_FULL));
                 if (run == 0) {
                     // the noise goes on with the first run, and not on crests and summits (where nothing drains), so no summit moves
                     double wx = originX + (i % n) * sp, wz = originZ + (i / n) * sp;
                     double nz = HornsFunction.valueNoise(wx / FACE_NOISE_LENGTH, wz / FACE_NOISE_LENGTH, seed + 620)
                             + 0.5 * HornsFunction.valueNoise(wx / (FACE_NOISE_LENGTH / 2.2), wz / (FACE_NOISE_LENGTH / 2.2), seed + 621);
-                    cut -= FACE_NOISE * weight[i] * nz / 1.5 * Math.min(1, (area[i] - 1) / 4);
+                    cut -= FACE_NOISE * deep[i] * weight[i] * nz / 1.5 * Math.min(1, (area[i] - 1) / 4);
                 }
                 h[i] = (float) Math.max(0.6, h[i] - cut);
             }
