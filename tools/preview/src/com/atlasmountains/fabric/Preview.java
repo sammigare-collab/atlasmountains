@@ -8,10 +8,10 @@ import java.nio.file.*;
  * Draws the mountains of a square of the world without Minecraft, in the snapshot format of
  * /atlasmountains snapshot, so tools/render_snapshot.py renders it.
  *
- *   java ... Preview <current|joined|separate> <seed> <x0> <z0> <size> <out dir> [key=value ...]
+ *   java ... Preview <label> <seed> <x0> <z0> <size> <out stem> [key=value ...]
  *
- * "current" is the mod's own ErodedPeaks.java, unchanged. "joined" and "separate" are the Massif
- * experiment. key=value sets a Massif or PeakStrength setting by name (e.g. K=0.005).
+ * Runs the mod's own ErodedPeaks.java, Massif.java and SnowLine.java, unchanged. key=value sets a
+ * Massif setting, or one of the stand-in PeakStrength's, by name for this run (e.g. K=0.1).
  * The land is a stand-in plain (PeakStrength in tools/preview/stub), not vanilla's.
  */
 public final class Preview {
@@ -27,17 +27,11 @@ public final class Preview {
         HornsFunction.current = horns;
         long t0 = System.nanoTime();
         float[] relief = new float[size * size], carve = new float[size * size];
-        Massif massif = mode.equals("current") ? null : new Massif(horns, x0, z0, size, mode.equals("joined"));
         double[] o = new double[2];
         for (int z = 0; z < size; z++) for (int x = 0; x < size; x++) {
             int i = z * size + x;
-            if (massif == null) {
-                ErodedPeaks.sample(horns, x0 + x, z0 + z, o);
-                relief[i] = (float) o[0]; carve[i] = (float) o[1];
-            } else {
-                relief[i] = (float) massif.relief(x0 + x, z0 + z);
-                carve[i] = (float) massif.carve(x0 + x, z0 + z);
-            }
+            ErodedPeaks.sample(horns, x0 + x, z0 + z, o);
+            relief[i] = (float) o[0]; carve[i] = (float) o[1];
         }
         long ms = (System.nanoTime() - t0) / 1_000_000;
         short[] data = new short[2 * size * size];
@@ -75,7 +69,7 @@ public final class Preview {
         int land = 0; for (float r : relief) if (r >= 2) land++;
         System.out.printf("%s: %d ms; mountains on %.0f%% of the square; rock %.0f%%, snow %.0f%%, open grass %.0f%%, trees %.0f%% of the mountains; summits %+.1f on average, worst %.0f off (%d peaks)%n",
                 mode, ms, 100.0 * land / relief.length, pct(counts[2] + counts[4], land), pct(counts[3], land), pct(counts[0], land, relief, true), pct(counts[1], land), peaks == 0 ? 0 : err / peaks, worst, peaks);
-        if (massif != null) System.out.printf("  shape %d ms, fine pass %d ms%n", massif.millisCoarse, massif.millisFine);
+        System.out.printf("  erosion: %d regions, %d ms each on average, slowest %d ms%n", ErodedPeaks.eroded, ErodedPeaks.eroded == 0 ? 0 : ErodedPeaks.erodedMillis / ErodedPeaks.eroded, ErodedPeaks.slowestBuildMillis);
         System.out.print(sb);
         System.out.println("wrote " + stem + ".bin");
     }

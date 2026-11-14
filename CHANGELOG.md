@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.5.4 (unreleased): the shape made by running water; peaks in a group joined
+
+Sammi on 0.5.3: "I don't think that's good enough". Agreed plan: a preview tool first, then let
+erosion make the shape. On 14 Nov 2026 he was shown four versions from the preview (A 0.5.3,
+B separate peaks eroded hard, C joined peaks rising while eroded, D the same with ice) and chose
+C, then: "ill check what this look like in vanilla. im worried the references were sending you
+down a wrong rabbit hole". This build is C in the game, to be judged there, not against the
+reference pictures.
+
+- Shape (new file `Massif.java`): each peak gets a rough lump wider than the gap to its
+  neighbours, so the peaks of a group share a base and meet at saddles. The lumps rise slowly
+  while running water cuts them (each cell lowered by the square root of the area draining
+  through it) and rock steeper than 52 degrees slides. Valleys and ridges come from the
+  drainage. Each mountain is then scaled so its summit is its set height.
+- THIS BENDS A STANDING RULE: until now every peak was a separate mountain. Peaks in a group are
+  now joined. Groups are still separate, and there is no ridge line drawn by hand.
+- Gone: the crest, cross profile, legs, scoop, swell and droplet erosion of 0.5.0 to 0.5.3
+  (in the repository's history, commit 7afdb25), and the scoop sampler. No sampler in this build.
+- Unchanged: where peaks generate, their spacing and their heights; the fade towards rivers;
+  snow, bands of growth, rock; vanilla's land is not lowered.
+- Preview tool (`tools/preview`): compiles the mod's own ErodedPeaks, Massif and SnowLine against
+  stand-ins for the game and draws a 1024-block square in about 10 seconds. Its land, rivers and
+  mountain country are stand-ins, so it shows shapes, not places.
+
+Checked on a dev server on his seed 5300383603861270436, 1024-block square at -200 -450, real
+generated chunks, no errors in the log:
+- The summit at 123 -350 is at y 330 (0.5.2 and 0.5.3: 330).
+- Erosion: 630 ms per region on average, 1234 at worst (0.5.3: 411 and 870).
+- Surface of the whole square: rock 18%, snow 2.4%, grass and trees 60%, water 8.8%.
+- In the preview, two neighbouring regions eroded separately differ by 0.4 blocks on average and
+  5 at worst across the band where they are blended.
+
+Known, seen in renders of that square: the upper third of a big mountain is a pointed pyramid
+with smooth faces; the water cuts the valleys and lower ridges and barely reaches the tops. Two
+fixes were tried in the preview and dropped (the old droplets silt up the valleys and leave the
+tops as they were; making water cut small slopes harder rounds the summits). In his world the
+peaks are sparser than in the preview pictures he chose from, so groups are smaller.
+
+Not tested: in the game by eye; any other seed; cold biomes; coasts; a long flight.
+
 ## 0.5.3 (unreleased, SAMPLER BUILD): "more realistic": snow in the hollows, bands of growth, scooped faces, a shared base
 
 Sammi on five in-game screenshots of 0.5.2: "I want them to be more realistic". Claude listed

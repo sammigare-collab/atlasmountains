@@ -1,5 +1,14 @@
 # Handover: atlasmountains, 14 November 2026
 
+UPDATE, later the same day: 0.5.4 is built and sent (see CHANGELOG.md). The preview tool exists
+(`tools/preview`: `build.sh`, then `java -cp classes com.atlasmountains.fabric.Preview ...`,
+then `render.py`). The open question below is answered: he chose joined peaks (version C), to be
+judged in the game; he set the reference pictures aside ("im worried the references were sending
+you down a wrong rabbit hole"). The shape is now `Massif.java`; "How 0.5.3 works" below is out of
+date on the shape only. Waiting for his in-game verdict on 0.5.4. `tools/build_overhaul.py`
+needs `tools/vanilla-26.3` (from `tools/extract_vanilla.py`) and deletes the data pack before it
+fails without it: `git checkout -- fabric/src/main/resources` puts it back.
+
 Written by Claude at the end of a long chat, for the next chat to start from. Read this, then
 `CHANGELOG.md` (every build, what Sammi said, what was measured), then the code.
 
