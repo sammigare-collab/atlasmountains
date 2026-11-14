@@ -1,0 +1,25 @@
+{
+ "type": "minecraft:add",
+ "left": "atlasmountains:overworld/biome_erosion_off_peak",
+ "right": {
+  "type": "minecraft:mul",
+  "left": {
+   "type": "minecraft:mul",
+   "left": "atlasmountains:overworld/peak_biome",
+   "right": "atlasmountains:overworld/peak_rocky"
+  },
+  "right": {
+   "type": "minecraft:add",
+   "left": {
+    "type": "minecraft:min",
+    "left": "minecraft:overworld/erosion",
+    "right": -0.9
+   },
+   "right": {
+    "type": "minecraft:mul",
+    "left": -1.0,
+    "right": "atlasmountains:overworld/biome_erosion_off_peak"
+   }
+  }
+ }
+}

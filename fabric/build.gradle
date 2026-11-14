@@ -13,15 +13,6 @@ repositories {
     mavenCentral()
 }
 
-// The pure-Java core is compiled straight into the mod jar (no nested jars, no shading).
-sourceSets {
-    main {
-        java {
-            srcDir '../core/src/main/java'
-        }
-    }
-}
-
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"

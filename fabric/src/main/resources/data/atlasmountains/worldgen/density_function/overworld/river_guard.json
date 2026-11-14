@@ -1,0 +1,20 @@
+{
+ "type": "minecraft:cache",
+ "input": {
+  "type": "minecraft:mul",
+  "left": {
+   "type": "minecraft:mul",
+   "left": "atlasmountains:overworld/river_guard_linear",
+   "right": "atlasmountains:overworld/river_guard_linear"
+  },
+  "right": {
+   "type": "minecraft:add",
+   "left": 3.0,
+   "right": {
+    "type": "minecraft:mul",
+    "left": -2.0,
+    "right": "atlasmountains:overworld/river_guard_linear"
+   }
+  }
+ }
+}

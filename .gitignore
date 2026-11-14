@@ -28,3 +28,6 @@ fabric/run/
 
 # vanilla worldgen data, extracted from the game jar by tools/extract_vanilla.py (Mojang content, not committed)
 tools/vanilla-*/
+
+# Python
+__pycache__/

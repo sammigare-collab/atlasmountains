@@ -3,7 +3,7 @@
   "id": "atlasmountains",
   "version": "${version}",
   "name": "Atlas Mountains",
-  "description": "Replaces vanilla's mountains with networks of sharp horn-peak ridges, snow-capped summits and small walled-in valleys, blended into normal vanilla terrain. Adds the Atlas Mountains world type; other world types are untouched.",
+  "description": "An overhaul of vanilla's own mountains: the same generator, places and biomes, reshaped.",
   "authors": [
     "Sammi"
   ],

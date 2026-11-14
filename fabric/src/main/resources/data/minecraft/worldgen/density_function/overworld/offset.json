@@ -1,0 +1,17 @@
+{
+ "type": "minecraft:cache",
+ "input": {
+  "type": "minecraft:lerp",
+  "alpha": {
+   "type": "minecraft:blend_alpha"
+  },
+  "first": {
+   "type": "minecraft:blend_offset"
+  },
+  "second": {
+   "type": "minecraft:add",
+   "left": "atlasmountains:overworld/vanilla_offset",
+   "right": "atlasmountains:overworld/peak_height"
+  }
+ }
+}

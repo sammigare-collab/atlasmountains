@@ -1,0 +1,12 @@
+{
+ "type": "minecraft:add",
+ "left": {
+  "type": "minecraft:gradient",
+  "axis": "y",
+  "from_coordinate": -64,
+  "from_value": 1.5,
+  "to_coordinate": 512,
+  "to_value": -3.0
+ },
+ "right": "minecraft:overworld/offset"
+}

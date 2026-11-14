@@ -1,0 +1,28 @@
+{
+ "type": "minecraft:cache",
+ "input": {
+  "type": "atlasmountains:horns",
+  "cell": 230.0,
+  "sides": [
+   3,
+   4
+  ],
+  "side_jitter": 0.3,
+  "slope": 0.95,
+  "slope_var": 0.25,
+  "edge_min": 0.45,
+  "warp": 3.0,
+  "height": 172.0,
+  "height_var": 0.42,
+  "min_height": 60.0,
+  "shoulders": [
+   1,
+   2
+  ],
+  "shoulder_size": 0.65,
+  "rib_depth": 20.0,
+  "rib_spacing": 46.0,
+  "skirt_from": 0.4,
+  "skirt_slope": 0.62
+ }
+}
