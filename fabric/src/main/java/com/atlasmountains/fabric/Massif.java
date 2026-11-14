@@ -88,6 +88,21 @@ final class Massif {
     static double GULLY_WALL = 1.9;
     /** How strongly the faces' water keeps to the steepest way down. Lower than FLOW_POWER: at 4 some gullies ran dead straight along the grid. */
     static double GULLY_FLOW = 1.6;
+    /** How the cut grows with the water gathered (0.5: square root; 1: in proportion, so only real channels are cut and they are narrow). */
+    static double GULLY_POWER = 0.5;
+    /** How far the roughening noise is scaled up with a look's deeper carve (1: with it, as 0.5.11; 0: not at all). */
+    static double NOISE_WITH_DEPTH = 1;
+    static {
+        // for testing: a file /tmp/atlas_set of NAME=number lines sets any of the settings above
+        try {
+            for (String line : java.nio.file.Files.readAllLines(java.nio.file.Path.of("/tmp/atlas_set"))) {
+                String[] kv = line.trim().split("=");
+                if (kv.length != 2) continue;
+                var f = Massif.class.getDeclaredField(kv[0]);
+                if (f.getType() == int.class) f.setInt(null, Integer.parseInt(kv[1])); else f.setDouble(null, Double.parseDouble(kv[1]));
+            }
+        } catch (Exception ignored) { }
+    }
 
     private static final int[] DX = {1, 0, -1, 0, 1, -1, -1, 1}, DZ = {0, 1, 0, -1, 1, 1, -1, -1};
 
@@ -217,13 +232,13 @@ final class Massif {
             for (int i = 0; i < N; i++) {
                 if (out[i] || weight[i] <= 0) continue;
                 // nothing where only the cell itself drains (crests and summits keep their height)
-                double cut = GULLY_CUT * deep[i] * weight[i] * Math.min(1, Math.sqrt(Math.max(0, area[i] - 1.5) / GULLY_FULL));
+                double cut = GULLY_CUT * deep[i] * weight[i] * Math.min(1, Math.pow(Math.max(0, area[i] - 1.5) / GULLY_FULL, GULLY_POWER));
                 if (run == 0) {
                     // the noise goes on with the first run, and not on crests and summits (where nothing drains), so no summit moves
                     double wx = originX + (i % n) * sp, wz = originZ + (i / n) * sp;
                     double nz = HornsFunction.valueNoise(wx / FACE_NOISE_LENGTH, wz / FACE_NOISE_LENGTH, seed + 620)
                             + 0.5 * HornsFunction.valueNoise(wx / (FACE_NOISE_LENGTH / 2.2), wz / (FACE_NOISE_LENGTH / 2.2), seed + 621);
-                    cut -= FACE_NOISE * deep[i] * weight[i] * nz / 1.5 * Math.min(1, (area[i] - 1) / 4);
+                    cut -= FACE_NOISE * (1 + (deep[i] - 1) * NOISE_WITH_DEPTH) * weight[i] * nz / 1.5 * Math.min(1, (area[i] - 1) / 4);
                 }
                 h[i] = (float) Math.max(0.6, h[i] - cut);
             }
