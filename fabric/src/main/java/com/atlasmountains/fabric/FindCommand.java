@@ -14,15 +14,20 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * The debug commands.
+ * The commands.
  * <p>
- * /atlasmountains heightmap &lt;size&gt; &lt;step&gt;: the real surface heights around the player, as a
+ * For players: /locate mountain and /locate mountain tallest (added to vanilla's own /locate),
+ * and /atlasmountains, which says the version and points to them.
+ * <p>
+ * For testing, all under /atlasmountains debug (cheats or operator only):
+ * <p>
+ * /atlasmountains debug heightmap &lt;size&gt; &lt;step&gt;: the real surface heights around the player, as a
  * file, without generating chunks.
  * <p>
- * /atlasmountains snapshot &lt;size&gt;: generates a square round the player and writes each
+ * /atlasmountains debug snapshot &lt;size&gt;: generates a square round the player and writes each
  * column's top block and height to a file (tools/render_snapshot.py draws it).
  * <p>
- * /atlasmountains mountains &lt;radiusBlocks&gt;: where vanilla's tall mountains are.
+ * /atlasmountains debug mountains &lt;radiusBlocks&gt;: where vanilla's tall mountains are.
  *
  * Vanilla only builds tall mountains where three of its climate maps line up: erosion very low
  * (below about -0.78 for the tallest tier), far enough inland (continentalness above about 0.3)
@@ -32,12 +37,68 @@ import java.util.Locale;
  * that happens to sit on a low hill.
  */
 public final class FindCommand {
-    /** How many peaks of each look "/atlasmountains peaks" lists. 3 for players; a test server can ask for more with -Datlasmountains.list=60. */
+    /** How many peaks of each look "/atlasmountains debug peaks" lists. 3 for players; a test server can ask for more with -Datlasmountains.list=60. */
     private static final int LIST = Integer.getInteger("atlasmountains.list", 3);
     private FindCommand() {}
 
+    /** How far /locate mountain looks, in blocks. */
+    private static final int LOCATE_RADIUS = 6000;
+
+    /**
+     * /locate mountain [tallest]: answers as vanilla's /locate does, "The nearest mountain is at
+     * [x, y, z] (n blocks away)", the coordinates green and clickable (they put a /tp in the chat
+     * box). The y is the real ground at the top, found by asking the generator, so the teleport
+     * lands on the summit and not inside it or in the air.
+     */
+    private static int locate(CommandSourceStack src, boolean tallest) {
+        HornsFunction horns = HornsFunction.current;
+        Vec3 p = src.getPosition();
+        List<double[]> all = horns == null ? List.of() : horns.peaksNear(p.x, p.z, LOCATE_RADIUS);
+        if (all.isEmpty()) {
+            src.sendFailure(Component.literal("Could not find a mountain within " + LOCATE_RADIUS + " blocks"));
+            return 0;
+        }
+        double[] hit = all.get(0);
+        for (double[] c : all) {
+            if (tallest ? c[3] > hit[3] : Math.hypot(c[1] - p.x, c[2] - p.z) < Math.hypot(hit[1] - p.x, hit[2] - p.z)) hit = c;
+        }
+        // the highest ground within 32 blocks of where the summit is set (erosion moves the top a little)
+        ServerLevel world = src.getLevel();
+        var gen = world.getChunkSource().getGenerator();
+        RandomState rstate = world.getChunkSource().randomState();
+        int bx = (int) Math.floor(hit[1]), bz = (int) Math.floor(hit[2]), by = Integer.MIN_VALUE, sx = bx, sz = bz;
+        for (int dz = -32; dz <= 32; dz += 4) for (int dx = -32; dx <= 32; dx += 4) {
+            int y = gen.getBaseHeight(bx + dx, bz + dz, net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG, world, rstate);
+            if (y > by) { by = y; sx = bx + dx; sz = bz + dz; }
+        }
+        // getBaseHeight is the first free block above the ground: where feet go
+        final int x = sx, y = by, z = sz,
+        away = (int) Math.hypot(sx - p.x, sz - p.z), tall = (int) Math.round(hit[3]);
+        Component where = net.minecraft.network.chat.ComponentUtils.wrapInSquareBrackets(Component.translatable("chat.coordinates", x, y, z))
+                .withStyle(style -> style.withColor(net.minecraft.ChatFormatting.GREEN)
+                        .withClickEvent(new net.minecraft.network.chat.ClickEvent.SuggestCommand("/tp @s " + x + " " + y + " " + z))
+                        .withHoverEvent(new net.minecraft.network.chat.HoverEvent.ShowText(Component.translatable("chat.coordinates.tooltip"))));
+        src.sendSuccess(() -> Component.literal("The " + (tallest ? "tallest" : "nearest") + " mountain is at ").append(where)
+                .append(Component.literal(" (" + away + " blocks away, " + tall + " blocks tall)")), false);
+        return away;
+    }
+
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        // For players: vanilla's own /locate gains "mountain". Registering a second "locate" adds to
+        // vanilla's command and keeps its permission (cheats on, or an operator), as /locate biome has.
+        dispatcher.register(Commands.literal("locate")
+                .then(Commands.literal("mountain")
+                        .executes(ctx -> locate(ctx.getSource(), false))
+                        .then(Commands.literal("tallest").executes(ctx -> locate(ctx.getSource(), true)))));
+
         dispatcher.register(Commands.literal("atlasmountains")
+                .executes(ctx -> {
+                    String version = net.fabricmc.loader.api.FabricLoader.getInstance().getModContainer(AtlasMountainsMod.MOD_ID)
+                            .map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("?");
+                    ctx.getSource().sendSuccess(() -> Component.literal("Atlas Mountains " + version + ". Find one with /locate mountain (or /locate mountain tallest)."), false);
+                    return 1;
+                })
+                .then(Commands.literal("debug").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
                 .then(Commands.literal("mountains")
                         .then(Commands.argument("radiusBlocks", IntegerArgumentType.integer(512, 30000)).executes(ctx -> {
                     CommandSourceStack src = ctx.getSource();
@@ -186,7 +247,7 @@ public final class FindCommand {
                     if (all.isEmpty()) { src.sendSuccess(() -> Component.literal("No peaks within 6,000 blocks."), false); return 1; }
                     if (HornsFunction.FOOT_SAMPLER) {
                         // Sampler build: the three nearest good-sized peaks of each look.
-                        src.sendSuccess(() -> Component.literal("Sampler build. Nearest peaks of each look (click or type the /tp):"), false);
+                        src.sendSuccess(() -> Component.literal("Nearest peaks (click or type the /tp):"), false);
                         if (ErodedPeaks.eroded > 0) {
                             String timing = String.format("Erosion so far: %d regions with mountains, %d ms each on average, slowest %d ms.", ErodedPeaks.eroded, ErodedPeaks.erodedMillis / ErodedPeaks.eroded, ErodedPeaks.slowestBuildMillis);
                             src.sendSuccess(() -> Component.literal(timing), false);
@@ -280,6 +341,6 @@ public final class FindCommand {
                     worker.setDaemon(true);
                     worker.start();
                     return 1;
-                })))));
+                }))))));
     }
 }

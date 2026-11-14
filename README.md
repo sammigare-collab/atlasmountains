@@ -31,11 +31,16 @@ The peak shape is the `atlasmountains:horns` density function (`HornsFunction.ja
 peaks go and how they meet vanilla's land is set in `tools/build_overhaul.py`. The shape was
 worked out in `tools/prototype_horns.py`, which draws ground-level previews in seconds.
 
-Debug commands: `/atlasmountains mountains <radius>` lists where the mountain country is;
-`/atlasmountains heightmap <size> <step>` dumps the real surface heights (view them with
-`tools/view_heightmap.py`); `/atlasmountains df "<id>"` samples a density function. `/atlasmountains dfmap "<id>" <size> <step>`
-and `/atlasmountains biomemap <size> <step>` write a map of a density function or of the biomes
-into the world folder.
+Commands: `/locate mountain` finds the nearest mountain and `/locate mountain tallest` the
+tallest within 6,000 blocks, answered as vanilla's `/locate` answers (click the coordinates to
+teleport; cheats or operator needed, as for `/locate biome`). `/atlasmountains` says the version.
+
+For testing, under `/atlasmountains debug` (cheats or operator): `mountains <radius>` lists where
+the mountain country is; `peaks` lists the nearest peaks and how long erosion has taken;
+`snapshot <size>` generates a square and writes its top blocks and heights (draw it with
+`tools/render_snapshot.py`); `heightmap <size> <step>` dumps the surface heights without
+generating chunks; `df "<id>"` samples a density function; `dfmap "<id>" <size> <step>` and
+`biomemap <size> <step>` write a map of a density function or of the biomes into the world folder.
 
 ## Building
 

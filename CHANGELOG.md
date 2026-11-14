@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.5.9 (unreleased): commands that work like vanilla's
+
+Sammi: "can we redo the commands this mod adds keep the ones you need but for my 'basic' user
+experience can we make it close to how vanilla works e.g. /locate biome atlas mountains".
+There is no Atlas biome to locate (the mountains use vanilla's own peak biomes on purpose), so
+vanilla's /locate gains a word of its own instead.
+
+- `/locate mountain`: the nearest mountain within 6,000 blocks, answered as vanilla answers:
+  "The nearest mountain is at [x, y, z] (n blocks away, n blocks tall)", coordinates green and
+  clickable (they put a /tp in the chat box). The y is the real ground at the top.
+- `/locate mountain tallest`: the tallest within 6,000 blocks.
+- `/atlasmountains`: the version, and a pointer to the two above.
+- Everything that was under `/atlasmountains` is now under `/atlasmountains debug` (mountains,
+  df, dfmap, biomemap, peaks, snapshot, heightmap), and needs cheats or operator as /locate does
+  (before: anyone). `tools/dev` scripts updated.
+- No change to the terrain: the shape is 0.5.8's.
+
+Checked on a dev server (seed -5999978045571072206) through the server console: all three new
+commands answer; `/locate biome` still works; the old `/atlasmountains peaks` is refused; the
+block under the place /locate mountain gave is solid with air at feet and head; at the
+"tallest" one the ground is solid and the block at feet is not air (a layer of snow, most likely).
+A first version gave a y one block too high; found by this check and put right. No errors in
+the log. Not tested: clicking the coordinates in the game's chat; a player without cheats.
+
 ## 0.5.8 (unreleased): the shape of 0.5.6 back; 0.5.7's shape changes undone
 
 Sammi's seven screenshots of 0.5.7 on a new seed, -5999978045571072206, hot country (badlands,
