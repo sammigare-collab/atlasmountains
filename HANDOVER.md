@@ -5,7 +5,7 @@ UPDATE, later the same day: 0.5.4 is built and sent (see CHANGELOG.md). The prev
 then `render.py`). The open question below is answered: he chose joined peaks (version C), to be
 judged in the game; he set the reference pictures aside ("im worried the references were sending
 you down a wrong rabbit hole"). The shape is now `Massif.java`; "How 0.5.3 works" below is out of
-date on the shape only. Waiting for his in-game verdict on 0.5.4. `tools/build_overhaul.py`
+date on the shape only. 0.5.5 (faces carved, his choice A) followed the same day; see CHANGELOG.md for what he raised next (sides too steep beside a river valley). `tools/build_overhaul.py`
 needs `tools/vanilla-26.3` (from `tools/extract_vanilla.py`) and deletes the data pack before it
 fails without it: `git checkout -- fabric/src/main/resources` puts it back.
 

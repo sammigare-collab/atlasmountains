@@ -56,6 +56,29 @@ final class Massif {
     /** The steepest rock can stand (52 degrees), and the steepest the ground at the foot can (37), meeting 42 blocks up. */
     static double TALUS = 1.30, TALUS_LOW = 0.75, TALUS_BAND = 42;
     static int THERMAL_PASSES = 6;
+    // ---- the faces (0.5.5) ----
+    // Sammi's in-game screenshots of 0.5.4 (seed 6021084639467433954): the outlines and the groups
+    // are made by the water, but below the summits nearly every face is one plain smooth slope
+    // (two cones side by side at -6865 5832, a flat-faced horn at -6841 5586). The water of the big
+    // shape only cuts where a large area drains, and the rock slides plane everything else to
+    // one angle. So the faces get their own pass on the 4-block grid: a little noise, then water
+    // run down them several times, each time cutting most where most has gathered, so runnels
+    // deepen into gullies with ribs left between. The lowest part of a mountain is left alone.
+    /** Noise put on the faces first, so the water has something to gather in (blocks, and its length). */
+    static double FACE_NOISE = 4, FACE_NOISE_LENGTH = 36;
+    /** How many times water is run down the faces, and how deep one run cuts where a full gully's worth has gathered. */
+    static int GULLY_RUNS = 8;
+    static double GULLY_CUT = 2.2;
+    /** A gully is cut at full strength where this many 4-block samples drain through. */
+    static double GULLY_FULL = 30;
+    /** Faces are cut from this height above the foot, and fully from this. */
+    static double GULLY_FROM = 22, GULLY_ABOVE = 60;
+    /** The steepest a gully's wall may stand (62 degrees). */
+    static double GULLY_WALL = 1.9;
+    /** How strongly the faces' water keeps to the steepest way down. Lower than FLOW_POWER: at 4 some gullies ran dead straight along the grid. */
+    static double GULLY_FLOW = 1.6;
+
+    private static final int[] DX = {1, 0, -1, 0, 1, -1, -1, 1}, DZ = {0, 1, 0, -1, 1, 1, -1, -1};
 
     private final int n;
     private final double sp = COARSE, ox, oz, cell;
@@ -86,7 +109,87 @@ final class Massif {
             relief[i] = (float) v;
             carve[i] = (float) (b - v);
         }
+        if (GULLY_RUNS > 0) gullies(relief, carve, size, spacing, originX, originZ, seed);
         return true;
+    }
+
+    /** The faces' own pass: see FACE_NOISE. Lowers relief, and adds what it cut to carve (the snow lies lower in gullies). */
+    private static void gullies(float[] h, float[] carve, int n, double sp, int originX, int originZ, long seed) {
+        int N = n * n;
+        float[] before = h.clone(), weight = new float[N];
+        boolean[] out = new boolean[N];
+        for (int z = 0; z < n; z++) for (int x = 0; x < n; x++) {
+            int i = z * n + x;
+            out[i] = h[i] <= 0.5f || x == 0 || z == 0 || x == n - 1 || z == n - 1;
+            double t = Math.max(0, Math.min(1, (h[i] - GULLY_FROM) / (GULLY_ABOVE - GULLY_FROM)));
+            weight[i] = (float) (t * t * (3 - 2 * t));
+        }
+        int[] order = new int[N];
+        boolean[] seen = new boolean[N];
+        float[] fill = new float[N];
+        double[] area = new double[N], wts = new double[8];
+        for (int run = 0; run < GULLY_RUNS; run++) {
+            java.util.Arrays.fill(seen, false);
+            java.util.Arrays.fill(area, 0);
+            PriorityQueue<long[]> q = new PriorityQueue<>((a, b) -> Float.compare(Float.intBitsToFloat((int) a[0]), Float.intBitsToFloat((int) b[0])));
+            for (int i = 0; i < N; i++) if (out[i]) { seen[i] = true; fill[i] = h[i]; q.add(new long[]{Float.floatToIntBits(h[i]), i}); }
+            int k = 0;
+            while (!q.isEmpty()) {
+                int i = (int) q.poll()[1];
+                order[k++] = i;
+                int x = i % n, z = i / n;
+                for (int d = 0; d < 8; d++) {
+                    int xx = x + DX[d], zz = z + DZ[d];
+                    if (xx < 0 || zz < 0 || xx >= n || zz >= n) continue;
+                    int j = zz * n + xx;
+                    if (seen[j]) continue;
+                    seen[j] = true;
+                    fill[j] = Math.max(h[j], fill[i] + 1e-3f);
+                    q.add(new long[]{Float.floatToIntBits(fill[j]), j});
+                }
+            }
+            for (int a = k - 1; a >= 0; a--) {
+                int i = order[a];
+                area[i] += 1;
+                if (out[i]) continue;
+                int x = i % n, z = i / n;
+                double total = 0;
+                for (int d = 0; d < 8; d++) {
+                    int j = (z + DZ[d]) * n + x + DX[d];
+                    double drop = (fill[i] - fill[j]) / (d < 4 ? 1 : Math.sqrt(2));
+                    wts[d] = drop <= 0 ? 0 : Math.pow(drop, GULLY_FLOW) * (d < 4 ? 1 : 1 / Math.sqrt(2));
+                    total += wts[d];
+                }
+                if (total <= 0) continue;
+                for (int d = 0; d < 8; d++) if (wts[d] > 0) area[(z + DZ[d]) * n + x + DX[d]] += area[i] * wts[d] / total;
+            }
+            for (int i = 0; i < N; i++) {
+                if (out[i] || weight[i] <= 0) continue;
+                // nothing where only the cell itself drains (crests and summits keep their height)
+                double cut = GULLY_CUT * weight[i] * Math.min(1, Math.sqrt(Math.max(0, area[i] - 1.5) / GULLY_FULL));
+                if (run == 0) {
+                    // the noise goes on with the first run, and not on crests and summits (where nothing drains), so no summit moves
+                    double wx = originX + (i % n) * sp, wz = originZ + (i / n) * sp;
+                    double nz = HornsFunction.valueNoise(wx / FACE_NOISE_LENGTH, wz / FACE_NOISE_LENGTH, seed + 620)
+                            + 0.5 * HornsFunction.valueNoise(wx / (FACE_NOISE_LENGTH / 2.2), wz / (FACE_NOISE_LENGTH / 2.2), seed + 621);
+                    cut -= FACE_NOISE * weight[i] * nz / 1.5 * Math.min(1, (area[i] - 1) / 4);
+                }
+                h[i] = (float) Math.max(0.6, h[i] - cut);
+            }
+            // walls steeper than rock can stand fall in
+            for (int z = 1; z < n - 1; z++) for (int x = 1; x < n - 1; x++) {
+                int i = z * n + x;
+                double hi = h[i];
+                if (out[i]) continue;
+                for (int d = 0; d < 8; d++) {
+                    int j = (z + DZ[d]) * n + x + DX[d];
+                    double drop = hi - h[j], max = GULLY_WALL * sp * (d < 4 ? 1 : Math.sqrt(2));
+                    if (drop > max && !out[j]) { double m = (drop - max) * 0.25; hi -= m; h[j] += m; }
+                }
+                h[i] = (float) hi;
+            }
+        }
+        for (int i = 0; i < N; i++) carve[i] += Math.max(0f, before[i] - h[i]);
     }
 
     private Massif(HornsFunction horns, long seed, int originX, int originZ, int span) {
@@ -187,7 +290,6 @@ final class Massif {
         }
     }
 
-    private static final int[] DX = {1, 0, -1, 0, 1, -1, -1, 1}, DZ = {0, 1, 0, -1, 1, 1, -1, -1};
 
     /**
      * One step of running water. A flood from the outlets (flat ground, rivers, the edge) gives

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.5.5 (unreleased): the faces carved
+
+Sammi's seven in-game screenshots of 0.5.4 (seed 6021084639467433954). Claude's reading, which he
+agreed to test: groups and outlines better, but below the summits nearly every face is one plain
+smooth slope (two cones side by side at -6865 5832, a flat-faced horn at -6841 5586). Shown
+before, a light carve (A) and a deep carve (B) from those two camera spots, real chunks, he
+chose A: "A is looking best i think".
+
+- The faces get their own pass on the 4-block grid (`gullies` in `Massif.java`): a little noise,
+  then water run down them eight times, each time cutting most where most has gathered, so
+  runnels deepen into gullies with ribs between. Nothing is cut on crests and summits or on the
+  lowest 22 blocks of a mountain. What is cut counts as gully for the snow, so caps have tongues.
+- Nothing else changed: the big shape, the groups, where peaks stand, heights, surface rules.
+
+Checked on a dev server on his seed, 1024-block square at -6850 5700, real generated chunks, no
+errors in the log: the summits at -7025 5637 and -7068 5828 are at y 289 and 258 before and
+after. Erosion 728 ms per region on average, 1451 at worst (0.5.4 on the same square: 577 and
+1190). The effect is subtle; B (cut 4.5, noise 7, full at 20) was clearer and he passed it over.
+
+Not tested: in the game by eye; other seeds; cold biomes; coasts.
+
+RAISED BY HIM, NOT TOUCHED: "the valley running through is forcing that side to be silly steep".
+Measured between those two summits (195 blocks apart, a vanilla river valley at y 95 between
+them): the ground falls 186 blocks in 90, about 64 degrees. Cause: each mountain fades to
+nothing towards the river, then is scaled back up to its set height, which stretches it past
+the 52 degrees the rock is meant to stand at. Not his other listed points either: the tower at
+-7732 5949, the rounded domes, the hard line where rock meets forest.
+
 ## 0.5.4 (unreleased): the shape made by running water; peaks in a group joined
 
 Sammi on 0.5.3: "I don't think that's good enough". Agreed plan: a preview tool first, then let
