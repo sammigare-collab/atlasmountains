@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.5.10 (unreleased): biomes: no jungle on mountain feet, no snow patches beside the mountains
+
+Sammi, seed -6677413799414465054, six screenshots: "somethings messing with the biomes". A round
+patch of snow and spruce in green forest (-1341 1932), jungle trees and bamboo at the feet of
+mountains in cold forest, a block of land with sheer grey walls and jungle on top (-1419 1686).
+Reproduced on a dev server (1024 square at -1380 1750) and the climate read at each spot.
+
+- Jungle (the mod's fault, there since 0.5.2 on every seed): on a mountain the biomes are shown
+  a temperature of 0.4 so that the rock is vanilla's stony peaks. That was applied from 3 blocks
+  of height on any mountain ground; the erosion and weirdness that go with it only from 7 blocks
+  and only on rock or open grass. Ground with the temperature alone (wooded feet, and a ring
+  round every mountain) was vanilla's warm band: jungle wherever it is wet. Now all three switch
+  together at one hard step, on rock and open grass only. Jungle leaves, vines and bamboo in the
+  square: 4,501 columns then 85. On the two earlier seeds: 2,113 then 38, and 6,300 then 63.
+- Snow patches (vanilla's own grove biome, which the mod removes inland but did not near the
+  coast): the mod shows vanilla's cold slopes a gentler erosion so they are forest or taiga,
+  not grove. That began at continentalness -0.05; vanilla's slope biomes begin at -0.11. In the
+  strip between, grove was left. Now it begins at -0.11. Snow below y 140 in the square: 14,070
+  columns then 29; powder snow 2,797 then 0. Snow on the summits unchanged (6,700 and 6,805).
+- Not changed: where peaks stand, the shape, heights. The same summits at the same heights on
+  all three seeds.
+
+NOT FIXED, the sheer-walled block: where a mountain is under about 20 blocks tall the ground is
+vanilla's own rough land; above that it is the mountain's clean shape standing on vanilla's
+SMOOTH target height. Where vanilla's rough land stands far above its own target (33 blocks at
+-1400 1638) the two meet at a wall. In the test square 1.4% of wooded mountain ground has a
+step of 10 blocks or more, against 0.2% of rock. This is the "steep walls" and "ledge at a
+mountain's foot" of the 0.5.1 screenshots, never touched.
+
+Checked on a dev server, real generated chunks, three seeds (this one; 6021084639467433954 at
+-7500 5600; -5999978045571072206 at 4200 -650), no errors in the logs. `tools/build_overhaul.py`
+reproduced the committed data pack exactly before these edits. Not tested: in the game by eye.
+
 ## 0.5.9 (unreleased): commands that work like vanilla's
 
 Sammi: "can we redo the commands this mod adds keep the ones you need but for my 'basic' user

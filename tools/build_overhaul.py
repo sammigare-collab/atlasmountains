@@ -106,6 +106,7 @@ ROCK = [               # in proportion on smaller ones). Dark smooth basalt and 
 ROCK_BLEND = 0.6      # which hid the ribs and clashed with vanilla's stone. ROCK_BLEND: how much of each gap is a mix
 PEAK_BIOME_W = 0.70   # the weirdness the biomes are shown there (a crest line is 2/3) ...
 PEAK_BIOME_E = -0.90  # ... and the erosion (vanilla's lowest band, the only one with peak biomes right down to the coast)
+SLOPE_BIOMES_FROM = -0.11  # the continentalness at which vanilla's slope biomes (grove, snowy slopes) begin
 CLEAN_FROM = 0.03     # where a peak stands this far above the land (4 blocks) its faces start to be cut clean ...
 CLEAN_FULL = 0.16     # ... and by here (20 blocks) the ground is exactly the peak's own shape: no 3-D roughness
 SHELL_BLOCKS = 12     # and solid for this many blocks down, so caves cannot open holes in a face
@@ -289,6 +290,12 @@ def main():
     #    land keeps vanilla's own biome, so grass and trees run a little way up the mountain.
     write(f'{DF}/peak_rocky.json', cache({'type': f'{NS}:peak_rocky'}))
     K = mul(smooth('peak_biome', ramp(PEAK, PEAK_BIOME_FROM, PEAK_BIOME_FULL)), f'{NS}:overworld/peak_rocky')
+    #    0.5.10: a hard step, and the SAME step for weirdness, erosion and temperature. Until now
+    #    the temperature was pushed lower down the mountain (3 to 6.5 blocks of height) than the
+    #    other two (7 to 9), so that no snowy-slope biome formed in a ring between; but that ring
+    #    then saw vanilla's erosion with PEAK_TEMPERATURE, vanilla's warm band, which in wet
+    #    country is jungle. With one hard step there is no ground in between at all.
+    K = clamp(mul(add(K, -0.5), 100000.0), 0.0, 1.0)
     sign = clamp(mul(W, 10000.0), -1.0, 1.0)
     write(f'{DF}/biome_ridges.json', add(W, mul(K, add(mul(sign, PEAK_BIOME_W), mul(-1.0, W)))))
     ns = load('worldgen/noise_settings/overworld.json')
@@ -309,7 +316,12 @@ def main():
     def lerp(a, b, t): return add(a, mul(t, add(b, mul(-1.0, a))))
     #    The lift covers all of vanilla's two lowest erosion bands inland (they end at -0.375),
     #    not just where peaks stand: slopes on the approach to mountain country were snowy too.
-    lift = mul(ramp(EROSION, -0.365, -0.385), clamp(mul(ramp(CONT, INLAND_FROM, INLAND_FULL), 8.0), 0.0, 1.0))
+    #    0.5.10: the lift starts where vanilla's slope biomes start (continentalness -0.11), not at
+    #    INLAND_FROM (-0.05). In the strip between, near the coast, no peaks stand and nothing was
+    #    lifted, so cold low ground there was still grove: round white patches of snow, spruce and
+    #    powder snow in green forest beside the mountains (Sammi, seed -6677413799414465054, at
+    #    -1341 1932; measured there: erosion -0.89, continentalness -0.085, temperature -0.25).
+    lift = mul(ramp(EROSION, -0.365, -0.385), ramp(CONT, SLOPE_BIOMES_FROM - 0.02, SLOPE_BIOMES_FROM + 0.005))
     e_off = lerp(EROSION, {'type': 'minecraft:max', 'left': EROSION, 'right': OFF_PEAK_E}, lift)
     write(f'{DF}/biome_erosion_off_peak.json', cache(e_off))
     write(f'{DF}/biome_erosion.json', lerp(f'{NS}:overworld/biome_erosion_off_peak', {'type': 'minecraft:min', 'left': EROSION, 'right': PEAK_BIOME_E}, K))
@@ -330,11 +342,16 @@ def main():
     #    0.4.9 also showed vanilla's crest land between the peaks PEAK_TEMPERATURE; the erosion
     #    shown off the peaks, above, does that job now.)
     T = 'minecraft:overworld/temperature'
-    KT = {'type': 'minecraft:max', 'left': smooth('peak_biome_temperature', ramp(PEAK, PEAK_TEMP_FROM, PEAK_TEMP_FULL)), 'right': ROCKY}
+    KT = {'type': 'minecraft:max', 'left': K, 'right': ROCKY}
     not_warm = clamp(mul(add(CAP_WARMEST, mul(-1.0, T)), 1000.0), 0.0, 1.0)
     t_cap = lerp(PEAK_TEMPERATURE, {'type': 'minecraft:min', 'left': T, 'right': CAP_TEMPERATURE}, not_warm)
     t_base = lerp(T, t_cap, mul(KT, in_cap))
-    push = mul(KT, add(1.0, mul(-1.0, in_cap)))                             # on a peak, below its cap
+    #    0.5.10: only where the mountain is rock or open grass (K, above), as the weirdness and
+    #    erosion have been since 0.5.2. On the wooded lower slopes the biomes saw vanilla's own
+    #    erosion and weirdness but PEAK_TEMPERATURE (0.4, vanilla's warm band), which in wet country
+    #    is jungle: jungle trees and bamboo on the feet of mountains in cold forest (Sammi, seed
+    #    -6677413799414465054; measured at -1372 1798: real temperature -0.22, shown 0.40).
+    push = mul(KT, add(1.0, mul(-1.0, in_cap)))                             # on a peak's rock, below its cap
     write(f'{DF}/biome_temperature.json', lerp(t_base, PEAK_TEMPERATURE, push))
     ns['noise_router']['temperature'] = f'{NS}:overworld/biome_temperature'
     for name, octave, count in (('snow_edge', -5, 2), ('snow_patches', -4, 3), ('rock_wobble', -8, 2), ('rock_mottle', -2, 2)):
