@@ -92,17 +92,6 @@ final class Massif {
     static double GULLY_POWER = 0.5;
     /** How far the roughening noise is scaled up with a look's deeper carve (1: with it, as 0.5.11; 0: not at all). */
     static double NOISE_WITH_DEPTH = 1;
-    static {
-        // for testing: a file /tmp/atlas_set of NAME=number lines sets any of the settings above
-        try {
-            for (String line : java.nio.file.Files.readAllLines(java.nio.file.Path.of("/tmp/atlas_set"))) {
-                String[] kv = line.trim().split("=");
-                if (kv.length != 2) continue;
-                var f = Massif.class.getDeclaredField(kv[0]);
-                if (f.getType() == int.class) f.setInt(null, Integer.parseInt(kv[1])); else f.setDouble(null, Double.parseDouble(kv[1]));
-            }
-        } catch (Exception ignored) { }
-    }
 
     private static final int[] DX = {1, 0, -1, 0, 1, -1, -1, 1}, DZ = {0, 1, 0, -1, 1, 1, -1, -1};
 
@@ -282,6 +271,12 @@ final class Massif {
     // and the rock then rises from every couloir at one fixed angle (RIDGE_SLOPE) until it meets the
     // rock rising from the next. Where they meet is an edge, and nothing rounds it afterwards.
     // Ground the rising rock does not reach (crests, the summit) is left exactly as it was.
+    // ---- 0.5.13: a crest for a top ----
+    // Sammi, of the lone peaks of 0.5.12 (seed -3465664254209586682): "can the top not be a point and be a
+    // small line, like a mini ridge?" Its length in blocks for a mountain 120 or more tall (shorter ones in
+    // proportion), and how far it falls from the summit to its longer end, as a share of the height. Not
+    // level: a "rectangular" level top was asked for and withdrawn in 0.4.
+    static double CREST_MIN = 45, CREST_MAX = 80, CREST_FALL = 0.04;   // first tried 22 to 50 falling 0.10: still read as a point
     static double RIDGE_DEPTH = 30, RIDGE_AREA = 8, RIDGE_FULL = 55, RIDGE_SLOPE = 1.9;
 
     private static void ridges(float[] h, boolean[] out, float[] weight, double[] area0, java.util.List<int[]> tops, int n, double sp) {
@@ -358,9 +353,18 @@ final class Massif {
                 double ang = Math.atan2(dz, dx);
                 double wob = 1 + SHAPE_WARP * (0.6 * HornsFunction.valueNoise(Math.cos(ang) * 1.6 + p.ix() * 7.1, Math.sin(ang) * 1.6 + p.iz() * 3.3, seed + 501)
                         + 0.4 * HornsFunction.valueNoise(Math.cos(ang) * 3.7 + p.ix() * 5.3, Math.sin(ang) * 3.7 + p.iz() * 9.1, seed + 502));
-                double t = Math.hypot(dx, dz) / (r * wob);
+                // 0.5.13: the top is a short crest, not a point. Distance is taken to a line through
+                // the summit (its direction and length the peak's own), and the crest falls a little
+                // from the summit towards each end, further towards one than the other.
+                double ca = Math.PI * HornsFunction.hash(p.ix(), p.iz(), seed + 540), cx = Math.cos(ca), cz = Math.sin(ca);
+                double half = (CREST_MIN + (CREST_MAX - CREST_MIN) * HornsFunction.hash(p.ix(), p.iz(), seed + 541)) / 2 * Math.min(1, p.h() / 120);
+                double lean = 0.3 + 0.7 * HornsFunction.hash(p.ix(), p.iz(), seed + 542);            // one end is shorter
+                double along = dx * cx + dz * cz, lim = along > 0 ? half : half * lean;
+                double on = Math.max(-lim, Math.min(lim, along));
+                double ex = dx - on * cx, ez = dz - on * cz;
+                double t = Math.hypot(ex, ez) / (r * wob);
                 if (t >= 1) continue;
-                double share = Math.pow(1 - t, PROFILE), m = p.h() * share;
+                double share = Math.pow(1 - t, PROFILE) * (1 - CREST_FALL * Math.abs(on) / Math.max(1, half)), m = p.h() * share;
                 if (share > first) { second = first; first = share; } else if (share > second) second = share;
                 sumFree += Math.pow(m, SMOOTH_MAX);
                 if (walls != null) {
@@ -523,5 +527,18 @@ final class Massif {
 
     private static double cubic(double p0, double p1, double p2, double p3, double t) {
         return p1 + 0.5 * t * (p2 - p0 + t * (2 * p0 - 5 * p1 + 4 * p2 - p3 + t * (3 * (p1 - p2) + p3 - p0)));
+    }
+
+    // last in the file, so it runs after every setting above has its own value
+    static {
+        // for testing: a file /tmp/atlas_set of NAME=number lines sets any of the settings above
+        try {
+            for (String line : java.nio.file.Files.readAllLines(java.nio.file.Path.of("/tmp/atlas_set"))) {
+                String[] kv = line.trim().split("=");
+                if (kv.length != 2) continue;
+                var f = Massif.class.getDeclaredField(kv[0]);
+                if (f.getType() == int.class) f.setInt(null, Integer.parseInt(kv[1])); else f.setDouble(null, Double.parseDouble(kv[1]));
+            }
+        } catch (Exception ignored) { }
     }
 }

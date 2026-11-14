@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.5.13 (unreleased): a short crest for a top
+
+Sammi's five screenshots of 0.5.12, lone peaks in frozen country, seed -3465664254209586682
+(around -2880 1030): "can the top not be a point and be a small line, like a mini ridge?"
+
+- Each mountain's lump is measured from a short line through its summit, not from a point: 45
+  to 80 blocks long for a mountain 120 or more tall, its direction the peak's own, one end
+  shorter than the other, falling 4% of the height towards the ends (not level: a level top
+  was asked for and withdrawn in 0.4). `CREST_MIN`, `CREST_MAX`, `CREST_FALL` in Massif.java.
+- Nothing else changed.
+- A first try, 22 to 50 blocks falling 10%, still read as a point and was not sent.
+- A fault in the testing aid found on the way: /tmp/atlas_set was read before the later settings
+  got their own values, which then overwrote it; one test run silently tested nothing. The
+  block is now last in the file.
+
+Checked on a dev server, real chunks, no errors: on his seed the summit at -2840 998 is y 211
+before and after; the ground within 8 blocks of the top spanned 15 by 18 blocks and now spans
+16 by 32. Side-on from his camera spot at -3035 970 the top is a short crest; end-on (his other
+two spots) it still looks like a point, as a ridge does. On -5999978045571072206 at 4200 -650
+five summits are within 3 blocks of 0.5.12. Erosion 631 ms per region, 1342 at worst.
+
+Not tested: in the game by eye. Raised by Claude from the same screenshots and NOT done: a lone
+peak is still one spike on flat ground (no long spurs running out), its lower half is plain,
+and rock meets vanilla's ground at a hard line.
+
 ## 0.5.12 (unreleased): knife-edge ridges; the sampler is over
 
 Sammi on the 0.5.11 sampler: "can we make the gullies less fluffy?", then, of the three looks,
