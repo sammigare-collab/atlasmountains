@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.5.6 (unreleased): a river valley between two peaks of a group is covered
+
+Sammi on the 0.5.5 comparison: "the valley running through is forcing that side to be silly
+steep". Measured on his seed 6021084639467433954 between the summits at -7025 5637 and
+-7068 5828 (195 blocks apart, a vanilla river valley at y 95 between them): 186 blocks in 90,
+64 degrees. Offered three ways out (lower peaks near rivers; let the group cross the valley;
+keep it) he chose: "burry it".
+
+- Where a river runs between two peaks of a group (the second-nearest peak's lump reaches the
+  column at 15% of its height or more, fully at 32%: `BURY_FROM`, `BURY_FULL` in Massif.java)
+  the mountains no longer fade out for it, and meet over it at a saddle.
+- A river along the outside of a group, where only one peak reaches, keeps its valley as before.
+- THIS BENDS A STANDING RULE ("do not change the river settings unless he asks"): he asked. The
+  settings in build_overhaul.py are untouched; three places that kept rivers clear now stand
+  aside where a river is covered: the fade in Massif, the 12-block ease in HornsFunction, and
+  the data pack's own limit (`river_wall`: nothing higher than 1.73 times its distance from the
+  channel, a 60-degree wall). Claude missed the third at first and the valley was still there.
+- Unchanged: where peaks stand, heights, the face carve, surface rules.
+
+Checked on a dev server on his seed, 1024-block square at -6850 5700, real generated chunks, no
+errors in the log:
+- Along the line between those two summits the lowest ground was y 95; it is now a saddle at
+  y 184. Summits y 289 and 259 (0.5.5: 289 and 258).
+- A first try read "covered" to the nearest 4-block sample and the ground stepped by up to 9
+  blocks every 4; it is now read smoothly and the steps are gone (columns with a jump over 12
+  blocks: 0.32% of the square, the same as 0.5.5).
+- Erosion 787 ms per region on average, 1370 at worst. Regions hold 1.8 MB each (was 1.2).
+- Water covers 7.5% of the square before and after: no river with water in it was covered here.
+
+Not tested: a river WITH WATER running between two peaks (what the two ends look like where it
+goes under); in the game by eye; other seeds; cold biomes.
+
 ## 0.5.5 (unreleased): the faces carved
 
 Sammi's seven in-game screenshots of 0.5.4 (seed 6021084639467433954). Claude's reading, which he

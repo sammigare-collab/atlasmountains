@@ -44,6 +44,17 @@ final class Massif {
     static double SHAPE_WARP = 0.30;
     /** Noise on the lumps (blocks, for ground 120 or more above the foot) and its length. */
     static double ROUGH = 0.28 * 120, ROUGH_LENGTH = 110;
+    // ---- rivers between peaks (0.5.6) ----
+    // Up to 0.5.5 every mountain faded to nothing at every river. Where a river valley ran between
+    // two peaks of a group, both then had to rise their whole height in the little room left and
+    // were stretched into walls (Sammi, seed 6021084639467433954, between the summits at
+    // -7025 5637 and -7068 5828: "the valley running through is forcing that side to be silly
+    // steep"; measured 186 blocks in 90, 64 degrees). Offered three ways out he chose "burry it":
+    // a river that runs between two peaks of a group is covered, and the peaks meet over it at a
+    // saddle. A column counts as between two peaks when the second-nearest peak's lump reaches it
+    // at BURY_FROM of that peak's height or more (fully at BURY_FULL). A river along the outside of
+    // a group, where only one lump reaches, keeps its valley as before.
+    static double BURY_FROM = 0.15, BURY_FULL = 0.32;
     // ---- the water ----
     /** Blocks between samples. */
     static final int COARSE = 8;
@@ -82,7 +93,7 @@ final class Massif {
 
     private final int n;
     private final double sp = COARSE, ox, oz, cell;
-    private final float[] h, base;
+    private final float[] h, base, bury;
     private final boolean[] outlet;
     private final List<ErodedPeaks.Peak> peaks = new ArrayList<>();
 
@@ -92,11 +103,11 @@ final class Massif {
     }
 
     /**
-     * Fills relief (blocks above the ground) and carve (how far below its lump the ground ended
-     * up) for a square of size x size samples, spacing blocks apart, from (originX, originZ).
+     * Fills relief (blocks above the ground), carve (how far below its lump the ground ended up)
+     * and buried (1 where a river between two peaks is covered, see BURY_FROM) for a square of size x size samples, spacing blocks apart, from (originX, originZ).
      * Returns false, leaving both untouched, if no peak reaches the square.
      */
-    static boolean build(HornsFunction horns, long seed, int originX, int originZ, int size, int spacing, float[] relief, float[] carve) {
+    static boolean build(HornsFunction horns, long seed, int originX, int originZ, int size, int spacing, float[] relief, float[] carve, float[] buried) {
         Massif m = new Massif(horns, seed, originX, originZ, size * spacing);
         if (m.peaks.isEmpty()) return false;
         m.lumps(horns, seed);
@@ -108,6 +119,7 @@ final class Massif {
             double b = Math.max(v, cubicAt(m.base, m.n, gx * step, gz * step));
             relief[i] = (float) v;
             carve[i] = (float) (b - v);
+            buried[i] = (float) Math.max(0, Math.min(1, cubicAt(m.bury, m.n, gx * step, gz * step)));
         }
         if (GULLY_RUNS > 0) gullies(relief, carve, size, spacing, originX, originZ, seed);
         return true;
@@ -196,7 +208,7 @@ final class Massif {
         ox = originX; oz = originZ;
         cell = horns.cell();
         n = (int) Math.ceil(span / sp) + 1;
-        h = new float[n * n]; base = new float[n * n]; outlet = new boolean[n * n];
+        h = new float[n * n]; base = new float[n * n]; bury = new float[n * n]; outlet = new boolean[n * n];
         long c0x = (long) Math.floor((ox - 8) / cell) - 2, c0z = (long) Math.floor((oz - 8) / cell) - 2;
         long c1x = (long) Math.floor((ox + n * sp + 8) / cell) + 2, c1z = (long) Math.floor((oz + n * sp + 8) / cell) + 2;
         for (long iz = c0z; iz <= c1z; iz++) for (long ix = c0x; ix <= c1x; ix++) {
@@ -213,7 +225,7 @@ final class Massif {
         for (int gz = 0; gz < n; gz++) for (int gx = 0; gx < n; gx++) {
             double x = ox + gx * sp, z = oz + gz * sp;
             double wx = horns.warpX(x, z, seed), wz = horns.warpZ(x, z, seed);
-            double sum = 0, river = Double.NaN;
+            double sum = 0, sumFree = 0, river = Double.NaN, first = 0, second = 0;
             for (int a = 0; a < np; a++) {
                 ErodedPeaks.Peak p = peaks.get(a);
                 double r = radius[a];
@@ -225,7 +237,9 @@ final class Massif {
                         + 0.4 * HornsFunction.valueNoise(Math.cos(ang) * 3.7 + p.ix() * 5.3, Math.sin(ang) * 3.7 + p.iz() * 9.1, seed + 502));
                 double t = Math.hypot(dx, dz) / (r * wob);
                 if (t >= 1) continue;
-                double m = p.h() * Math.pow(1 - t, PROFILE);
+                double share = Math.pow(1 - t, PROFILE), m = p.h() * share;
+                if (share > first) { second = first; first = share; } else if (share > second) second = share;
+                sumFree += Math.pow(m, SMOOTH_MAX);
                 if (walls != null) {
                     // each mountain's own fade towards rivers, as in 0.5.1 (ErodedPeaks.RIVER_FADE)
                     if (Double.isNaN(river)) river = RiverDistance.at((int) Math.floor(x), (int) Math.floor(z), walls.channel());
@@ -236,6 +250,11 @@ final class Massif {
                 }
                 sum += Math.pow(m, SMOOTH_MAX);
             }
+            // between two peaks of a group the river is covered: no fade
+            double b = Math.max(0, Math.min(1, (second - BURY_FROM) / (BURY_FULL - BURY_FROM)));
+            b = b * b * (3 - 2 * b);
+            bury[gz * n + gx] = sumFree > sum ? (float) b : 0f;
+            sum += (sumFree - sum) * b;
             double v = Math.pow(sum, 1 / SMOOTH_MAX);
             if (v > 0.5) {
                 double share = Math.min(1, v / 120), noise = 0, amp = 1, freq = 1 / ROUGH_LENGTH, norm = 0;

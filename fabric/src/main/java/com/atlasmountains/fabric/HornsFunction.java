@@ -111,8 +111,11 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         RiverWallFunction walls = RiverWallFunction.current;
         if (walls != null) {
             double t = RiverDistance.at(blockX, blockZ, walls.channel()) / RIVER_EASE;
-            if (t <= 0) return;
-            if (t < 1) relief *= t * t * (3 - 2 * t);
+            if (t < 1) {
+                // not where the river is covered by a group of peaks (0.5.6)
+                double keep = t <= 0 ? 0 : t * t * (3 - 2 * t), covered = ErodedPeaks.buried(this, blockX, blockZ);
+                relief *= keep + (1 - keep) * covered;
+            }
             if (relief < 0.01) return;
         }
         double land = PeakStrength.land(blockX, blockZ);

@@ -27,7 +27,7 @@ final class ErodedPeaks {
     static final int GRID = REGION / SPACING + 2 * OVERLAP;
     /** The overlap in blocks, and half the width of the band over which one region hands over to the next. */
     static final double PAD = OVERLAP * SPACING, BLEND = 64;
-    /** Regions kept in memory (1.2 MB each); the least recently used are dropped beyond this. */
+    /** Regions kept in memory (1.8 MB each); the least recently used are dropped beyond this. */
     static final int KEEP = 36;
 
     /** Fine noise added when the 4-block grid is read back, so faces are not glassy. */
@@ -52,6 +52,7 @@ final class ErodedPeaks {
     private static final class Region {
         float[] relief;   // blocks above the ground after erosion; null where the region has no mountains at all
         float[] carve;    // how far erosion lowered the ground (above zero in a gully)
+        float[] buried;   // 1 where a river between two peaks of a group is covered (Massif.BURY_FROM)
         int originX, originZ;
         volatile long used;
     }
@@ -148,6 +149,21 @@ final class ErodedPeaks {
         if (nz != 0) read(region(horns, rx, rz + nz), x, z, wx * (1 - wz), out);
         if (nx != 0 && nz != 0) read(region(horns, rx + nx, rz + nz), x, z, (1 - wx) * (1 - wz), out);
         finish(x, z, out);
+    }
+
+    /** How far a river at this column is covered by the mountains: 0 not at all (the river keeps its valley), 1 fully. Call after sample(). */
+    static double buried(HornsFunction horns, int x, int z) {
+        int rx = Math.floorDiv(x, REGION), rz = Math.floorDiv(z, REGION);
+        if (!REGIONS.containsKey(key(rx, rz))) return 0;
+        Region r = region(horns, rx, rz);
+        if (r.buried == null) return 0;
+        double gx = (x - r.originX) / (double) SPACING, gz = (z - r.originZ) / (double) SPACING;
+        int ix = (int) Math.floor(gx), iz = (int) Math.floor(gz);
+        if (ix < 0 || iz < 0 || ix > GRID - 2 || iz > GRID - 2) return 0;
+        double tx = gx - ix, tz = gz - iz;       // smoothly between samples: read to the nearest one, the ground stepped every 4 blocks
+        float[] b = r.buried;
+        int i = iz * GRID + ix;
+        return b[i] * (1 - tx) * (1 - tz) + b[i + 1] * tx * (1 - tz) + b[i + GRID] * (1 - tx) * tz + b[i + GRID + 1] * tx * tz;
     }
 
     /** Whether any mountain could reach this column (by the reach of its lump, with 16 blocks to spare). */
@@ -276,10 +292,11 @@ final class ErodedPeaks {
         Region r = new Region();
         r.originX = rx * REGION - OVERLAP * SPACING;
         r.originZ = rz * REGION - OVERLAP * SPACING;
-        float[] relief = new float[GRID * GRID], carve = new float[GRID * GRID];
-        if (Massif.build(horns, AtlasMountainsMod.seed(), r.originX, r.originZ, GRID, SPACING, relief, carve)) {
+        float[] relief = new float[GRID * GRID], carve = new float[GRID * GRID], buried = new float[GRID * GRID];
+        if (Massif.build(horns, AtlasMountainsMod.seed(), r.originX, r.originZ, GRID, SPACING, relief, carve, buried)) {
             r.relief = relief;
             r.carve = carve;
+            r.buried = buried;
         }
         return r;                                  // no mountains here: relief stays null, nothing was eroded
     }

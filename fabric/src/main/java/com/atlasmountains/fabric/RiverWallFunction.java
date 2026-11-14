@@ -38,15 +38,27 @@ public record RiverWallFunction(double channel, double slope, double maxSlope, d
         current = this;
     }
 
+    /** Taller than any peak: added to the limit where a river is covered. */
+    static final double COVERED_ROOM = 400;
+    private static final ThreadLocal<double[]> OUT = ThreadLocal.withInitial(() -> new double[2]);
+
     @Override
     public double at(int blockX, int blockZ) {
         // room above the steepest wall for the ribs a wall carries, which fade out at the river
         double river = RiverDistance.at(blockX, blockZ, channel);
-        return (river * maxSlope + ribRoom * Math.min(1, river / HornsFunction.WALL_RIB_FADE)) / 128.0;
+        double limit = river * maxSlope + ribRoom * Math.min(1, river / HornsFunction.WALL_RIB_FADE);
+        // 0.5.6: no limit where the river runs between two peaks of a group and is covered (Massif.BURY_FROM)
+        HornsFunction horns = HornsFunction.current;
+        if (HornsFunction.ERODED && horns != null && limit < COVERED_ROOM) {
+            double[] o = OUT.get();
+            ErodedPeaks.sample(horns, blockX, blockZ, o);       // makes sure the region is there to ask
+            if (o[0] > 0) limit += COVERED_ROOM * ErodedPeaks.buried(horns, blockX, blockZ);
+        }
+        return limit / 128.0;
     }
 
     @Override
-    public Interval range() { return Interval.of(0.0f, (float) ((RiverDistance.REACH * maxSlope + ribRoom) / 128.0)); }
+    public Interval range() { return Interval.of(0.0f, (float) ((RiverDistance.REACH * maxSlope + ribRoom + COVERED_ROOM) / 128.0)); }
 
     @Override
     public MapCodec<? extends DensityFunction> codec() { return CODEC; }
