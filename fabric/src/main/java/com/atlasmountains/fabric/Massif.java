@@ -146,7 +146,18 @@ final class Massif {
             relief[i] = (float) (ref[i] * Math.pow(was / ref[i], sharp[i]));
             carve[i] += was - relief[i];
         }
-        if (GULLY_RUNS > 0) gullies(relief, carve, deep, size, spacing, originX, originZ, seed);
+        // where each summit really is on this grid (the highest sample within 30 blocks of where it is set), for the ridges to spare
+        java.util.List<int[]> tops = new ArrayList<>();
+        for (ErodedPeaks.Peak p : m.peaks) {
+            int px = (int) Math.round((p.x() - originX) / spacing), pz = (int) Math.round((p.z() - originZ) / spacing), r = 30 / spacing, best = -1;
+            for (int dz = -r; dz <= r; dz++) for (int dx = -r; dx <= r; dx++) {
+                int xx = px + dx, zz = pz + dz;
+                if (xx < 0 || zz < 0 || xx >= size || zz >= size) continue;
+                if (best < 0 || relief[zz * size + xx] > relief[best]) best = zz * size + xx;
+            }
+            if (best >= 0 && relief[best] > 5) tops.add(new int[]{best % size, best / size});
+        }
+        if (GULLY_RUNS > 0) gullies(relief, carve, deep, tops, size, spacing, originX, originZ, seed);
         return true;
     }
 
@@ -155,7 +166,7 @@ final class Massif {
     // there was no sun or shadow to judge it by). C the same deep carve on a sharper mountain: hollow profile, steeper
     // upper faces, narrower top (aimed at the cones and humps).
     /** How much deeper than GULLY_CUT and FACE_NOISE each look's faces are carved, and the power of its profile (1: unchanged). */
-    static final double[] LOOK_CARVE = {1.0, 2.0, 2.0}, LOOK_SHARP = {1.0, 1.0, 1.4};
+    static final double[] LOOK_CARVE = {1.0}, LOOK_SHARP = {1.0};   // the 0.5.11 sampler (B: carve 2; C: carve 2, sharp 1.4) is over: he could not tell them apart
     /** For testing: a file /tmp/atlas_look holding 0, 1 or 2 gives every peak that look. */
     static final int FORCE_LOOK = forced();
     private static int forced() {
@@ -180,7 +191,7 @@ final class Massif {
     }
 
     /** The faces' own pass: see FACE_NOISE. Lowers relief, and adds what it cut to carve (the snow lies lower in gullies). */
-    private static void gullies(float[] h, float[] carve, float[] deep, int n, double sp, int originX, int originZ, long seed) {
+    private static void gullies(float[] h, float[] carve, float[] deep, java.util.List<int[]> tops, int n, double sp, int originX, int originZ, long seed) {
         int N = n * n;
         float[] before = h.clone(), weight = new float[N];
         boolean[] out = new boolean[N];
@@ -255,7 +266,65 @@ final class Massif {
                 h[i] = (float) hi;
             }
         }
+        if (RIDGE_DEPTH > 0) ridges(h, out, weight, area, tops, n, sp);
         for (int i = 0; i < N; i++) carve[i] += Math.max(0f, before[i] - h[i]);
+    }
+
+    // ---- 0.5.12: knife-edge ridges ----
+    // Sammi's two reference pictures (a summit where thin sharp ridges meet, each running a long way
+    // down; a row of horns with fluted faces) against the mod: "rounded shoulders, flat even faces, a
+    // few wide soft grooves: everything rounded off, like it has been sanded" (his word: "fluffy").
+    // He agreed, and that the fine detail of the pictures is out of reach: "I just want the feel".
+    // The three looks of the 0.5.11 sampler only changed how deep the grooves were; he could not
+    // tell them apart.
+    // So, last of all: the lines where water gathers on a face (RIDGE_AREA samples or more draining
+    // through) are cut down into couloirs, up to RIDGE_DEPTH blocks where RIDGE_FULL samples drain,
+    // and the rock then rises from every couloir at one fixed angle (RIDGE_SLOPE) until it meets the
+    // rock rising from the next. Where they meet is an edge, and nothing rounds it afterwards.
+    // Ground the rising rock does not reach (crests, the summit) is left exactly as it was.
+    static double RIDGE_DEPTH = 30, RIDGE_AREA = 8, RIDGE_FULL = 55, RIDGE_SLOPE = 1.9;
+
+    private static void ridges(float[] h, boolean[] out, float[] weight, double[] area0, java.util.List<int[]> tops, int n, double sp) {
+        int N = n * n;
+        float[] e = h.clone();
+        PriorityQueue<long[]> q = new PriorityQueue<>((a, b) -> Float.compare(Float.intBitsToFloat((int) a[0]), Float.intBitsToFloat((int) b[0])));
+        // the water gathered, taken as the most of a sample and its neighbours: sample by sample it alternates, and the cut would too
+        double[] area = new double[N];
+        for (int z = 1; z < n - 1; z++) for (int x = 1; x < n - 1; x++) {
+            double mx = 0;
+            for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++) mx = Math.max(mx, area0[(z + dz) * n + x + dx]);
+            area[z * n + x] = 0.5 * (mx + area0[z * n + x]);
+        }
+        for (int i = 0; i < N; i++) {
+            if (out[i] || weight[i] <= 0 || area[i] < RIDGE_AREA) continue;
+            double cut = RIDGE_DEPTH * weight[i] * Math.min(1, Math.sqrt((area[i] - RIDGE_AREA) / (RIDGE_FULL - RIDGE_AREA)));
+            // never so deep that the rock rising from here would stand below a summit: summits keep their height exactly
+            int x = i % n, z = i / n;
+            for (int[] t : tops) {
+                double dx = (t[0] - x) * sp, dz = (t[1] - z) * sp;
+                if (Math.abs(dx) > 200 || Math.abs(dz) > 200) continue;
+                cut = Math.min(cut, RIDGE_SLOPE * Math.sqrt(dx * dx + dz * dz) - (h[t[1] * n + t[0]] - h[i]) - 1);
+            }
+            if (cut < 0.5) continue;
+            e[i] = (float) Math.max(0.6, h[i] - cut);
+            q.add(new long[]{Float.floatToIntBits(e[i]), i});
+        }
+        // the lowest surface that rises from the couloirs at RIDGE_SLOPE and nowhere stands above the ground as it was
+        while (!q.isEmpty()) {
+            long[] top = q.poll();
+            int i = (int) top[1];
+            if (Float.intBitsToFloat((int) top[0]) > e[i]) continue;
+            int x = i % n, z = i / n;
+            for (int d = 0; d < 8; d++) {
+                int xx = x + DX[d], zz = z + DZ[d];
+                if (xx < 1 || zz < 1 || xx >= n - 1 || zz >= n - 1) continue;
+                int j = zz * n + xx;
+                if (out[j]) continue;
+                float v = (float) (e[i] + RIDGE_SLOPE * sp * (d < 4 ? 1 : Math.sqrt(2)));
+                if (v < e[j] - 0.01f) { e[j] = v; q.add(new long[]{Float.floatToIntBits(v), j}); }
+            }
+        }
+        System.arraycopy(e, 0, h, 0, N);
     }
 
     private Massif(HornsFunction horns, long seed, int originX, int originZ, int span) {

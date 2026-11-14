@@ -92,10 +92,7 @@ public final class FindCommand {
         dispatcher.register(Commands.literal("locate")
                 .then(Commands.literal("mountain")
                         .executes(ctx -> locate(ctx.getSource(), false, -1))
-                        .then(Commands.literal("tallest").executes(ctx -> locate(ctx.getSource(), true, -1)))
-                        .then(Commands.literal("a").executes(ctx -> locate(ctx.getSource(), false, 0)))
-                        .then(Commands.literal("b").executes(ctx -> locate(ctx.getSource(), false, 1)))
-                        .then(Commands.literal("c").executes(ctx -> locate(ctx.getSource(), false, 2)))));
+                        .then(Commands.literal("tallest").executes(ctx -> locate(ctx.getSource(), true, -1)))));
 
         dispatcher.register(Commands.literal("atlasmountains")
                 .executes(ctx -> {

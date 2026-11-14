@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.5.12 (unreleased): knife-edge ridges; the sampler is over
+
+Sammi on the 0.5.11 sampler: "can we make the gullies less fluffy?", then, of the three looks,
+"I can't really distinguish between them". He sent two reference pictures (a summit where thin
+sharp ridges meet and run a long way down; a row of horns over a lake valley). Claude's reading,
+which he accepted: the references are made of knife-edge ridges with hollow faces between; the
+mod makes rounded shoulders, flat even faces and a few wide soft grooves, "like it has been
+sanded". On the pictures' fine detail being out of reach at 170 blocks: "Fine I understand
+about the detail I just want the feel".
+
+- New last step (`ridges` in Massif.java): the lines where water gathers on a face are cut down
+  into couloirs (up to 30 blocks), and the rock rises from every couloir at one fixed angle
+  (62 degrees) until it meets the rock rising from the next. Where they meet is an edge; nothing
+  rounds it afterwards. Summits are spared: no couloir is cut so deep that its rock would stand
+  below one.
+- The sampler is gone: every mountain is look A plus this. `/locate mountain a|b|c` removed.
+- Two things tried first and NOT kept, both fine in the preview and no better in his world: a
+  wider spread of the water on the coarse grid (it took a quilted criss-cross of bumps out of
+  the preview's dense peaks; on real chunks before and after were nearly the same), and less
+  noise with narrower gullies.
+- New testing aids: `tools/preview/shade.py` (a low-sun shaded view: the plain renders hide
+  gullies altogether); a file /tmp/atlas_set of NAME=number lines sets any Massif setting on the
+  dev server.
+
+Checked on a dev server, real chunks, two seeds, no errors in the logs:
+- -5999978045571072206 at 4200 -650: five summits y 193, 198, 280, 283, 270 before; 193, 198,
+  280, 280, 268 after. In renders from his camera spots the shoulders are notched into small
+  horns; the big faces are still mostly plain.
+- 6021084639467433954 at -7500 5600: six summits within 3 blocks of before, bar one 6 lower
+  (218 to 212). The broad humped snowy top of his 0.5.4 screenshots is a cluster of sharp horns.
+  Ground on the mountains is 12 blocks lower on average, 45 at most, never higher.
+- Erosion 689 ms per region on average, 1439 at worst.
+
+Not tested: in the game by eye. Known: in the preview a small patch of criss-cross lines
+remains where many couloirs crowd together.
+
 ## 0.5.11 (unreleased, SAMPLER BUILD): three looks for the shape
 
 Sammi after 0.5.10: "im not sure if the mountain shape is right yet". Claude agreed (faces
