@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.5.8 (unreleased): the shape of 0.5.6 back; 0.5.7's shape changes undone
+
+Sammi's seven screenshots of 0.5.7 on a new seed, -5999978045571072206, hot country (badlands,
+savanna) around 4200 -650: plain smooth pointed cones, three in a row at 3780 -758; almost no
+snow; a hole through a summit near 4263 -1016.
+
+What Claude did, in order, all on real generated chunks at that spot (1024 square at 4200 -650),
+none of it sent as a jar:
+1. Guessed the round starting lump was the cause; made it uneven (warped, creased). Still cones.
+2. Guessed one rock angle everywhere was the cause; let it vary. In the preview this made a lone
+   peak smoother, not better. (The preview's plain 0.5.7 peak was craggy: the preview has no
+   real land and does not show this fault.)
+3. Read out the erosion at his peaks: to reach their set heights the mountains were rising 2.2
+   to 5 times their lump (1.5 is the setting), because the real ground falls 50 to 70 blocks
+   within 100 of each summit. Capped the rise at 2 with a bigger last stretch. Still cones.
+4. Ran the 0.5.6 code on this seed and spot. NOT cones: shoulders, broken tops, snow. So the
+   cones came from 0.5.7.
+
+This build: `Massif.java` is 0.5.6's again. Undone: erosion on the real ground, mountains
+rising to their own height, the noise taken off near summits, the cap on the last stretch.
+Kept from 0.5.7: grass and trees on steeper feet (`GRASS_SLOPE` 1.1), which is a surface rule
+and not part of the shape.
+
+Back again as a result, and still to do, ONE AT A TIME and each checked on BOTH seeds before a
+jar: the tower (seed 6021084639467433954, -7616 5824), the domes, sides stretched steeper than
+the rock should stand. Not looked at: the hole through a summit; no snow in hot country.
+
+Measured at five summits on the new seed, how far downhill turns from "straight away from the
+summit" (0 is a perfect cone; gullies raise it too, so it is a rough guide): 0.5.6 52 degrees
+on average, 0.5.7 42.
+
+Not tested: this exact build has been compiled but not run (its shape code is 0.5.6's, run on
+both seeds; its grass rule is 0.5.7's, run on both seeds); in the game by eye.
+
 ## 0.5.7 (unreleased): the tower, the domes, the hard line where rock meets forest
 
 Three things Claude had listed from Sammi's screenshots of 0.5.4 (seed 6021084639467433954) and

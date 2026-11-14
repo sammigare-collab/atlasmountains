@@ -55,23 +55,6 @@ final class Massif {
     // at BURY_FROM of that peak's height or more (fully at BURY_FULL). A river along the outside of
     // a group, where only one lump reaches, keeps its valley as before.
     static double BURY_FROM = 0.15, BURY_FULL = 0.32;
-    // ---- 0.5.7: three things from Sammi's screenshots of 0.5.4 that he asked to have tried ----
-    // Domes (the big mountains at -7048 5280 and -7476 5385 had humped tops): the noise on the
-    // lumps is smooth and up to 34 blocks, so near a summit it made a rounded bump, which was then
-    // scaled up to be the summit. The noise now fades to nothing within SUMMIT_CLEAR blocks of
-    // every summit, so the lump's own point is the top.
-    static double SUMMIT_CLEAR = 70;
-    // The tower (-7616 5824, seen from -7732 5949): the mountain's own slope was 43 degrees, but
-    // vanilla's land under it fell 60 blocks in the same 108, towards a river: 56 degrees in all.
-    // Slopes were only ever measured on the mountain, as if the ground under it were flat. The
-    // water and the rock slides now work on the real ground (vanilla's land plus the mountain).
-    // And a mountain is no longer stretched to its set height by more than STRETCH_MAX: one
-    // hemmed in by a river and falling land comes out LOWER than set instead of as a wall.
-    static double STRETCH_MAX = 1.2;
-    static int SETTLE_PASSES = 8;
-    static int GAIN_EVERY = 6;
-    static double GAIN_MAX = 6;
-    static boolean DEBUG = Boolean.getBoolean("atlasmountains.debug");
     // ---- the water ----
     /** Blocks between samples. */
     static final int COARSE = 8;
@@ -110,7 +93,7 @@ final class Massif {
 
     private final int n;
     private final double sp = COARSE, ox, oz, cell;
-    private final float[] h, base, bury, ground;
+    private final float[] h, base, bury;
     private final boolean[] outlet;
     private final List<ErodedPeaks.Peak> peaks = new ArrayList<>();
 
@@ -225,7 +208,7 @@ final class Massif {
         ox = originX; oz = originZ;
         cell = horns.cell();
         n = (int) Math.ceil(span / sp) + 1;
-        h = new float[n * n]; base = new float[n * n]; bury = new float[n * n]; ground = new float[n * n]; outlet = new boolean[n * n];
+        h = new float[n * n]; base = new float[n * n]; bury = new float[n * n]; outlet = new boolean[n * n];
         long c0x = (long) Math.floor((ox - 8) / cell) - 2, c0z = (long) Math.floor((oz - 8) / cell) - 2;
         long c1x = (long) Math.floor((ox + n * sp + 8) / cell) + 2, c1z = (long) Math.floor((oz + n * sp + 8) / cell) + 2;
         for (long iz = c0z; iz <= c1z; iz++) for (long ix = c0x; ix <= c1x; ix++) {
@@ -242,8 +225,7 @@ final class Massif {
         for (int gz = 0; gz < n; gz++) for (int gx = 0; gx < n; gx++) {
             double x = ox + gx * sp, z = oz + gz * sp;
             double wx = horns.warpX(x, z, seed), wz = horns.warpZ(x, z, seed);
-            ground[gz * n + gx] = (float) (128 + 128 * PeakStrength.land((int) Math.floor(x), (int) Math.floor(z)));
-            double sum = 0, sumFree = 0, river = Double.NaN, first = 0, second = 0, nearest = 1e9;
+            double sum = 0, sumFree = 0, river = Double.NaN, first = 0, second = 0;
             for (int a = 0; a < np; a++) {
                 ErodedPeaks.Peak p = peaks.get(a);
                 double r = radius[a];
@@ -253,8 +235,7 @@ final class Massif {
                 double ang = Math.atan2(dz, dx);
                 double wob = 1 + SHAPE_WARP * (0.6 * HornsFunction.valueNoise(Math.cos(ang) * 1.6 + p.ix() * 7.1, Math.sin(ang) * 1.6 + p.iz() * 3.3, seed + 501)
                         + 0.4 * HornsFunction.valueNoise(Math.cos(ang) * 3.7 + p.ix() * 5.3, Math.sin(ang) * 3.7 + p.iz() * 9.1, seed + 502));
-                double dist = Math.hypot(dx, dz), t = dist / (r * wob);
-                if (dist < nearest) nearest = dist;
+                double t = Math.hypot(dx, dz) / (r * wob);
                 if (t >= 1) continue;
                 double share = Math.pow(1 - t, PROFILE), m = p.h() * share;
                 if (share > first) { second = first; first = share; } else if (share > second) second = share;
@@ -278,8 +259,7 @@ final class Massif {
             if (v > 0.5) {
                 double share = Math.min(1, v / 120), noise = 0, amp = 1, freq = 1 / ROUGH_LENGTH, norm = 0;
                 for (int o = 0; o < 4; o++) { noise += amp * HornsFunction.valueNoise(x * freq, z * freq, seed + 610 + 13L * o); norm += amp; amp *= 0.5; freq *= 2.1; }
-                double clear = Math.min(1, nearest / SUMMIT_CLEAR);
-                v = Math.max(0, v + ROUGH * share * noise / norm * clear * clear * (3 - 2 * clear));
+                v = Math.max(0, v + ROUGH * share * noise / norm);
             }
             int i = gz * n + gx;
             base[i] = (float) v;
@@ -289,73 +269,46 @@ final class Massif {
 
     private void erode() {
         // The range rises slowly (fastest under the summits) while the water cuts it; it starts as a low rough plain.
-        // 0.5.7: each mountain rises as fast as it needs to for its summit to arrive at its set
-        // height at the end (checked every GAIN_EVERY steps). Before, all rose alike, most ended
-        // well short, and were then stretched to height: slopes the rock slides had set at 52
-        // degrees were stretched past 60.
-        int np = peaks.size();
-        double[] gain = new double[np];
-        java.util.Arrays.fill(gain, UPLIFT);
-        float[] rise = blend(gain);
         for (int i = 0; i < h.length; i++) h[i] = outlet[i] ? 0 : (float) (0.03 * base[i]);
         for (int s = 0; s < STEPS; s++) {
-            for (int i = 0; i < h.length; i++) if (!outlet[i]) h[i] += (float) (rise[i] * base[i] / STEPS);
+            for (int i = 0; i < h.length; i++) if (!outlet[i]) h[i] += (float) (UPLIFT * base[i] / STEPS);
             water(); thermal(THERMAL_PASSES);
-            if (s % GAIN_EVERY == GAIN_EVERY - 1 && s < STEPS - 1) {
-                for (int a = 0; a < np; a++) {
-                    double want = peaks.get(a).h() * (s + 1.0) / STEPS, have = Math.max(1, summit(peaks.get(a)));
-                    gain[a] = Math.max(0.5, Math.min(GAIN_MAX, gain[a] * Math.max(0.8, Math.min(1.35, want / have))));
-                }
-                rise = blend(gain);
-            }
         }
         rescale();
-        thermal(SETTLE_PASSES);
-    }
-
-    /** The highest ground within 30 blocks of where a peak's summit is set. */
-    private double summit(ErodedPeaks.Peak p) {
-        int reach = (int) Math.ceil(30 / sp), gx = (int) Math.round((p.x() - ox) / sp), gz = (int) Math.round((p.z() - oz) / sp);
-        double top = 0;
-        for (int dz = -reach; dz <= reach; dz++) for (int dx = -reach; dx <= reach; dx++) {
-            int xx = gx + dx, zz = gz + dz;
-            if (xx >= 0 && zz >= 0 && xx < n && zz < n) top = Math.max(top, h[zz * n + xx]);
-        }
-        return top;
-    }
-
-    /** One number per peak, spread smoothly over the ground between the peaks. */
-    private float[] blend(double[] perPeak) {
-        float[] out = new float[n * n];
-        double sig = 0.35 * cell;
-        for (int gz = 0; gz < n; gz++) for (int gx = 0; gx < n; gx++) {
-            int i = gz * n + gx;
-            if (outlet[i]) { out[i] = 1; continue; }
-            double x = ox + gx * sp, z = oz + gz * sp, sw = 1e-4, sr = 1e-4;
-            for (int a = 0; a < perPeak.length; a++) {
-                ErodedPeaks.Peak p = peaks.get(a);
-                double dx = x - p.x(), dz = z - p.z();
-                if (Math.abs(dx) > 4 * sig || Math.abs(dz) > 4 * sig) continue;
-                double w = Math.exp(-(dx * dx + dz * dz) / (2 * sig * sig));
-                sw += w; sr += w * perPeak[a];
-            }
-            out[i] = (float) (sr / sw);
-        }
-        return out;
+        thermal(2);
     }
 
     /** Scales each mountain so its top is its set height again (ratios blended smoothly between peaks). */
     private void rescale() {
         int np = peaks.size();
         double[] ratio = new double[np];
+        int reach = (int) Math.ceil(30 / sp);
         for (int a = 0; a < np; a++) {
-            double top = summit(peaks.get(a));
-            ratio[a] = top < 5 ? 1 : Math.max(0.4, Math.min(STRETCH_MAX, peaks.get(a).h() / top));
-            if (DEBUG && top >= 5) System.err.printf("massif peak %d %d set %.0f made %.0f%n", (int) peaks.get(a).x(), (int) peaks.get(a).z(), peaks.get(a).h(), top);
+            ErodedPeaks.Peak p = peaks.get(a);
+            int gx = (int) Math.round((p.x() - ox) / sp), gz = (int) Math.round((p.z() - oz) / sp);
+            double top = 0;
+            for (int dz = -reach; dz <= reach; dz++) for (int dx = -reach; dx <= reach; dx++) {
+                int xx = gx + dx, zz = gz + dz;
+                if (xx >= 0 && zz >= 0 && xx < n && zz < n) top = Math.max(top, h[zz * n + xx]);
+            }
+            ratio[a] = top < 5 ? 1 : Math.max(0.4, Math.min(4, p.h() / top));
         }
-        float[] r = blend(ratio);
-        for (int i = 0; i < h.length; i++) if (h[i] > 0) h[i] *= r[i];
+        double sig = 0.35 * cell;
+        for (int gz = 0; gz < n; gz++) for (int gx = 0; gx < n; gx++) {
+            int i = gz * n + gx;
+            if (h[i] <= 0) continue;
+            double x = ox + gx * sp, z = oz + gz * sp, sw = 1e-4, sr = 1e-4;
+            for (int a = 0; a < np; a++) {
+                ErodedPeaks.Peak p = peaks.get(a);
+                double dx = x - p.x(), dz = z - p.z();
+                if (Math.abs(dx) > 4 * sig || Math.abs(dz) > 4 * sig) continue;
+                double w = Math.exp(-(dx * dx + dz * dz) / (2 * sig * sig));
+                sw += w; sr += w * ratio[a];
+            }
+            h[i] = (float) (h[i] * sr / sw);
+        }
     }
+
 
     /**
      * One step of running water. A flood from the outlets (flat ground, rivers, the edge) gives
@@ -369,9 +322,7 @@ final class Massif {
         boolean[] seen = new boolean[N];
         float[] fill = new float[N];
         PriorityQueue<long[]> q = new PriorityQueue<>((a, b) -> Float.compare(Float.intBitsToFloat((int) a[0]), Float.intBitsToFloat((int) b[0])));
-        float[] top = new float[N];                 // the real ground: vanilla's land plus the mountain
-        for (int i = 0; i < N; i++) top[i] = ground[i] + h[i];
-        for (int i = 0; i < N; i++) if (outlet[i]) { seen[i] = true; rec[i] = i; fill[i] = top[i]; q.add(new long[]{Float.floatToIntBits(top[i]), i}); }
+        for (int i = 0; i < N; i++) if (outlet[i]) { seen[i] = true; rec[i] = i; fill[i] = h[i]; q.add(new long[]{Float.floatToIntBits(h[i]), i}); }
         int k = 0;
         while (!q.isEmpty()) {
             int i = (int) q.poll()[1];
@@ -383,7 +334,7 @@ final class Massif {
                 int j = zz * n + xx;
                 if (seen[j]) continue;
                 seen[j] = true; rec[j] = i;
-                fill[j] = Math.max(top[j], fill[i] + 1e-3f);
+                fill[j] = Math.max(h[j], fill[i] + 1e-3f);
                 q.add(new long[]{Float.floatToIntBits(fill[j]), j});
             }
         }
@@ -413,8 +364,8 @@ final class Massif {
             if (r == i || outlet[i]) continue;
             int dx = i % n - r % n, dz = i / n - r / n;
             double f = K * Math.pow(area[i], M) / (sp * Math.sqrt(dx * dx + dz * dz));
-            double nt = (top[i] + f * Math.max(top[r], fill[r])) / (1 + f);
-            if (nt < top[i]) { top[i] = (float) Math.max(ground[i], nt); h[i] = top[i] - ground[i]; }   // vanilla's land is never lowered
+            double nh = (h[i] + f * Math.max(h[r], fill[r])) / (1 + f);
+            if (nh < h[i]) h[i] = (float) Math.max(0, nh);
         }
     }
 
@@ -428,8 +379,8 @@ final class Massif {
                 double crit = hi > TALUS_BAND ? TALUS : TALUS_LOW + (TALUS - TALUS_LOW) * hi / TALUS_BAND;
                 for (int d = 0; d < 8; d++) {
                     int j = (z + DZ[d]) * n + x + DX[d];
-                    double drop = hi + ground[i] - h[j] - ground[j], max = crit * sp * (d < 4 ? 1 : Math.sqrt(2));
-                    if (drop > max) { double m = Math.min(hi, (drop - max) * 0.25); hi -= m; h[j] += m; }
+                    double drop = hi - h[j], max = crit * sp * (d < 4 ? 1 : Math.sqrt(2));
+                    if (drop > max) { double m = (drop - max) * 0.25; hi -= m; h[j] += m; }
                 }
                 h[i] = (float) hi;
             }

@@ -7,8 +7,11 @@ package com.atlasmountains.fabric;
  */
 final class PeakStrength {
     static double COUNTRY_LENGTH = 1100, COUNTRY_BIAS = 0.55, COUNTRY_GAIN = 1.1;
+    /** Share of cells that keep their peak (1: all). Below 1 gives tall peaks standing apart, as in sparse mountain country in the game. */
+    static double THIN = 1;
     static boolean ready() { return true; }
     static double at(long ix, long iz, int x, int z) {
+        if (HornsFunction.hash(ix, iz, AtlasMountainsMod.seed() + 9009) > THIN) return 0;
         double n = 0.65 * HornsFunction.valueNoise(x / COUNTRY_LENGTH, z / COUNTRY_LENGTH, AtlasMountainsMod.seed() + 9001)
                  + 0.35 * HornsFunction.valueNoise(x / (COUNTRY_LENGTH / 2.3), z / (COUNTRY_LENGTH / 2.3), AtlasMountainsMod.seed() + 9002);
         return Math.max(0, Math.min(1, COUNTRY_BIAS + COUNTRY_GAIN * n));
