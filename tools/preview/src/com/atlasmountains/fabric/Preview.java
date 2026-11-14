@@ -75,6 +75,7 @@ public final class Preview {
         int land = 0; for (float r : relief) if (r >= 2) land++;
         System.out.printf("%s: %d ms; mountains on %.0f%% of the square; rock %.0f%%, snow %.0f%%, open grass %.0f%%, trees %.0f%% of the mountains; summits %+.1f on average, worst %.0f off (%d peaks)%n",
                 mode, ms, 100.0 * land / relief.length, pct(counts[2] + counts[4], land), pct(counts[3], land), pct(counts[0], land, relief, true), pct(counts[1], land), peaks == 0 ? 0 : err / peaks, worst, peaks);
+        if (massif != null) System.out.printf("  shape %d ms, fine pass %d ms%n", massif.millisCoarse, massif.millisFine);
         System.out.print(sb);
         System.out.println("wrote " + stem + ".bin");
     }
