@@ -12,7 +12,8 @@ Every peak has one of three looks, blended smoothly between neighbours:
 - C the same deep carve on a sharper mountain: its height as a share of the summit's is raised
   to the power 1.4 (`LOOK_SHARP`), which keeps the summit, steepens the upper faces, narrows the
   top and eases the lower slopes.
-`/locate mountain a`, `b`, `c` find the nearest good-sized one of each; `/locate mountain` now
+`/locate mountain a`, `b`, `c` find the nearest good-sized one of each (within 16,000 blocks: tall
+ones of one look can be far apart; on the test seed the nearest B was 7,000 away); `/locate mountain` now
 says which look a mountain is.
 
 Checked on a dev server, real chunks, seed -5999978045571072206 at 4200 -650, each look forced

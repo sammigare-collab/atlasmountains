@@ -42,7 +42,7 @@ public final class FindCommand {
     private FindCommand() {}
 
     /** How far /locate mountain looks, in blocks. */
-    private static final int LOCATE_RADIUS = 6000;
+    private static final int LOCATE_RADIUS = 6000, SAMPLER_RADIUS = 16000;
 
     /**
      * /locate mountain [tallest]: answers as vanilla's /locate does, "The nearest mountain is at
@@ -53,12 +53,12 @@ public final class FindCommand {
     private static int locate(CommandSourceStack src, boolean tallest, int wanted) {
         HornsFunction horns = HornsFunction.current;
         Vec3 p = src.getPosition();
-        List<double[]> all0 = horns == null ? List.of() : horns.peaksNear(p.x, p.z, LOCATE_RADIUS);
+        List<double[]> all0 = horns == null ? List.of() : horns.peaksNear(p.x, p.z, wanted >= 0 ? SAMPLER_RADIUS : LOCATE_RADIUS);   // tall mountains of one look can be far apart
         List<double[]> all = all0;
         // sampler: /locate mountain a|b|c finds the nearest good-sized one of that look
         if (wanted >= 0) all = all.stream().filter(c -> (int) c[0] == wanted && c[3] >= 110).toList();
         if (all.isEmpty()) {
-            src.sendFailure(Component.literal("Could not find a mountain within " + LOCATE_RADIUS + " blocks"));
+            src.sendFailure(Component.literal("Could not find a mountain within " + (wanted >= 0 ? SAMPLER_RADIUS : LOCATE_RADIUS) + " blocks"));
             return 0;
         }
         double[] hit = all.get(0);
