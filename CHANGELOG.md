@@ -8,6 +8,8 @@ general shape but they are very small feel free to make the biome bigger and mak
 should be replacing snowy peaks etc not just jagged. and it seems to have stopped covering river
 valleys as we agree and rivers are gone". Several changes in one build, since they share a cause.
 
+HIS VERDICT IN THE GAME (15 Nov 2026, seed 2089824661498644259 at 493 774): "loving it good job".
+
 ### What was wrong (measured on his seed, 16,384 blocks square round 3000 1000)
 - SMALL: full-size peaks needed erosion below -0.65, which is 0.4% of that world. Vanilla's
   mountain country (its two lowest erosion bands, below -0.375, inland: every peak and slope

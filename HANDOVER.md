@@ -18,7 +18,10 @@ list from a script into the chat. New dev scripts: `tools/dev/srv_start.sh`, `to
 "<name|seed|x y z>" ...`, `tools/dev/topdown.py <out.png> <snapshot.bin> ...`, and
 `tools/preview/.../Seams.java` (how far two neighbouring regions disagree; run it after any change of size).
 The preview tool's stand-in for the game does NOT have the room rule or the filling of covered valleys;
-judge rivers on the dev server only. Waiting for his in-game verdict on 0.6.1.
+judge rivers on the dev server only. HIS VERDICT ON 0.6.1 IN THE GAME (15 Nov 2026, seed 2089824661498644259
+at 493 774): "loving it good job". So 0.6.1 is the baseline: size, spacing, where mountains stand, real rivers and
+the covering rule are all liked as they are. Change none of them unless he criticises that part. Still open, and
+not something he has raised: opening a world is slow (see the changelog, "Speed").
 
 UPDATE, 15 November 2026: 0.6.0 is the current build. READ ITS CHANGELOG ENTRY FIRST: it records the
 finding that changed everything (the mod had only been shaping the 60-odd blocks it adds on top of
@@ -131,7 +134,9 @@ his call. Ask before building it.
   Mojang's EULA for the dev server.
 - Seeds and spots he has sent: 5300383603861270436 (around -200 -450; snow spot 163 331 -523;
   165 139 -868; 535 189 -507); -4410578526466350703 (around -5050 -3600);
-  -3550034452994718772 (-9837 -2238); -4547848503839837251 (6480 -6050).
+  -3550034452994718772 (-9837 -2238); -4547848503839837251 (6480 -6050);
+  -5156097255193664704 (722 178 2304, 4964 178 -1162, 6493 153 1685: his complaints about 0.6.0);
+  2089824661498644259 (493 774: where he liked 0.6.1).
 - Traps met: snapshots over about 1024 blocks run the dev server out of memory; the peaks
   command's teleport height is 20 ABOVE the summit (Claude once mis-calibrated every mountain 20
   blocks too tall from this); a world made with one build shows cliffs where it meets chunks
