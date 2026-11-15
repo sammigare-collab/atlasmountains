@@ -2,7 +2,6 @@ package com.atlasmountains.fabric;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.PriorityQueue;
 
 /**
  * The shape of the mountains since 0.5.4: made by water, not drawn by hand.
@@ -42,8 +41,8 @@ final class Massif {
     static double SMOOTH_MAX = 4;
     /** How far a lump's outline wanders, as a share of its radius. */
     static double SHAPE_WARP = 0.30;
-    /** Noise on the lumps (blocks, for ground 120 or more above the foot) and its length. */
-    static double ROUGH = 0.28 * 120, ROUGH_LENGTH = 110;
+    /** Noise on the lumps (blocks, for ground ROUGH_FULL or more above the foot) and its length. 0.6.1: all three half as big again, with the mountains. */
+    static double ROUGH = 0.28 * 180, ROUGH_FULL = 180, ROUGH_LENGTH = 165;
     // ---- rivers between peaks (0.5.6) ----
     // Up to 0.5.5 every mountain faded to nothing at every river. Where a river valley ran between
     // two peaks of a group, both then had to rise their whole height in the little room left and
@@ -54,7 +53,18 @@ final class Massif {
     // saddle. A column counts as between two peaks when the second-nearest peak's lump reaches it
     // at BURY_FROM of that peak's height or more (fully at BURY_FULL). A river along the outside of
     // a group, where only one lump reaches, keeps its valley as before.
-    static double BURY_FROM = 0.15, BURY_FULL = 0.32;
+    // (BURY_FROM 0.15 and BURY_FULL 0.32, shares of the second peak's height, up to 0.6.0.)
+    // 0.6.1: ONE RULE, IN BLOCKS. A river is covered where the mountains, left to themselves, would stand
+    // COVER_FULL blocks or more above their base level over it, and keeps its valley where they would stand
+    // under COVER_FROM; between the two the valley closes. It does not matter whether that height comes from
+    // two peaks meeting or from the heart of one. Why: rivers in mountain country hold water now and the peaks
+    // are half as big again, so most summits have a river within 100 blocks (on Sammi's seed
+    // -5156097255193664704 half of them within 67). Up to 0.6.0 a lone peak beside a river was built to its full
+    // height and had to rise all of it in the room between the river and its summit ("silly steep", 0.5.5). And
+    // the old test by shares was never either on or off along a river inside a group of peaks: it left a slot 30
+    // to 50 blocks deep and a few blocks wide all along the covered river (first builds of 0.6.1, at 4585 -1048).
+    // So beside an open river a mountain is never more than about COVER_FULL high, and comes up to that gently.
+    static double COVER_FROM = 70, COVER_FULL = 120;
     // ---- the water ----
     /** Blocks between samples. */
     static final int COARSE = 8;
@@ -65,7 +75,7 @@ final class Massif {
     static int STEPS = 80;
     // ---- the rock ----
     /** The steepest rock can stand (52 degrees), and the steepest the ground at the foot can (37), meeting 42 blocks up. */
-    static double TALUS = 1.30, TALUS_LOW = 0.75, TALUS_BAND = 42;
+    static double TALUS = 1.30, TALUS_LOW = 0.75, TALUS_BAND = 63;   // the band 42 up to 0.6.0
     static int THERMAL_PASSES = 6;
     // ---- the faces (0.5.5) ----
     // Sammi's in-game screenshots of 0.5.4 (seed 6021084639467433954): the outlines and the groups
@@ -87,13 +97,62 @@ final class Massif {
     /** The steepest a gully's wall may stand (62 degrees). */
     static double GULLY_WALL = 1.9;
     /** How strongly the faces' water keeps to the steepest way down. Lower than FLOW_POWER: at 4 some gullies ran dead straight along the grid. */
-    static double GULLY_FLOW = 1.6;
+    static double GULLY_FLOW = 1.5;   // 1.6 up to 0.6.0: 1.5 is a multiply and a square root, and this is worked out ten million times a region
     /** How the cut grows with the water gathered (0.5: square root; 1: in proportion, so only real channels are cut and they are narrow). */
     static double GULLY_POWER = 0.5;
     /** How far the roughening noise is scaled up with a look's deeper carve (1: with it, as 0.5.11; 0: not at all). */
     static double NOISE_WITH_DEPTH = 1;
 
     private static final int[] DX = {1, 0, -1, 0, 1, -1, -1, 1}, DZ = {0, 1, 0, -1, 1, 1, -1, -1};
+    private static final double SQRT2 = Math.sqrt(2), INV_SQRT2 = 1 / Math.sqrt(2);
+
+    /**
+     * A heap of (height, cell) pairs, lowest height first, each packed into one long. 0.6.1: up to 0.6.0 a
+     * java.util.PriorityQueue of two-element arrays did this job, one new array per cell per pass (three million
+     * a region); with the mountains half as big again a region took over two seconds to make.
+     */
+    private static final class Heap {
+        private long[] a;
+        private int size;
+        Heap(int room) { a = new long[Math.max(16, room)]; }
+        boolean isEmpty() { return size == 0; }
+        void clear() { size = 0; }
+        static long pack(float v, int cell) {
+            int b = Float.floatToIntBits(v);
+            b ^= (b >> 31) & 0x7fffffff;                  // so that the bits sort as the numbers do, below zero too
+            return ((long) b << 32) | (cell & 0xFFFFFFFFL);
+        }
+        void add(float v, int cell) {
+            if (size == a.length) a = java.util.Arrays.copyOf(a, size * 2);
+            long k = pack(v, cell);
+            int i = size++;
+            while (i > 0) {
+                int up = (i - 1) >>> 1;
+                if (a[up] <= k) break;
+                a[i] = a[up]; i = up;
+            }
+            a[i] = k;
+        }
+        /** Takes the lowest out and returns its cell. */
+        int poll() {
+            long top = a[0], last = a[--size];
+            int i = 0, half = size >>> 1;
+            while (i < half) {
+                int c = 2 * i + 1;
+                if (c + 1 < size && a[c + 1] < a[c]) c++;
+                if (last <= a[c]) break;
+                a[i] = a[c]; i = c;
+            }
+            a[i] = last;
+            return (int) top;
+        }
+        /** The height of the lowest, without taking it out. */
+        float lowest() {
+            int b = (int) (a[0] >> 32);
+            b ^= (b >> 31) & 0x7fffffff;
+            return Float.intBitsToFloat(b);
+        }
+    }
 
     private final int n;
     private final double sp = COARSE, ox, oz, cell;
@@ -122,8 +181,8 @@ final class Massif {
     /** false: as up to 0.5.13 (a mountain is only its own height, set on the land), for comparing in the preview. */
     static boolean WHOLE = true;
     static boolean DEBUG = Boolean.getBoolean("atlasmountains.debug") || new java.io.File("/tmp/atlas_debug").exists();
-    /** ... but never more than this far below the land at its summit. */
-    static double BASE_DROP_MAX = 110;
+    /** ... but never more than this far below the land at its summit (110 up to 0.6.0), and never below the sea. */
+    static double BASE_DROP_MAX = 165, SEA = 63;
     /** The base level between peaks is blended over this many cells. */
     static double BASE_BLEND = 0.6;
     private static final java.util.concurrent.ConcurrentHashMap<Long, double[]> FOOT = new java.util.concurrent.ConcurrentHashMap<>();
@@ -131,9 +190,10 @@ final class Massif {
 
     /** For a peak: {the land at its summit (y), its base level (y)}. Worked out once per peak and kept. */
     static double[] foot(HornsFunction horns, ErodedPeaks.Peak p) {
-        long key = (p.ix() * 0x9E3779B97F4A7C15L) ^ (p.iz() * 0xC2B2AE3D27D4EB4FL) ^ (AtlasMountainsMod.seed() * 0x165667B19E3779F9L) ^ Double.doubleToLongBits(horns.cell());
+        long key = HornsFunction.cellKey(p.ix(), p.iz(), AtlasMountainsMod.seed(), Double.doubleToLongBits(horns.cell()));   // 0.6.1: see cellKey for the fault this had
         double[] f = FOOT.get(key);
         if (f != null) return f;
+        boolean ready = PeakStrength.ready();
         double top = 128 + 128 * PeakStrength.landAt(p.ix(), p.iz(), (int) Math.floor(p.x()), (int) Math.floor(p.z()));
         double r = JOIN_REACH * horns.cell();
         double[] ring = new double[RING.length * 12];
@@ -143,13 +203,17 @@ final class Massif {
             ring[k++] = 128 + 128 * PeakStrength.land((int) Math.floor(p.x() + RING[j] * r * Math.cos(ang)), (int) Math.floor(p.z() + RING[j] * r * Math.sin(ang)));
         }
         java.util.Arrays.sort(ring);
-        double base = Math.max(top - BASE_DROP_MAX, Math.min(top, ring[(int) (BASE_SHARE * (ring.length - 1))]));
+        double base = Math.min(top, Math.max(Math.max(SEA, top - BASE_DROP_MAX), ring[(int) (BASE_SHARE * (ring.length - 1))]));
         if (!WHOLE) base = top;
         f = new double[]{top, base};
+        if (!ready) return f;       // see HornsFunction.heightOf: nothing is remembered from before the world's maps can be read
         if (FOOT.size() > 50000) FOOT.clear();
         FOOT.put(key, f);
         return f;
     }
+
+    /** Forget every peak's foot: the world changed. */
+    static void forget() { FOOT.clear(); }
 
     /** A peak's stature: from its base level to its summit, in blocks. */
     static double stature(HornsFunction horns, ErodedPeaks.Peak p) {
@@ -159,6 +223,17 @@ final class Massif {
 
     private static double radius(HornsFunction horns, ErodedPeaks.Peak p) {
         return JOIN_REACH * horns.cell() * (0.55 + 0.45 * Math.min(1, stature(horns, p) / horns.height()));
+    }
+
+    /**
+     * How far a river is covered at a place this far from a peak's summit, going by that peak alone (as lumps()
+     * decides it, without the wander of the outline or its neighbours' help): see COVER_FROM.
+     * HornsFunction.heightOf asks.
+     */
+    static double coveredAt(HornsFunction horns, ErodedPeaks.Peak p, double distance) {
+        double t = distance / radius(horns, p);
+        if (t >= 1) return 0;
+        return ramp((stature(horns, p) * Math.pow(1 - t, PROFILE) - COVER_FROM) / (COVER_FULL - COVER_FROM));
     }
 
     /** How far from its summit a peak's lump can reach, in blocks. */
@@ -172,11 +247,14 @@ final class Massif {
      * is, 0 at the base level to 1 at the summit) for a square of size x size samples, spacing blocks apart, from (originX, originZ).
      * Returns false, leaving both untouched, if no peak reaches the square.
      */
-    static boolean build(HornsFunction horns, long seed, int originX, int originZ, int size, int spacing, float[] relief, float[] carve, float[] buried, float[] up) {
+    static boolean build(HornsFunction horns, long seed, int originX, int originZ, int size, int spacing, float[] relief, float[] carve, float[] buried, float[] up, float[] datum) {
+        long t0 = System.nanoTime();
         Massif m = new Massif(horns, seed, originX, originZ, size * spacing);
         if (m.peaks.isEmpty()) return false;
         m.lumps(horns, seed);
+        long t1 = System.nanoTime();
         m.erode();
+        long t2 = System.nanoTime();
         double step = spacing / m.sp;
         for (int gz = 0; gz < size; gz++) for (int gx = 0; gx < size; gx++) {
             int i = gz * size + gx;
@@ -224,7 +302,9 @@ final class Massif {
             if (best >= 0 && relief[best] > 5) tops.add(new int[]{best % size, best / size});
         }
         float[] dbg = DEBUG ? relief.clone() : null;
+        long t3 = System.nanoTime();
         if (GULLY_RUNS > 0) gullies(relief, carve, deep, tops, size, spacing, originX, originZ, seed);
+        if (DEBUG) System.err.printf("MASSIF times: %d peaks; lumps %d ms, erosion %d, to the fine grid %d, faces %d%n", m.peaks.size(), (t1 - t0) / 1000000, (t2 - t1) / 1000000, (t3 - t2) / 1000000, (System.nanoTime() - t3) / 1000000);
         if (DEBUG) for (int[] t : tops) {
             int i = t[1] * size + t[0];
             System.err.printf("MASSIF top at %d %d: before carving %.0f, after %.0f, land over base %.0f, so above land %.0f; ref %.0f%n", originX + t[0] * spacing, originZ + t[1] * spacing, dbg[i], relief[i], over[i], relief[i] - over[i], ref[i]);
@@ -238,6 +318,12 @@ final class Massif {
             // whatever the carving took, SKIN blocks of the skin are left, so the hollow stays the mountain's own surface
             relief[i] = (float) Math.max(SKIN * skin[i], relief[i] - over[i]);
         }
+        // 0.6.1: the base level, for covered rivers. Rivers in mountain country are cut down to water level now, far
+        // below the mountains' base level, and the shape is measured from the base level: laid on a river's bed it
+        // would sag into the valley it is meant to cover. HornsFunction fills the valley to this level, column by
+        // column from the land's real height (a first try filled it here, from the land as this class knows it,
+        // every 16 blocks: that left a groove along the river).
+        for (int gz = 0; gz < size; gz++) for (int gx = 0; gx < size; gx++) datum[gz * size + gx] = (float) m.datumAt(originX + gx * spacing, originZ + gz * spacing);
         return true;
     }
     /** See drape(). */
@@ -287,16 +373,32 @@ final class Massif {
     /** One number per peak (its set height if perLook is null, else perLook[its look]) spread smoothly over a fine grid. */
     private float[] spread(int size, int spacing, int unused, double[] perLook) {
         float[] out = new float[size * size];
+        if (perLook != null && perLook.length == 1) { java.util.Arrays.fill(out, (float) perLook[0]); return out; }   // one look: the same everywhere
         double sig = 0.35 * cell;
-        for (int gz = 0; gz < size; gz++) for (int gx = 0; gx < size; gx++) {
-            double x = ox + gx * spacing, z = oz + gz * spacing, sw = 1e-6, sv = 0;
-            for (ErodedPeaks.Peak p : peaks) {
-                double dx = x - p.x(), dz = z - p.z();
+        int np = peaks.size();
+        double[] px = new double[np], pz = new double[np], pv = new double[np];
+        for (int a = 0; a < np; a++) {
+            ErodedPeaks.Peak p = peaks.get(a);
+            px[a] = p.x(); pz[a] = p.z();
+            pv[a] = perLook == null ? target[a] : perLook[FORCE_LOOK >= 0 ? FORCE_LOOK : p.look()];
+        }
+        // worked out every other sample each way and read between: it is a smooth blend over a third of a cell
+        int step = 2, m = (size - 1) / step + 2;
+        float[] low = new float[m * m];
+        for (int gz = 0; gz < m; gz++) for (int gx = 0; gx < m; gx++) {
+            double x = ox + gx * step * spacing, z = oz + gz * step * spacing, sw = 1e-6, sv = 0;
+            for (int a = 0; a < np; a++) {
+                double dx = x - px[a], dz = z - pz[a];
                 if (Math.abs(dx) > 4 * sig || Math.abs(dz) > 4 * sig) continue;
                 double w = Math.exp(-(dx * dx + dz * dz) / (2 * sig * sig));
-                sw += w; sv += w * (perLook == null ? target[peaks.indexOf(p)] : perLook[FORCE_LOOK >= 0 ? FORCE_LOOK : p.look()]);
+                sw += w; sv += w * pv[a];
             }
-            out[gz * size + gx] = sw < 1e-5 ? (perLook == null ? 120f : 1f) : (float) (sv / sw);
+            low[gz * m + gx] = sw < 1e-5 ? (perLook == null ? 120f : 1f) : (float) (sv / sw);
+        }
+        for (int gz = 0; gz < size; gz++) for (int gx = 0; gx < size; gx++) {
+            int ix = gx / step, iz = gz / step, i = iz * m + ix;
+            double tx = (gx - ix * step) / (double) step, tz = (gz - iz * step) / (double) step;
+            out[gz * size + gx] = (float) (low[i] * (1 - tx) * (1 - tz) + low[i + 1] * tx * (1 - tz) + low[i + m] * (1 - tx) * tz + low[i + m + 1] * tx * tz);
         }
         return out;
     }
@@ -316,14 +418,26 @@ final class Massif {
         boolean[] seen = new boolean[N];
         float[] fill = new float[N];
         double[] area = new double[N], wts = new double[8];
+        Heap q = new Heap(N / 4);
         for (int run = 0; run < GULLY_RUNS; run++) {
             java.util.Arrays.fill(seen, false);
             java.util.Arrays.fill(area, 0);
-            PriorityQueue<long[]> q = new PriorityQueue<>((a, b) -> Float.compare(Float.intBitsToFloat((int) a[0]), Float.intBitsToFloat((int) b[0])));
-            for (int i = 0; i < N; i++) if (out[i]) { seen[i] = true; fill[i] = h[i]; q.add(new long[]{Float.floatToIntBits(h[i]), i}); }
+            // Only the mountains are worked through: the flat ground between them (every "out" cell that touches no
+            // mountain) neither holds water nor passes any on.
+            q.clear();
+            for (int i = 0; i < N; i++) if (out[i]) {
+                seen[i] = true; fill[i] = h[i];
+                int x = i % n, z = i / n;
+                boolean edge = false;
+                for (int d = 0; d < 8 && !edge; d++) {
+                    int xx = x + DX[d], zz = z + DZ[d];
+                    edge = xx >= 0 && zz >= 0 && xx < n && zz < n && !out[zz * n + xx];
+                }
+                if (edge) q.add(h[i], i);
+            }
             int k = 0;
             while (!q.isEmpty()) {
-                int i = (int) q.poll()[1];
+                int i = q.poll();
                 order[k++] = i;
                 int x = i % n, z = i / n;
                 for (int d = 0; d < 8; d++) {
@@ -333,9 +447,10 @@ final class Massif {
                     if (seen[j]) continue;
                     seen[j] = true;
                     fill[j] = Math.max(h[j], fill[i] + 1e-3f);
-                    q.add(new long[]{Float.floatToIntBits(fill[j]), j});
+                    q.add(fill[j], j);
                 }
             }
+            boolean fastFlow = GULLY_FLOW == 1.5, rootCut = GULLY_POWER == 0.5;
             for (int a = k - 1; a >= 0; a--) {
                 int i = order[a];
                 area[i] += 1;
@@ -344,8 +459,10 @@ final class Massif {
                 double total = 0;
                 for (int d = 0; d < 8; d++) {
                     int j = (z + DZ[d]) * n + x + DX[d];
-                    double drop = (fill[i] - fill[j]) / (d < 4 ? 1 : Math.sqrt(2));
-                    wts[d] = drop <= 0 ? 0 : Math.pow(drop, GULLY_FLOW) * (d < 4 ? 1 : 1 / Math.sqrt(2));
+                    double drop = fill[i] - fill[j];
+                    if (drop <= 0) { wts[d] = 0; continue; }
+                    if (d >= 4) drop *= INV_SQRT2;
+                    wts[d] = (fastFlow ? drop * Math.sqrt(drop) : Math.pow(drop, GULLY_FLOW)) * (d < 4 ? 1 : INV_SQRT2);
                     total += wts[d];
                 }
                 if (total <= 0) continue;
@@ -354,7 +471,8 @@ final class Massif {
             for (int i = 0; i < N; i++) {
                 if (out[i] || weight[i] <= 0) continue;
                 // nothing where only the cell itself drains (crests and summits keep their height)
-                double cut = GULLY_CUT * deep[i] * weight[i] * Math.min(1, Math.pow(Math.max(0, area[i] - 1.5) / GULLY_FULL, GULLY_POWER));
+                double gathered = Math.max(0, area[i] - 1.5) / GULLY_FULL;
+                double cut = GULLY_CUT * deep[i] * weight[i] * Math.min(1, rootCut ? Math.sqrt(gathered) : Math.pow(gathered, GULLY_POWER));
                 if (run == 0) {
                     // the noise goes on with the first run, and not on crests and summits (where nothing drains), so no summit moves
                     double wx = originX + (i % n) * sp, wz = originZ + (i / n) * sp;
@@ -371,7 +489,7 @@ final class Massif {
                 if (out[i]) continue;
                 for (int d = 0; d < 8; d++) {
                     int j = (z + DZ[d]) * n + x + DX[d];
-                    double drop = hi - h[j], max = GULLY_WALL * sp * (d < 4 ? 1 : Math.sqrt(2));
+                    double drop = hi - h[j], max = GULLY_WALL * sp * (d < 4 ? 1 : SQRT2);
                     if (drop > max && !out[j]) { double m = (drop - max) * 0.25; hi -= m; h[j] += m; }
                 }
                 h[i] = (float) hi;
@@ -398,13 +516,13 @@ final class Massif {
     // small line, like a mini ridge?" Its length in blocks for a mountain 120 or more tall (shorter ones in
     // proportion), and how far it falls from the summit to its longer end, as a share of the height. Not
     // level: a "rectangular" level top was asked for and withdrawn in 0.4.
-    static double CREST_MIN = 45, CREST_MAX = 80, CREST_FALL = 0.04;   // first tried 22 to 50 falling 0.10: still read as a point
+    static double CREST_MIN = 68, CREST_MAX = 120, CREST_FULL = 225, CREST_FALL = 0.04;   // first tried 22 to 50 falling 0.10: still read as a point. 45 to 80 for a mountain 150 tall up to 0.6.0
     static double RIDGE_DEPTH = 30, RIDGE_AREA = 8, RIDGE_FULL = 55, RIDGE_SLOPE = 1.9;
 
     private static void ridges(float[] h, boolean[] out, float[] weight, double[] area0, java.util.List<int[]> tops, int n, double sp) {
         int N = n * n;
         float[] e = h.clone();
-        PriorityQueue<long[]> q = new PriorityQueue<>((a, b) -> Float.compare(Float.intBitsToFloat((int) a[0]), Float.intBitsToFloat((int) b[0])));
+        Heap q = new Heap(N / 8);
         // the water gathered, taken as the most of a sample and its neighbours: sample by sample it alternates, and the cut would too
         double[] area = new double[N];
         for (int z = 1; z < n - 1; z++) for (int x = 1; x < n - 1; x++) {
@@ -424,21 +542,21 @@ final class Massif {
             }
             if (cut < 0.5) continue;
             e[i] = (float) Math.max(0.6, h[i] - cut);
-            q.add(new long[]{Float.floatToIntBits(e[i]), i});
+            q.add(e[i], i);
         }
         // the lowest surface that rises from the couloirs at RIDGE_SLOPE and nowhere stands above the ground as it was
         while (!q.isEmpty()) {
-            long[] top = q.poll();
-            int i = (int) top[1];
-            if (Float.intBitsToFloat((int) top[0]) > e[i]) continue;
+            float was = q.lowest();
+            int i = q.poll();
+            if (was > e[i]) continue;
             int x = i % n, z = i / n;
             for (int d = 0; d < 8; d++) {
                 int xx = x + DX[d], zz = z + DZ[d];
                 if (xx < 1 || zz < 1 || xx >= n - 1 || zz >= n - 1) continue;
                 int j = zz * n + xx;
                 if (out[j]) continue;
-                float v = (float) (e[i] + RIDGE_SLOPE * sp * (d < 4 ? 1 : Math.sqrt(2)));
-                if (v < e[j] - 0.01f) { e[j] = v; q.add(new long[]{Float.floatToIntBits(v), j}); }
+                float v = (float) (e[i] + RIDGE_SLOPE * sp * (d < 4 ? 1 : SQRT2));
+                if (v < e[j] - 0.01f) { e[j] = v; q.add(v, j); }
             }
         }
         System.arraycopy(e, 0, h, 0, N);
@@ -473,12 +591,16 @@ final class Massif {
             target[a] = p.h() + Math.max(0, topY[a] - p.h() - datumAt(p.x(), p.z()));
         }
         reachOf = radius;
+        datumGrid = null;
+        float[] dg = new float[n * n];
+        for (int gz = 0; gz < n; gz++) for (int gx = 0; gx < n; gx++) dg[gz * n + gx] = (float) datumExact(ox + gx * sp, oz + gz * sp);
+        datumGrid = dg;
         if (WHOLE) lookUpLand();
         RiverWallFunction walls = RiverWallFunction.current;
         for (int gz = 0; gz < n; gz++) for (int gx = 0; gx < n; gx++) {
             double x = ox + gx * sp, z = oz + gz * sp;
             double wx = horns.warpX(x, z, seed), wz = horns.warpZ(x, z, seed);
-            double sum = 0, sumFree = 0, river = Double.NaN, first = 0, second = 0, datum = Double.NaN, landHere = Double.NaN;
+            double sum = 0, sumFree = 0, river = Double.NaN, datum = Double.NaN, landHere = Double.NaN, dry = Double.NaN;
             for (int a = 0; a < np; a++) {
                 ErodedPeaks.Peak p = peaks.get(a);
                 double r = radius[a];
@@ -492,7 +614,7 @@ final class Massif {
                 // the summit (its direction and length the peak's own), and the crest falls a little
                 // from the summit towards each end, further towards one than the other.
                 double ca = Math.PI * HornsFunction.hash(p.ix(), p.iz(), seed + 540), cx = Math.cos(ca), cz = Math.sin(ca);
-                double half = (CREST_MIN + (CREST_MAX - CREST_MIN) * HornsFunction.hash(p.ix(), p.iz(), seed + 541)) / 2 * Math.min(1, (topY[a] - baseY[a]) / 150);
+                double half = (CREST_MIN + (CREST_MAX - CREST_MIN) * HornsFunction.hash(p.ix(), p.iz(), seed + 541)) / 2 * Math.min(1, (topY[a] - baseY[a]) / CREST_FULL);
                 double lean = 0.3 + 0.7 * HornsFunction.hash(p.ix(), p.iz(), seed + 542);            // one end is shorter
                 double along = dx * cx + dz * cz, lim = along > 0 ? half : half * lean;
                 double on = Math.max(-lim, Math.min(lim, along));
@@ -501,7 +623,10 @@ final class Massif {
                 if (t >= 1) continue;
                 if (Double.isNaN(datum)) datum = datumAt(x, z);
                 double share = Math.pow(1 - t, PROFILE) * (1 - CREST_FALL * Math.abs(on) / Math.max(1, half)), m = Math.max(0, topY[a] - datum) * share;
-                if (share > first) { second = first; first = share; } else if (share > second) second = share;
+                if (WHOLE) {
+                    if (Double.isNaN(dry)) dry = dryAt(x, z);
+                    m *= dry;                              // no mountain where vanilla's own land is under water (SEA_NONE)
+                }
                 sumFree += Math.pow(m, SMOOTH_MAX);
                 if (walls != null) {
                     // each mountain's own fade towards rivers, as in 0.5.1 (ErodedPeaks.RIVER_FADE)
@@ -525,16 +650,18 @@ final class Massif {
                 }
                 sum += Math.pow(m, SMOOTH_MAX);
             }
-            // between two peaks of a group the river is covered: no fade
+            // where the mountains would stand high over the river it is covered: no fade (COVER_FROM)
             free[gz * n + gx] = (float) Math.pow(sumFree, 1 / SMOOTH_MAX);
             riverAt[gz * n + gx] = Double.isNaN(river) ? 1e9f : (float) river;
-            double b = Math.max(0, Math.min(1, (second - BURY_FROM) / (BURY_FULL - BURY_FROM)));
-            b = b * b * (3 - 2 * b);
-            bury[gz * n + gx] = sumFree > sum ? (float) b : 0f;
+            double b = ramp((Math.pow(sumFree, 1 / SMOOTH_MAX) - COVER_FROM) / (COVER_FULL - COVER_FROM));
+            // 0.6.1: wherever two lumps overlap that far, river or no river (up to 0.6.0 only where a lump had been faded
+            // towards a river). The valley of a covered river is filled to the base level by this share (see build()), and
+            // the valley is wider than the fade: with the old test the fill stopped dead at the fade's edge.
+            bury[gz * n + gx] = (float) b;
             sum += (sumFree - sum) * b;
             double v = Math.pow(sum, 1 / SMOOTH_MAX);
             if (v > 0.5) {
-                double share = Math.min(1, v / 120), noise = 0, amp = 1, freq = 1 / ROUGH_LENGTH, norm = 0;
+                double share = Math.min(1, v / ROUGH_FULL), noise = 0, amp = 1, freq = 1 / ROUGH_LENGTH, norm = 0;
                 for (int o = 0; o < 4; o++) { noise += amp * HornsFunction.valueNoise(x * freq, z * freq, seed + 610 + 13L * o); norm += amp; amp *= 0.5; freq *= 2.1; }
                 v = Math.max(0, v + ROUGH * share * noise / norm);
             }
@@ -545,7 +672,7 @@ final class Massif {
     }
 
     private double[] reachOf;
-    private float[] land, own, free, riverAt;   // free: the lumps before any fade towards rivers; riverAt: blocks to the nearest river
+    private float[] land, wetLand, own, free, riverAt;   // free: the lumps before any fade towards rivers; riverAt: blocks to the nearest river; wetLand: vanilla's own land (y), before the mod's river cut
     private int ln;
 
     private static double ramp(double t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
@@ -553,7 +680,9 @@ final class Massif {
     /** Looks up vanilla's land every LAND_STEP blocks wherever a lump stands (it is vanilla's smooth target height, and looking it up is slow). */
     private void lookUpLand() {
         ln = (int) Math.ceil((n - 1) * sp / LAND_STEP) + 4;
-        land = new float[ln * ln];
+        land = new float[ln * ln]; wetLand = new float[ln * ln];
+        java.util.Arrays.fill(wetLand, 200f);            // where nothing is looked up: dry
+        double[] both = new double[2];
         boolean[] need = new boolean[ln * ln];
         for (int a = 0; a < peaks.size(); a++) {
             ErodedPeaks.Peak p = peaks.get(a);
@@ -562,15 +691,38 @@ final class Massif {
             int z0 = (int) Math.floor((p.z() - r - oz) / LAND_STEP), z1 = (int) Math.ceil((p.z() + r - oz) / LAND_STEP) + 3;
             for (int zz = Math.max(0, z0); zz <= Math.min(ln - 1, z1); zz++) for (int xx = Math.max(0, x0); xx <= Math.min(ln - 1, x1); xx++) need[zz * ln + xx] = true;
         }
-        for (int lz = 0; lz < ln; lz++) for (int lx = 0; lx < ln; lx++) if (need[lz * ln + lx])
-            land[lz * ln + lx] = (float) (128 + 128 * PeakStrength.land((int) ox + (lx - 1) * LAND_STEP, (int) oz + (lz - 1) * LAND_STEP));
+        for (int lz = 0; lz < ln; lz++) for (int lx = 0; lx < ln; lx++) if (need[lz * ln + lx]) {
+            PeakStrength.lands((int) ox + (lx - 1) * LAND_STEP, (int) oz + (lz - 1) * LAND_STEP, both);
+            wetLand[lz * ln + lx] = (float) (128 + 128 * both[0]);
+            land[lz * ln + lx] = (float) (128 + 128 * both[1]);
+        }
     }
 
-    /** How far vanilla's land stands above the base level at a place (0 where it is below it). */
-    private double overAt(double x, double z) {
+    // ---- 0.6.1: no mountain where vanilla's own land is under water ----
+    // The sea, a lake, and every river vanilla itself runs at water level (all rivers outside mountain country).
+    // With the peaks half as big again and mountain country reaching to within 60 blocks of the coast, the lumps
+    // ran 150 to 200 blocks out into the sea (first builds of 0.6.1: the frozen island at -2880 1030 on seed
+    // -3465664254209586682 came out twice its size, and on the coast seed a river that held water in 0.6.0 was
+    // buried under a massif). A lump is nothing where vanilla's own land is at SEA_NONE or lower and whole where
+    // it is at SEA_FULL or higher. It is vanilla's land BEFORE the mod's river cut that counts: the valleys
+    // vanilla lifts dry in mountain country are not "water" for this, and those are the ones a mountain may cover.
+    static double SEA_NONE = 54, SEA_FULL = 68;
+
+    /** How far a place is dry land by vanilla's own reckoning: 0 under water, 1 on land. 1 beyond the map of the land. */
+    private double dryAt(double x, double z) {
+        double gx = (x - ox) / LAND_STEP + 1, gz = (z - oz) / LAND_STEP + 1;
+        if (wetLand == null || gx < 1 || gz < 1 || gx > ln - 3 || gz > ln - 3) return 1;
+        return ramp((cubicAt(wetLand, ln, gx, gz) - SEA_NONE) / (SEA_FULL - SEA_NONE));
+    }
+
+    /** How far the land stands above the base level at a place (0 where it is below it). */
+    private double overAt(double x, double z) { return Math.max(0, gapAt(x, z)); }
+
+    /** The land's height less the base level at a place: below zero where the land lies under it (a river, the sea). 0 beyond the map of the land. */
+    private double gapAt(double x, double z) {
         double gx = (x - ox) / LAND_STEP + 1, gz = (z - oz) / LAND_STEP + 1;
         if (gx < 1 || gz < 1 || gx > ln - 3 || gz > ln - 3) return 0;
-        return Math.max(0, cubicAt(land, ln, gx, gz) - datumAt(x, z));
+        return cubicAt(land, ln, gx, gz) - datumAt(x, z);
     }
 
     /**
@@ -605,7 +757,7 @@ final class Massif {
             // faces a river is its own ground too. There the lift itself fades out, within RIVER_DRAPE
             // blocks of the river, so the river keeps its banks.)
             double f = ramp((blurShape[i] - DRAPE_FROM) / (DRAPE_FULL - DRAPE_FROM)) * ramp((blurShape[i] / (blurOver[i] + 8) - OWN_FROM) / (OWN_FULL - OWN_FROM))
-                    * ramp(riverAt[i] / RIVER_DRAPE);
+                    * Math.max(bury[i], ramp(riverAt[i] / RIVER_DRAPE));     // 0.6.1: not where the river is covered
             own[i] = (float) f;
             double clear = ramp((h[i] - over[i] - COVER) / DRAPE_CLEAR);
             h[i] += (float) (lift * f * (1 - clear));
@@ -614,6 +766,22 @@ final class Massif {
 
     /** The base level at a place: the peaks' own base levels, blended. */
     private double datumAt(double x, double z) {
+        // 0.6.1: read from the coarse grid where it has been worked out (it is asked for at every fine sample, and
+        // working it out afresh each time was a tenth of a region's time). It is a smooth blend over 0.6 of a cell.
+        if (datumGrid != null) {
+            double gx = (x - ox) / sp, gz = (z - oz) / sp;
+            if (gx >= 0 && gz >= 0 && gx <= n - 1 && gz <= n - 1) {
+                int ix = Math.min(n - 2, (int) gx), iz = Math.min(n - 2, (int) gz), i = iz * n + ix;
+                double tx = gx - ix, tz = gz - iz;
+                return datumGrid[i] * (1 - tx) * (1 - tz) + datumGrid[i + 1] * tx * (1 - tz) + datumGrid[i + n] * (1 - tx) * tz + datumGrid[i + n + 1] * tx * tz;
+            }
+        }
+        return datumExact(x, z);
+    }
+
+    private float[] datumGrid;
+
+    private double datumExact(double x, double z) {
         double sig = BASE_BLEND * cell, sw = 0, sv = 0, nearest = Double.MAX_VALUE, nearestBase = 0;
         for (int a = 0; a < baseY.length; a++) {
             ErodedPeaks.Peak p = peaks.get(a);
@@ -642,14 +810,24 @@ final class Massif {
         thermal(2);
     }
 
+    /** See rescale(): how far inside the square a summit must be to have any say (blocks), and a full say. */
+    static double EDGE_NONE = 24, EDGE_FULL = 160;
+
     /** Scales each mountain so its top is its set height again (ratios blended smoothly between peaks). */
     private void rescale() {
         int np = peaks.size();
-        double[] ratio = new double[np];
+        double[] ratio = new double[np], trust = new double[np];
         int reach = (int) Math.ceil(30 / sp);
         for (int a = 0; a < np; a++) {
             ErodedPeaks.Peak p = peaks.get(a);
             int gx = (int) Math.round((p.x() - ox) / sp), gz = (int) Math.round((p.z() - oz) / sp);
+            // 0.6.1: a peak whose summit is outside the square being worked on, or close to its edge, has no top to
+            // measure here (the edge is where the water runs off, so the ground is cut low there). It used to count
+            // with a ratio of 1 or of whatever its stump gave, which threw off its neighbours' flanks: the region
+            // next door, where the same peak stands whole, scaled them differently, and the two disagreed by 10
+            // blocks or more over a tenth of the band where they are blended. Such a peak now has no say.
+            double inside = Math.min(Math.min(p.x() - ox, ox + (n - 1) * sp - p.x()), Math.min(p.z() - oz, oz + (n - 1) * sp - p.z()));
+            trust[a] = ramp((inside - EDGE_NONE) / (EDGE_FULL - EDGE_NONE));
             double top = 0;
             for (int dz = -reach; dz <= reach; dz++) for (int dx = -reach; dx <= reach; dx++) {
                 int xx = gx + dx, zz = gz + dz;
@@ -667,7 +845,7 @@ final class Massif {
                 ErodedPeaks.Peak p = peaks.get(a);
                 double dx = x - p.x(), dz = z - p.z();
                 if (Math.abs(dx) > 4 * sig || Math.abs(dz) > 4 * sig) continue;
-                double w = Math.exp(-(dx * dx + dz * dz) / (2 * sig * sig));
+                double w = trust[a] * Math.exp(-(dx * dx + dz * dz) / (2 * sig * sig));
                 sw += w; sr += w * ratio[a];
             }
             h[i] = (float) (h[i] * sr / sw);
@@ -683,14 +861,32 @@ final class Massif {
      */
     private void water() {
         int N = n * n;
-        int[] rec = new int[N], order = new int[N];
-        boolean[] seen = new boolean[N];
-        float[] fill = new float[N];
-        PriorityQueue<long[]> q = new PriorityQueue<>((a, b) -> Float.compare(Float.intBitsToFloat((int) a[0]), Float.intBitsToFloat((int) b[0])));
-        for (int i = 0; i < N; i++) if (outlet[i]) { seen[i] = true; rec[i] = i; fill[i] = h[i]; q.add(new long[]{Float.floatToIntBits(h[i]), i}); }
+        // (working arrays kept between the 80 steps; as in gullies(), flat ground that touches no mountain is left out)
+        if (wRec == null) { wRec = new int[N]; wOrder = new int[N]; wSeen = new boolean[N]; wFill = new float[N]; wArea = new double[N]; wHeap = new Heap(N / 4); }
+        int[] rec = wRec, order = wOrder;
+        boolean[] seen = wSeen;
+        float[] fill = wFill;
+        Heap q = wHeap;
+        q.clear();
+        java.util.Arrays.fill(seen, false);
+        if (wEdge == null) {
+            int[] list = new int[N]; int m = 0;
+            for (int i = 0; i < N; i++) if (outlet[i]) {
+                int x = i % n, z = i / n;
+                boolean edge = false;
+                for (int d = 0; d < 8 && !edge; d++) {
+                    int xx = x + DX[d], zz = z + DZ[d];
+                    edge = xx >= 0 && zz >= 0 && xx < n && zz < n && !outlet[zz * n + xx];
+                }
+                if (edge) list[m++] = i;
+            }
+            wEdge = java.util.Arrays.copyOf(list, m);
+        }
+        for (int i = 0; i < N; i++) if (outlet[i]) { seen[i] = true; rec[i] = i; fill[i] = h[i]; }
+        for (int i : wEdge) q.add(h[i], i);
         int k = 0;
         while (!q.isEmpty()) {
-            int i = (int) q.poll()[1];
+            int i = q.poll();
             order[k++] = i;
             int x = i % n, z = i / n;
             for (int d = 0; d < 8; d++) {
@@ -700,10 +896,12 @@ final class Massif {
                 if (seen[j]) continue;
                 seen[j] = true; rec[j] = i;
                 fill[j] = Math.max(h[j], fill[i] + 1e-3f);
-                q.add(new long[]{Float.floatToIntBits(fill[j]), j});
+                q.add(fill[j], j);
             }
         }
-        double[] area = new double[N], wts = new double[8];
+        double[] area = wArea, wts = new double[8];
+        java.util.Arrays.fill(area, 0);
+        boolean fourth = FLOW_POWER == 4, root = M == 0.5;
         for (int a = k - 1; a >= 0; a--) {
             int i = order[a];
             area[i] += sp * sp;
@@ -715,10 +913,11 @@ final class Massif {
                 wts[d] = 0;
                 if (xx < 0 || zz < 0 || xx >= n || zz >= n) continue;
                 int j = zz * n + xx;
-                double drop = (fill[i] - fill[j]) / (d < 4 ? 1 : Math.sqrt(2));
+                double drop = fill[i] - fill[j];
                 if (drop <= 0) continue;
+                if (d >= 4) drop *= INV_SQRT2;
                 if (drop > steep) { steep = drop; rec[i] = j; }
-                wts[d] = Math.pow(drop, FLOW_POWER) * (d < 4 ? 1 : 1 / Math.sqrt(2));
+                wts[d] = (fourth ? (drop * drop) * (drop * drop) : Math.pow(drop, FLOW_POWER)) * (d < 4 ? 1 : INV_SQRT2);
                 total += wts[d];
             }
             if (total <= 0) { area[rec[i]] += area[i]; continue; }
@@ -728,11 +927,17 @@ final class Massif {
             int i = order[a], r = rec[i];
             if (r == i || outlet[i]) continue;
             int dx = i % n - r % n, dz = i / n - r / n;
-            double f = K * Math.pow(area[i], M) / (sp * Math.sqrt(dx * dx + dz * dz));
+            double f = K * (root ? Math.sqrt(area[i]) : Math.pow(area[i], M)) / (sp * (dx != 0 && dz != 0 ? SQRT2 : 1));
             double nh = (h[i] + f * Math.max(h[r], fill[r])) / (1 + f);
             if (nh < h[i]) h[i] = (float) Math.max(0, nh);
         }
     }
+
+    private int[] wRec, wOrder, wEdge;
+    private boolean[] wSeen;
+    private float[] wFill;
+    private double[] wArea;
+    private Heap wHeap;
 
     /** Rock slides: wherever the ground is steeper than it can stand, some of it moves down. */
     private void thermal(int passes) {
@@ -744,7 +949,7 @@ final class Massif {
                 double crit = hi > TALUS_BAND ? TALUS : TALUS_LOW + (TALUS - TALUS_LOW) * hi / TALUS_BAND;
                 for (int d = 0; d < 8; d++) {
                     int j = (z + DZ[d]) * n + x + DX[d];
-                    double drop = hi - h[j], max = crit * sp * (d < 4 ? 1 : Math.sqrt(2));
+                    double drop = hi - h[j], max = crit * sp * (d < 4 ? 1 : SQRT2);
                     if (drop > max) { double m = (drop - max) * 0.25; hi -= m; h[j] += m; }
                 }
                 h[i] = (float) hi;

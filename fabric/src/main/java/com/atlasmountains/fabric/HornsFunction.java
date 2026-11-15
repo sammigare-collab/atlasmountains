@@ -87,12 +87,146 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
 
     /** The peak of one cell as it has always been placed (summit in the warped coordinates, height), or null if the cell has none. */
     ErodedPeaks.Peak peakOf(long ix, long iz, long seed) {
+        double[] at = summitOf(ix, iz, seed);
+        double sx = at[0], sz = at[1];
+        double h = heightOf(ix, iz, sx, sz, seed);
+        if (h <= 0) return null;
+        return new ErodedPeaks.Peak(sx, sz, h, footOf(ix, iz, seed), ix, iz);
+    }
+
+    // ---- 0.6.1: a summit stands on the best of its cell ----
+    // Up to 0.6.0 the summit of a cell stood at one drawn place in it, and the cell had a peak only if mountain
+    // country held at that one place. Vanilla's mountain country is often a strip or a patch narrower than a cell
+    // (on Sammi's seed -5156097255193664704 the frozen high ground at 88 -5432 and at -3304 4488, vanilla land to
+    // y 155 under snow, is a few patches 60 to 130 blocks across): the drawn place missed it and vanilla's own
+    // hill stood there untouched ("these should be replacing snowy peaks etc not just jagged"). Now, where the
+    // drawn place is not in the heart of mountain country, SUMMIT_TRIES more places in the cell are looked at and
+    // the summit stands on the strongest. In the heart of mountain country nothing moves.
+    static final int SUMMIT_TRIES = 8;
+    static final double SUMMIT_GOOD = 0.9, SUMMIT_SPREAD = 0.95;
+    private static final java.util.concurrent.ConcurrentHashMap<Long, double[]> SUMMITS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Where the summit of a cell's peak stands (in the peaks' own, slightly warped, coordinates): {x, z}. Read it, do not change it. */
+    double[] summitOf(long ix, long iz, long seed) {
+        long key = cellKey(ix, iz, seed, Double.doubleToLongBits(cell) + 7);
+        double[] at = SUMMITS.get(key);
+        if (at != null) return at;
+        boolean ready = PeakStrength.ready();
         double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * JITTER) * cell;
         double sz = (iz + 0.5 + (hash(ix, iz, seed + 4) - 0.5) * JITTER) * cell;
+        double best = PeakStrength.strength((int) Math.floor(sx), (int) Math.floor(sz));
+        if (best < SUMMIT_GOOD) for (int k = 1; k <= SUMMIT_TRIES; k++) {
+            double cx = (ix + 0.5 + (hash(ix, iz, seed + 300 + 2 * k) - 0.5) * SUMMIT_SPREAD) * cell;
+            double cz = (iz + 0.5 + (hash(ix, iz, seed + 301 + 2 * k) - 0.5) * SUMMIT_SPREAD) * cell;
+            double v = PeakStrength.strength((int) Math.floor(cx), (int) Math.floor(cz));
+            if (v > best + 0.02) { best = v; sx = cx; sz = cz; }
+        }
+        at = new double[]{sx, sz};
+        if (!ready) return at;               // as heightOf: nothing is remembered from before the world's maps can be read
+        if (SUMMITS.size() > 400_000) SUMMITS.clear();
+        SUMMITS.put(key, at);
+        return at;
+    }
+
+    /** No summit stands above this (y). The world's terrain is cut off from y 472 (the data pack's TOP_FROM). */
+    static final double SUMMIT_MAX = 440;
+
+    // ---- 0.6.1: a peak is no taller than it has room for ----
+    // A mountain comes down to the land at a river. Up to 0.6.0 a peak close to a river was still built to its
+    // full height: its river side was then stretched into a wall (the eroded shape is scaled up until the summit
+    // reaches its set height, by up to four times), and the data pack's limit near rivers (river_wall) sliced the
+    // top off along a slanting plane. On Sammi's seed -5156097255193664704 with the peaks half as big again the
+    // nearest big one, at 529 2249, lost 27 blocks of its top that way.
+    // Now a peak's height is at most ROOM_BASE + ROOM blocks for each block between its summit and the nearest
+    // river, sea or lake (ROOM 1.3: the angle rock stands at, Massif.TALUS), so a peak beside water is a low one and the big
+    // ones stand back from it. NOT where that river is covered (Massif.COVER_FROM: where the mountains would stand
+    // high over it, Sammi's "burry it" of 0.5.6 carried further): there the peak keeps its height. In practice a
+    // full-size peak always either covers the river near it or has the room, and this rule only lowers the
+    // middling ones (44 of 249 peaks in a test on his seed, by 30 blocks or so).
+    static final double ROOM = 1.3, ROOM_BASE = 20;
+    /** How far a river is looked for round a summit (blocks). Further off than this there is room for the tallest peak. */
+    static final int ROOM_LOOK = 208;
+    private static final java.util.concurrent.ConcurrentHashMap<Long, Float> HEIGHTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * How tall the peak of one cell is, above the land under its summit (sx, sz); 0 if the cell has none.
+     * The one place this is worked out (up to 0.6.0 it was written out four times over).
+     */
+    double heightOf(long ix, long iz, double sx, double sz, long seed) {
+        long key = cellKey(ix, iz, seed, Double.doubleToLongBits(cell) + Double.doubleToLongBits(height) * 31 + Double.doubleToLongBits(minHeight) * 131);
+        Float known = HEIGHTS.get(key);
+        if (known != null) return known;
+        boolean ready = PeakStrength.ready();
+        double h = drawnHeight(ix, iz, sx, sz, seed);
+        RiverWallFunction walls = RiverWallFunction.current;
+        if (h > 0 && walls != null) {
+            int bx = (int) Math.floor(sx), bz = (int) Math.floor(sz);
+            double[] river = new double[2];
+            double d = RiverDistance.nearest(bx, bz, walls.channel(), ROOM_LOOK, river);
+            // a river vanilla itself runs at water level (any river outside mountain country) is never covered: Massif.SEA_NONE
+            boolean open = d < ROOM_LOOK && 128 + 128 * PeakStrength.vanillaLand((int) river[0], (int) river[1]) < Massif.SEA_FULL;
+            // and the sea or a lake, looked for more coarsely: nothing covers that either
+            double shore = ROOM_LOOK;
+            for (int dz = -ROOM_LOOK; dz <= ROOM_LOOK && h > ROOM_BASE; dz += 32) for (int dx = -ROOM_LOOK; dx <= ROOM_LOOK; dx += 32) {
+                double away = Math.hypot(dx, dz);
+                if (away >= shore || ROOM_BASE + ROOM * away >= h) continue;          // too far off to matter
+                if (128 + 128 * PeakStrength.vanillaLand(bx + dx, bz + dz) < Massif.SEA_NONE) shore = away;
+            }
+            if (shore < d) { d = shore; open = true; }
+            double room = ROOM_BASE + ROOM * d;
+            if (Massif.DEBUG && !(d < ROOM_LOOK && room < h)) System.err.printf("PEAK %d %d: drawn %.0f, water %.0f blocks off, room enough%n", bx, bz, h, d);
+            if (d < ROOM_LOOK && room < h) {
+                double covered = open ? 0 : Massif.coveredAt(this, new ErodedPeaks.Peak(sx, sz, h, 0, ix, iz), d);
+                if (covered < 1 && !open) {
+                    double rx = river[0], rz = river[1];
+                    for (long jz = iz - 2; jz <= iz + 2 && covered < 1; jz++) for (long jx = ix - 2; jx <= ix + 2; jx++) {
+                        if (jx == ix && jz == iz) continue;
+                        double[] qat = summitOf(jx, jz, seed);
+                        double qx = qat[0], qz = qat[1];
+                        double far = Math.hypot(qx - rx, qz - rz);
+                        if (far > Massif.JOIN_REACH * cell) continue;
+                        double hq = drawnHeight(jx, jz, qx, qz, seed);
+                        if (hq <= 0) continue;
+                        covered = Math.max(covered, Massif.coveredAt(this, new ErodedPeaks.Peak(qx, qz, hq, 0, jx, jz), far));
+                    }
+                }
+                if (Massif.DEBUG) System.err.printf("PEAK %d %d: drawn %.0f, river %.0f blocks off, room %.0f, covered %.2f, so %.0f%n", bx, bz, h, d, room, covered, room + (h - room) * covered < minHeight ? 0 : room + (h - room) * covered);
+                h = room + (h - room) * covered;
+                if (h < minHeight) h = 0;
+            }
+        }
+        // Not kept until the world's own maps can be read: the game asks about peaks (placing strongholds) while the
+        // world is still being put together, when every map reads as nothing, and a peak remembered as "none" from
+        // then stayed none (found in testing 0.6.1: two of three mountains missing from one run and not the next).
+        if (!ready) return h;
+        if (HEIGHTS.size() > 400_000) HEIGHTS.clear();
+        HEIGHTS.put(key, (float) h);
+        return h;
+    }
+
+    /**
+     * A key for remembering something about one cell of one world. 0.6.1: sums, then stirred. Up to 0.6.0 the keys
+     * of this kind were (ix * A) ^ (iz * B) ^ ..., and for that the cell (ix, iz) and the cell (-ix, -iz) come out
+     * the same whenever ix or iz is odd (and many other mirrored pairs besides): the first of the two to be asked
+     * about answered for both. Found when a 155-block peak at 527 2535 on Sammi's seed -5156097255193664704, cell
+     * (1, 7), kept being given the "no peak here" of cell (-1, -7); the same fault had been handing some peaks the
+     * base level of their mirror cell since 0.6.0 (Massif.foot).
+     */
+    static long cellKey(long ix, long iz, long seed, long extra) {
+        long n = ix * 0x9E3779B97F4A7C15L + iz * 0xC2B2AE3D27D4EB4FL + seed * 0x165667B19E3779F9L + extra * 0xD6E8FEB86659FD93L;
+        n ^= n >>> 29; n *= 0xBF58476D1CE4E5B9L;
+        n ^= n >>> 32; n *= 0x94D049BB133111EBL;
+        return n ^ (n >>> 29);
+    }
+
+    /** A peak's height before any river is looked at: its own draw, times how strongly mountain country holds at its summit; 0 if that is under min_height. */
+    private double drawnHeight(long ix, long iz, double sx, double sz, long seed) {
         double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
         h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
-        if (h < minHeight) return null;
-        return new ErodedPeaks.Peak(sx, sz, h, footOf(ix, iz, seed), ix, iz);
+        if (h < minHeight) return 0;
+        // 0.6.1: the peaks are half as tall again, and on vanilla's highest land the tallest would pass the top of the terrain
+        double land = 128 + 128 * PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
+        return Math.max(minHeight, Math.min(h, SUMMIT_MAX - land));
     }
 
     /** A world position as the peaks see it (they are laid out on a slightly wandering grid). */
@@ -109,16 +243,23 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         double relief = e[0];
         if (relief < 0.01) return;
         RiverWallFunction walls = RiverWallFunction.current;
+        double covered = ErodedPeaks.buried(this, blockX, blockZ);
         if (walls != null) {
             double t = RiverDistance.at(blockX, blockZ, walls.channel()) / RIVER_EASE;
             if (t < 1) {
-                // not where the river is covered by a group of peaks (0.5.6)
-                double keep = t <= 0 ? 0 : t * t * (3 - 2 * t), covered = ErodedPeaks.buried(this, blockX, blockZ);
+                // not where the river is covered by the mountains (0.5.6)
+                double keep = t <= 0 ? 0 : t * t * (3 - 2 * t);
                 relief *= keep + (1 - keep) * covered;
             }
             if (relief < 0.01) return;
         }
         double land = PeakStrength.land(blockX, blockZ);
+        if (covered > 0) {
+            // 0.6.1: a covered river's valley (cut down to water level, far under the mountains' base level) is
+            // filled to the base level first, or the mountain would sag into the valley it covers. See Massif.build.
+            double under = ErodedPeaks.datum(this, blockX, blockZ) - (128 + 128 * land);
+            if (under > 0) relief += covered * under;
+        }
         // Only real gullies count for the snow (it reaches lower in them). Where erosion dropped
         // its load the number is below zero, which the snow rule, written for the 0.4 ribs, read
         // as a rib standing proud and left bare: the holes in the caps in Sammi's screenshots.
@@ -133,12 +274,11 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         long c0z = (long) Math.floor((z - radius) / cell), c1z = (long) Math.floor((z + radius) / cell);
         for (long ix = c0x; ix <= c1x; ix++) {
             for (long iz = c0z; iz <= c1z; iz++) {
-                double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * JITTER) * cell;
-                double sz = (iz + 0.5 + (hash(ix, iz, seed + 4) - 0.5) * JITTER) * cell;
+                double[] at = summitOf(ix, iz, seed);
+                double sx = at[0], sz = at[1];
                 if (Math.hypot(sx - x, sz - z) > radius) continue;
-                double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
-                h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
-                if (h < minHeight) continue;
+                double h = heightOf(ix, iz, sx, sz, seed);
+                if (h <= 0) continue;
                 found.add(new double[]{footOf(ix, iz, seed), sx, sz, h,
                         128 + 128 * PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + h});
             }
@@ -382,16 +522,15 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         for (int dj = -3; dj <= 3; dj++) {
             for (int di = -3; di <= 3; di++) {
                 long ix = cx + di, iz = cz + dj;
-                double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * JITTER) * cell;
-                double sz = (iz + 0.5 + (hash(ix, iz, seed + 4) - 0.5) * JITTER) * cell;
+                double[] at = summitOf(ix, iz, seed);
+                double sx = at[0], sz = at[1];
                 double dx = wx - sx, dz = wz - sz;
                 if (Math.hypot(dx, dz) > maxReach) continue;
                 // The peak's height is its own draw times how strongly mountain country holds at its
                 // summit. The slopes are never scaled, so a weaker peak is lower and narrower with the
                 // same angles; one that would come out shorter than min_height is left out altogether.
-                double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
-                h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
-                if (h < minHeight) continue;
+                double h = heightOf(ix, iz, sx, sz, seed);
+                if (h <= 0) continue;
                 double base = PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
                 // A peak is the highest of several pyramids joined together, all standing on the
                 // same level: the summit pyramid and its shoulders. Since 0.4.7 each shoulder stands
@@ -468,7 +607,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     private static final java.util.concurrent.ConcurrentHashMap<Long, Float> WALL_SLOPES = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Forgets the remembered wall slopes: called when a world starts or stops. */
-    static void forget() { WALL_SLOPES.clear(); }
+    static void forget() { WALL_SLOPES.clear(); HEIGHTS.clear(); SUMMITS.clear(); }
 
     /** A step stands on its edge between STEP_NEAR and STEP_NEAR + STEP_SPREAD of the peak's height out from the summit; a second one on the same edge at least STEP_GAP further out. */
     static final double STEP_NEAR = 0.30, STEP_SPREAD = 0.15, STEP_GAP = 0.25, STEP_FAR = STEP_NEAR + STEP_GAP + 2 * STEP_SPREAD;
@@ -525,11 +664,10 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
             int n = 0;
             for (long iz = cz - 2; iz <= cz + 2; iz++)
                 for (long ix = cx - 2; ix <= cx + 2; ix++) {
-                    double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * JITTER) * cell;
-                    double sz = (iz + 0.5 + (hash(ix, iz, seed + 4) - 0.5) * JITTER) * cell;
-                    double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
-                    h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
-                    if (h < minHeight) continue;
+                    double[] at = summitOf(ix, iz, seed);
+                    double sx = at[0], sz = at[1];
+                    double h = heightOf(ix, iz, sx, sz, seed);
+                    if (h <= 0) continue;
                     near.peaks[n++] = sx; near.peaks[n++] = sz; near.peaks[n++] = h;
                     near.peaks[n++] = 128 + 128 * PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + h;
                     // 0.6.0: the snow starts SNOW_SHARE of the way down the whole mountain (base level to summit), not of the
@@ -563,7 +701,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
      * than even that allows still loses its top.
      */
     private double wallSlope(RiverWallFunction walls, long ix, long iz, int piece, double px, double pz, double ph, double base) {
-        long key = (ix * 0x9E3779B97F4A7C15L) ^ (iz * 0xC2B2AE3D27D4EB4FL) ^ (piece * 0x165667B19E3779F9L);
+        long key = cellKey(ix, iz, piece, 0);
         Float known = WALL_SLOPES.get(key);
         if (known != null) return known;
         int sxBlock = (int) Math.floor(px), szBlock = (int) Math.floor(pz);

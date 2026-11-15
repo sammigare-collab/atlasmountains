@@ -21,6 +21,13 @@ negative and 0.3 where it is positive).
 So a vanilla mountain is: a crest along a closed contour of weirdness (hence rings), dropping to
 a bowl inside the ring, smeared by 3-D noise, with small random spikes on top.
 
+0.6.1 (15 Nov 2026), read first: the list below is as it was written for 0.4. Three things in it have
+changed since. (a) Mountain country is all of vanilla's two lowest erosion bands, not just the deepest
+part (EROSION_FROM / EROSION_FULL). (b) The land is vanilla's EXCEPT along rivers in mountain country,
+which are cut down to water level (RIVER_BED_Y): the one place the mod lowers vanilla's land. (c) The
+peaks' shape is made in Java by Massif.java (lumps cut by running water) and the limit near rivers
+(atlasmountains:river_wall) no longer limits anything. See CHANGELOG.md.
+
 What this pack does
 -------------------
 Small changes to those three numbers barely show (two attempts on 11 Nov 2026 moved the ground
@@ -65,21 +72,45 @@ OUT = os.path.join(ROOT, 'fabric', 'src', 'main', 'resources', 'data')
 NS = 'atlasmountains'
 
 # ---- settings -------------------------------------------------------------------------------
-# Where peaks generate and how far apart they are is NOT to be changed without Sammi asking
+# Where peaks generate and how far apart they are was not to be changed without Sammi asking
 # ("don't change their spawning", 12 Nov 2026): the erosion, inland and river settings and 'cell'.
+# 0.6.1: he asked (15 Nov 2026, of 0.6.0 on seed -5156097255193664704): "very small ... feel free to
+# make the biome bigger and make them taller" and "these should be replacing snowy peaks etc not just
+# jagged". Measured on that seed over 16,384 blocks square: full strength needed erosion below -0.65,
+# which is 0.4% of the world, while vanilla's mountain country (its two lowest erosion bands, below
+# -0.375: every peak and slope biome) is 3.7%. The mod's mountains stood on 9% of vanilla's land above
+# y 140; within 6,000 blocks of him one mountain was over 110 blocks tall. So mountain country is now
+# all of vanilla's: it starts just inside the edge of those bands and is at full strength a little
+# further in, and it starts where vanilla's near-inland band does.
 # Offsets are in vanilla's units: ground height is about y = 128 + 128 * offset.
-EROSION_FROM = -0.40  # mountain country starts where erosion is below this ...
-EROSION_FULL = -0.65  # ... and is at full strength below this
-INLAND_FROM = -0.05   # and where continentalness is above this (just in from the coast) ...
-INLAND_FULL = 0.20    # ... full strength above this
-RIVER_FROM = 0.05     # a peak is weaker if its SUMMIT is where |weirdness| is below RIVER_FULL (near a river) ...
-RIVER_FULL = 0.27     # ... and absent where it is below RIVER_FROM
-CHANNEL = 0.04        # along the river channel itself (|weirdness| below this) nothing stands above the land ...
+EROSION_FROM = -0.36  # mountain country starts where erosion is below this (-0.40 up to 0.6.0) ...
+EROSION_FULL = -0.46  # ... and is at full strength below this (-0.65 up to 0.6.0)
+INLAND_FROM = -0.11   # and where continentalness is above this (vanilla's near-inland band; -0.05 up to 0.6.0) ...
+INLAND_FULL = 0.03    # ... full strength above this (vanilla's mid-inland band; 0.20 up to 0.6.0)
+RIVER_FROM = 0.065    # a peak is weaker if its SUMMIT is where |weirdness| is below RIVER_FULL (near a river) ...
+RIVER_FULL = 0.20     # ... and absent where it is below RIVER_FROM (0.05 and 0.27 up to 0.6.0. On Sammi's seed 58% of mountain
+                      # country lies under 0.27, so most of it had shrunken peaks or none. Since 0.6.1 a peak's height is
+                      # limited by its real distance from the river in blocks, HornsFunction.ROOM, which does this job properly)
+CHANNEL = 0.065       # along the river channel itself (|weirdness| below this) nothing stands above the land ... (0.04 up to 0.6.0;
+                      # 0.6.1: rivers in mountain country hold water now, and the water reaches to about 0.062: see RIVER_BED_Y)
 RIVER_WALL = 0.95     # ... and beside it a piece of a peak may rise only this many blocks per block of distance from the
                       # channel (44 degrees, the angle of the peaks' own faces): a river that meets a peak runs in a
                       # straight-sided V. Up to 0.4.7 the limit was a multiple of weirdness itself (VALLEY_STEEP),
                       # a noise: lumpy, 22 to 71 degrees, and the cause of the fins, towers and domes Sammi found
 RIVER_WALL_MAX = 1.73 # a piece whose summit is too close to a river for that gets a steeper wall, up to this (60 degrees)
+# 0.6.1: real rivers in mountain country. Vanilla lifts its river valleys clear of the water wherever erosion is
+# below about -0.42 (measured: valley floor y 89 there, y 36 either side of it), so in mountain country they are dry;
+# and the erosion the biomes are shown off the peaks (OFF_PEAK_E, below) makes those dry valleys river biome, which
+# paints them grass: Sammi's "rivers are scuffed" / "rivers are gone" (seed -5156097255193664704 at 4964 -1162 and
+# 722 2304, where 81% of the river biome was dry grass). So along the channels the land is now cut down to the
+# cross-section vanilla's own rivers have just outside mountain country (measured there: y 36 on the centre line,
+# 47 where |weirdness| is 0.05, 71 at 0.10, 87 at 0.13, 99 at 0.16). This is the only place the mod LOWERS vanilla's land.
+RIVER_BED_Y = 36      # the land's target height on a river's centre line (the real bed comes out higher, as vanilla's does) ...
+RIVER_RIM_Y = 107     # ... rising to this where |weirdness| is RIVER_VALLEY, as a smooth step
+RIVER_VALLEY = 0.16   # (0.20 fits vanilla's own rivers best, but in mountain country, where weirdness often changes slowly, that
+                      # made rivers 100 to 200 blocks wide: a sixth of a 1,024-block square at Sammi's badlands spot was water)
+RIVER_CUT_FULL, RIVER_CUT_NONE = 0.10, 0.16   # the cut is applied in full where |weirdness| is below the first, not at all beyond the second
+RIVER_COUNTRY_FROM, RIVER_COUNTRY_FULL = -0.34, -0.40   # erosion: where the cut begins and is complete (vanilla's own rivers end between -0.40 and -0.45)
 PEAK_TEMP_FROM, PEAK_TEMP_FULL = 3 / 128.0, 6.5 / 128.0  # the temperature the biomes see is taken over where a peak stands 3 to 6.5 blocks above the land ...
 PEAK_BIOME_FROM, PEAK_BIOME_FULL = 7 / 128.0, 9 / 128.0  # ... and the weirdness and erosion from 7 to 9 (after it, so no snowy slope biome can form a ring between)
 ROCK_BELOW = -10000    # the rock line is OFF since 0.5.1 (a huge negative number: no ground is ever that far above the snow line).
@@ -98,7 +129,7 @@ SNOW_EDGE = 0.06      # the cold biome's lower edge wanders up and down by this 
 SNOW = {'edge': 9.0,   # the snow itself (PeakSnowCondition.java): its edge wanders up and down by this many blocks,
         'gully': 14.0, # it reaches this much lower in the gullies and starts this much higher on the ribs,
         'fringe': 12.0}  # and it is in patches for this many blocks above its edge, complete above that
-ROCK_SPAN = 220       # the rock gradient: 100% is the snow line, 0% is this many blocks below it (on the tallest peaks;
+ROCK_SPAN = 330       # the rock gradient: 100% is the snow line, 0% is this many blocks below it (on the tallest peaks;
 ROCK = [               # in proportion on smaller ones). Dark smooth basalt and deepslate in a band about 30 blocks deep
     ('minecraft:andesite', 5), ('minecraft:stone', 30), ('minecraft:tuff', 62),    # under the snow, tuff then stone on the
     ('minecraft:deepslate', 86), ('minecraft:smooth_basalt', 95)]                  # body, andesite only about 200 down.
@@ -114,16 +145,16 @@ WORLD_MIN_Y, WORLD_HEIGHT = -64, 576   # the overworld: y -64 to 511 (vanilla: h
 TOP_FROM, TOP_TO = 472, 488   # the terrain ceiling (vanilla: 240 to 256)
 # the peaks themselves: see HornsFunction.java and tools/prototype_horns.py (same names)
 HORNS = {
-    'cell': 230.0,          # one peak per square this size
+    'cell': 345.0,          # one peak per square this size (230 up to 0.6.0; 0.6.1: everything half as big again, see 'height')
     'sides': [3, 4],        # flat faces per peak. Five and more read as a cone, not a pyramid
     'side_jitter': 0.3,     # how unevenly the faces are turned (0 = a regular pyramid)
     'slope': 0.95,          # how steep a face is: blocks down per block out (0.95 is 44 degrees) ...
     'slope_var': 0.25,      # ... give or take this fraction, face by face (35 to 50 degrees): one steeper side, one longer (0.12 to 0.4.9)
     'edge_min': 0.45,       # no edge between two faces is shallower than this fraction of 'slope'
     'warp': 3.0,            # edges wander this many blocks from a ruler line
-    'height': 172.0,        # the tallest peaks, above the land they stand on
+    'height': 258.0,        # the tallest peaks, above the land they stand on (172 up to 0.6.0; Sammi: "very small")
     'height_var': 0.42,     # other peaks are up to this much lower
-    'min_height': 60.0,     # a peak that would be shorter than this (weak mountain country) is left out
+    'min_height': 90.0,     # a peak that would be shorter than this (weak mountain country) is left out (60 up to 0.6.0)
     # Look D, which Sammi picked from four in the game (12 Nov 2026): strong ribs and shoulders
     'shoulders': [1, 2],    # how many steps (sub-summits) a peak has on its edges; see the piece loop in HornsFunction.java
     'shoulder_size': 0.65,  # not used since 0.4.10 (a step's height comes from the edge it stands on)
@@ -240,8 +271,16 @@ def main():
     # vanilla's own target height, under our name so the new offset can read it
     write(f'{DF}/vanilla_offset.json', cache(offset['input']['second']))
     VOFF = f'{NS}:overworld/vanilla_offset'
-    # 2. the land is vanilla's, untouched
-    land = VOFF
+    # 2. the land is vanilla's, except along rivers in mountain country, which are cut down to water level (0.6.1)
+    write(f'{DF}/river_abs.json', cache({'type': 'minecraft:abs', 'input': W}))
+    A = f'{NS}:overworld/river_abs'
+    bed, rim = (RIVER_BED_Y - 128) / 128.0, (RIVER_RIM_Y - 128) / 128.0
+    profile = add(bed, mul(rim - bed, smooth('river_profile', ramp(A, 0.0, RIVER_VALLEY))))      # the valley's cross-section
+    lower = {'type': 'minecraft:min', 'left': 0.0, 'right': add(profile, mul(-1.0, VOFF))}         # how far the land stands above it (as a negative)
+    near = add(1.0, mul(-1.0, smooth('river_near', ramp(A, RIVER_CUT_FULL, RIVER_CUT_NONE))))
+    write(f'{DF}/river_cut.json', cache(mul(mul(ramp(EROSION, RIVER_COUNTRY_FROM, RIVER_COUNTRY_FULL), near), lower)))
+    write(f'{DF}/land.json', cache(add(VOFF, f'{NS}:overworld/river_cut')))
+    land = f'{NS}:overworld/land'
     # 3. the peaks
     #    Each peak reads "strength" once, at its own summit, and is that fraction of its full
     #    height with its slopes unchanged (HornsFunction, PeakStrength). Multiplying every column
@@ -253,7 +292,7 @@ def main():
     write(f'{DF}/horns.json', cache(dict({'type': f'{NS}:horns'}, **HORNS)))
     #    horns gives the level the peaks reach here (far below ground where there is none); a peak
     #    is a solid of its own, so what it adds to the land is whatever of it stands above the land.
-    above = {'type': 'minecraft:max', 'left': 0.0, 'right': add(f'{NS}:overworld/horns', mul(-1.0, VOFF))}
+    above = {'type': 'minecraft:max', 'left': 0.0, 'right': add(f'{NS}:overworld/horns', mul(-1.0, land))}
     write(f'{DF}/peak_height.json', cache({'type': 'minecraft:min', 'left': above, 'right': valley}))
     PEAK = f'{NS}:overworld/peak_height'      # how far the peaks stand above the land here, in offset units
     offset['input']['second'] = add(land, PEAK)

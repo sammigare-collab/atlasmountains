@@ -2,7 +2,7 @@
  "type": "minecraft:cache",
  "input": {
   "type": "atlasmountains:horns",
-  "cell": 230.0,
+  "cell": 345.0,
   "sides": [
    3,
    4
@@ -12,9 +12,9 @@
   "slope_var": 0.25,
   "edge_min": 0.45,
   "warp": 3.0,
-  "height": 172.0,
+  "height": 258.0,
   "height_var": 0.42,
-  "min_height": 60.0,
+  "min_height": 90.0,
   "shoulders": [
    1,
    2

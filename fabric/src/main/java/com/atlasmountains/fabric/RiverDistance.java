@@ -115,6 +115,32 @@ final class RiverDistance {
         return distanceTile(tx, tz, channel)[(cj - tz * TILE) * TILE + (ci - tx * TILE)];
     }
 
+    /**
+     * A quick look for the nearest river channel within reach blocks of a column, good to about LOOK_STEP blocks:
+     * returns the distance (reach if there is none that near) and puts the place in out[0], out[1].
+     * <p>
+     * 0.6.1, for HornsFunction.heightOf, which asks about one summit at a time. The tiles above are made for whole
+     * regions of ground: one costs 59,000 readings of the weirdness map. The game asks about peaks far and wide
+     * while it puts a world together (placing strongholds), and a tile for each made a new world take half a
+     * minute longer to start. This reads about 800.
+     */
+    static double nearest(int x, int z, double channel, int reach, double[] out) {
+        if (!PeakStrength.ready()) { out[0] = x; out[1] = z; return reach; }
+        int n = reach / LOOK_STEP, side = 2 * n + 2;
+        float[] w = new float[side * side];
+        for (int j = 0; j < side; j++) for (int i = 0; i < side; i++) w[j * side + i] = PeakStrength.weirdness(x + (i - n) * LOOK_STEP, z + (j - n) * LOOK_STEP);
+        double best = (double) reach * reach;
+        out[0] = x; out[1] = z;
+        for (int j = 0; j < side - 1; j++) for (int i = 0; i < side - 1; i++) {
+            float here = w[j * side + i];
+            if (!(Math.abs(here) < channel || (here > 0) != (w[j * side + i + 1] > 0) || (here > 0) != (w[(j + 1) * side + i] > 0))) continue;
+            double dx = (i - n) * LOOK_STEP, dz = (j - n) * LOOK_STEP, d = dx * dx + dz * dz;
+            if (d < best) { best = d; out[0] = x + dx; out[1] = z + dz; }
+        }
+        return Math.sqrt(best);
+    }
+    private static final int LOOK_STEP = 16;
+
     /** Blocks from this column to the nearest river channel, at most REACH; 0 with no world loaded. */
     static double at(int x, int z, double channel) {
         if (!PeakStrength.ready()) return 0.0;

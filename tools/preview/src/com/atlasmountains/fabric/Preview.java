@@ -24,7 +24,7 @@ public final class Preview {
     static final String[] NAMES = {"grass_block", "oak_leaves", "snow_block", "andesite", "stone", "tuff", "deepslate", "smooth_basalt", "vanilla_land"};
     /** The rock stops of tools/build_overhaul.py (ROCK), and its span and blend. */
     static final int[] ROCK_AT = {5, 30, 62, 86, 95};
-    static final double ROCK_SPAN = 220, ROCK_BLEND = 0.6;
+    static final double ROCK_SPAN = 330, ROCK_BLEND = 0.6;
 
     public static void main(String[] a) throws Exception {
         String label = a[0];
@@ -102,7 +102,7 @@ public final class Preview {
 
     private static double pct(int c, int of) { return of == 0 ? 0 : 100.0 * c / of; }
 
-    private static void set(String kv) throws Exception {
+    static void set(String kv) throws Exception {
         String[] p = kv.split("=", 2);
         for (Class<?> c : new Class<?>[]{Massif.class, Surface.class, ErodedPeaks.class, PeakStrength.class}) {
             try {

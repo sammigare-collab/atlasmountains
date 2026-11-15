@@ -10,9 +10,9 @@
      "type": "minecraft:abs",
      "input": "minecraft:overworld/ridges"
     },
-    "right": -0.05
+    "right": -0.065
    },
-   "right": 4.545454545454545
+   "right": 7.4074074074074066
   },
   "min": 0.0,
   "max": 1.0

@@ -44,6 +44,12 @@ public record RiverWallFunction(double channel, double slope, double maxSlope, d
 
     @Override
     public double at(int blockX, int blockZ) {
+        // 0.6.1: no limit at all for the eroded mountains. They come down to the land at a river by their own shape
+        // (Massif: each lump's fade towards rivers; HornsFunction.RIVER_EASE for the last few blocks), and no peak is
+        // taller than it has room for (HornsFunction.ROOM). This limit, made for the flat-faced peaks of 0.4, knew
+        // nothing of whether a river was covered except at the column itself, and sliced the tops off summits that
+        // stood near one.
+        if (HornsFunction.ERODED) return COVERED_ROOM / 128.0;
         // room above the steepest wall for the ribs a wall carries, which fade out at the river
         double river = RiverDistance.at(blockX, blockZ, channel);
         double limit = river * maxSlope + ribRoom * Math.min(1, river / HornsFunction.WALL_RIB_FADE);

@@ -11,20 +11,49 @@ record HornsFunction(double cell, double warp, double height, double heightVar, 
     static final boolean ERODED = true;
     static final double SNOW_SHARE = 0.25, SNOW_BLEND_CELLS = 0.6;
 
-    static HornsFunction game() { return new HornsFunction(230.0, 3.0, 172.0, 0.42, 60.0); }
+    static HornsFunction game() { return new HornsFunction(345.0, 3.0, 258.0, 0.42, 90.0); }
+    static final double SUMMIT_MAX = 440;
 
-    ErodedPeaks.Peak peakOf(long ix, long iz, long seed) {
+    static final int SUMMIT_TRIES = 8;
+    static final double SUMMIT_GOOD = 0.9, SUMMIT_SPREAD = 0.95;
+    /** As the real one (0.6.1): the summit stands on the strongest of a few places in its cell, unless the first is strong already. */
+    double[] summitOf(long ix, long iz, long seed) {
         double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * JITTER) * cell;
         double sz = (iz + 0.5 + (hash(ix, iz, seed + 4) - 0.5) * JITTER) * cell;
+        double best = PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
+        if (best < SUMMIT_GOOD) for (int k = 1; k <= SUMMIT_TRIES; k++) {
+            double cx = (ix + 0.5 + (hash(ix, iz, seed + 300 + 2 * k) - 0.5) * SUMMIT_SPREAD) * cell;
+            double cz = (iz + 0.5 + (hash(ix, iz, seed + 301 + 2 * k) - 0.5) * SUMMIT_SPREAD) * cell;
+            double v = PeakStrength.at(ix, iz, (int) Math.floor(cx), (int) Math.floor(cz));
+            if (v > best + 0.02) { best = v; sx = cx; sz = cz; }
+        }
+        return new double[]{sx, sz};
+    }
+
+    ErodedPeaks.Peak peakOf(long ix, long iz, long seed) {
+        double[] at = summitOf(ix, iz, seed);
+        double sx = at[0], sz = at[1];
+        double h = heightOf(ix, iz, sx, sz, seed);
+        if (h <= 0) return null;
+        return new ErodedPeaks.Peak(sx, sz, h, footOf(ix, iz, seed), ix, iz);
+    }
+    double heightOf(long ix, long iz, double sx, double sz, long seed) {
         double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
         h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
-        if (h < minHeight) return null;
-        return new ErodedPeaks.Peak(sx, sz, h, footOf(ix, iz, seed), ix, iz);
+        if (h < minHeight) return 0;
+        double land = 128 + 128 * PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
+        return Math.max(minHeight, Math.min(h, SUMMIT_MAX - land));
     }
     int footOf(long ix, long iz, long seed) { return (int) Math.floor(hash(ix, iz, seed + 14) * ErodedPeaks.LOOK_NAMES.length); }
     double warpX(double x, double z, long seed) { return x + warp * fbm(x / WARP_LENGTH, z / WARP_LENGTH, seed + 1, 3); }
     double warpZ(double x, double z, long seed) { return z + warp * fbm(x / WARP_LENGTH, z / WARP_LENGTH, seed + 2, 3); }
 
+    static long cellKey(long ix, long iz, long seed, long extra) {
+        long n = ix * 0x9E3779B97F4A7C15L + iz * 0xC2B2AE3D27D4EB4FL + seed * 0x165667B19E3779F9L + extra * 0xD6E8FEB86659FD93L;
+        n ^= n >>> 29; n *= 0xBF58476D1CE4E5B9L;
+        n ^= n >>> 32; n *= 0x94D049BB133111EBL;
+        return n ^ (n >>> 29);
+    }
     static double hash(long ix, long iz, long seed) {
         long n = ix * 0x9E3779B97F4A7C15L + iz * 0xC2B2AE3D27D4EB4FL + seed * 0x165667B19E3779F9L;
         n ^= n >>> 29; n *= 0xBF58476D1CE4E5B9L;
@@ -56,11 +85,10 @@ record HornsFunction(double cell, double warp, double height, double heightVar, 
         double spread = SNOW_BLEND_CELLS * cell, sum = 0, weight = 0, heights = 0, statures = 0;
         for (long iz = cz - 2; iz <= cz + 2; iz++)
             for (long ix = cx - 2; ix <= cx + 2; ix++) {
-                double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * JITTER) * cell;
-                double sz = (iz + 0.5 + (hash(ix, iz, seed + 4) - 0.5) * JITTER) * cell;
-                double h = height * (1 - heightVar * Math.pow(hash(ix, iz, seed + 5), 1.5));
-                h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
-                if (h < minHeight) continue;
+                double[] at = summitOf(ix, iz, seed);
+                double sx = at[0], sz = at[1];
+                double h = heightOf(ix, iz, sx, sz, seed);
+                if (h <= 0) continue;
                 double top = 128 + 128 * PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + h;
                 double snowH = Math.min(1.6 * h, Massif.stature(this, new ErodedPeaks.Peak(sx, sz, h, 0, ix, iz)));
                 double dx = blockX - sx, dz = blockZ - sz, tall = h / height;

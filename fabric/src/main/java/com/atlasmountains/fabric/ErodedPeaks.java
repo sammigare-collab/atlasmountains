@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * think that's good enough". That code is in the repository's history (commit 7afdb25).
  * <p>
  * Erosion cannot be worked out one column at a time: it is run over a square region of the world
- * at once (1024 blocks, plus 256 of overlap on every side), the first time any column in it is
+ * at once (1024 blocks, plus 384 of overlap on every side), the first time any column in it is
  * asked for, and the result is kept in memory. Regions hand over to each other across a
  * 128-block band so no seam shows. The result is the height of the mountains above the ground
  * ("relief"); HornsFunction puts it on top of vanilla's land.
@@ -23,12 +23,15 @@ final class ErodedPeaks {
 
     // ---- the grid ----------------------------------------------------------------------------
     /** Blocks along one side of a region, blocks between samples, and samples of overlap on each side. */
-    static final int REGION = 1024, SPACING = 4, OVERLAP = 64;
+    // 0.6.1: OVERLAP 64 to 96 (256 blocks to 384). The mountains are half as big again and reach 450 blocks from their
+    // summits; with 256 two neighbouring regions disagreed by 3.9 blocks on average across the band where they are
+    // blended, and by over 10 on a tenth of it (0.6.0 at its own size: 3.0 and a tenth). With 384: 1.7, and a twentieth.
+    static final int REGION = 1024, SPACING = 4, OVERLAP = 96;
     static final int GRID = REGION / SPACING + 2 * OVERLAP;
     /** The overlap in blocks, and half the width of the band over which one region hands over to the next. */
     static final double PAD = OVERLAP * SPACING, BLEND = 64;
-    /** Regions kept in memory (2.4 MB each); the least recently used are dropped beyond this. */
-    static final int KEEP = 36;
+    /** Regions kept in memory (4 MB each); the least recently used are dropped beyond this. */
+    static final int KEEP = 24;
 
     /** Fine noise added when the 4-block grid is read back, so faces are not glassy. */
     static final double FINE = 1.5, FINE_LENGTH = 7;
@@ -46,7 +49,8 @@ final class ErodedPeaks {
      */
     // 0.6.0: RIVER_SHARE 0.7 to 0.45 and RIVER_FADE 90 to 70. A mountain is now shaped whole, from the low ground up, and the
     // long fade took the whole side facing a river off it (Sammi's seed -3465664254209586682 at -2836 997).
-    static double RIVER_FADE = 70, RIVER_FADE_MIN = 16, RIVER_SHARE = 0.45;
+    // 0.6.1: RIVER_FADE 70 to 105 and RIVER_FADE_MIN 16 to 24, in step with the mountains (half as big again).
+    static double RIVER_FADE = 105, RIVER_FADE_MIN = 24, RIVER_SHARE = 0.45;
 
     /** One peak as HornsFunction places it: summit (in its warped coordinates), height, sampler look, cell. */
     record Peak(double x, double z, double h, int look, long ix, long iz) {}
@@ -56,6 +60,7 @@ final class ErodedPeaks {
         float[] carve;    // how far erosion lowered the ground (above zero in a gully)
         float[] buried;   // 1 where a river between two peaks of a group is covered (Massif.BURY_FROM)
         float[] up;       // how far up its mountain a column is: 0 at the base level, 1 at the summit (0.6.0)
+        float[] datum;    // the mountains' base level here, y (0.6.1): a covered river's valley is filled up to it
         int originX, originZ;
         volatile long used;
     }
@@ -165,6 +170,21 @@ final class ErodedPeaks {
         if (ix < 0 || iz < 0 || ix > GRID - 2 || iz > GRID - 2) return 0;
         double tx = gx - ix, tz = gz - iz;       // smoothly between samples: read to the nearest one, the ground stepped every 4 blocks
         float[] b = r.buried;
+        int i = iz * GRID + ix;
+        return b[i] * (1 - tx) * (1 - tz) + b[i + 1] * tx * (1 - tz) + b[i + GRID] * (1 - tx) * tz + b[i + GRID + 1] * tx * tz;
+    }
+
+    /** The mountains' base level at a column (y), or a level far below any land where there are none. Call after sample(). */
+    static double datum(HornsFunction horns, int x, int z) {
+        int rx = Math.floorDiv(x, REGION), rz = Math.floorDiv(z, REGION);
+        if (!REGIONS.containsKey(key(rx, rz))) return -1e9;
+        Region r = region(horns, rx, rz);
+        if (r.datum == null) return -1e9;
+        double gx = (x - r.originX) / (double) SPACING, gz = (z - r.originZ) / (double) SPACING;
+        int ix = (int) Math.floor(gx), iz = (int) Math.floor(gz);
+        if (ix < 0 || iz < 0 || ix > GRID - 2 || iz > GRID - 2) return -1e9;
+        double tx = gx - ix, tz = gz - iz;
+        float[] b = r.datum;
         int i = iz * GRID + ix;
         return b[i] * (1 - tx) * (1 - tz) + b[i + 1] * tx * (1 - tz) + b[i + GRID] * (1 - tx) * tz + b[i + GRID + 1] * tx * tz;
     }
@@ -313,12 +333,13 @@ final class ErodedPeaks {
         Region r = new Region();
         r.originX = rx * REGION - OVERLAP * SPACING;
         r.originZ = rz * REGION - OVERLAP * SPACING;
-        float[] relief = new float[GRID * GRID], carve = new float[GRID * GRID], buried = new float[GRID * GRID], up = new float[GRID * GRID];
-        if (Massif.build(horns, AtlasMountainsMod.seed(), r.originX, r.originZ, GRID, SPACING, relief, carve, buried, up)) {
+        float[] relief = new float[GRID * GRID], carve = new float[GRID * GRID], buried = new float[GRID * GRID], up = new float[GRID * GRID], datum = new float[GRID * GRID];
+        if (Massif.build(horns, AtlasMountainsMod.seed(), r.originX, r.originZ, GRID, SPACING, relief, carve, buried, up, datum)) {
             r.relief = relief;
             r.carve = carve;
             r.buried = buried;
             r.up = up;
+            r.datum = datum;
         }
         return r;                                  // no mountains here: relief stays null, nothing was eroded
     }

@@ -29,9 +29,20 @@ import java.util.concurrent.ConcurrentHashMap;
 final class PeakStrength {
     private static final ResourceKey<DensityFunction> KEY =
             ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/strength"));
-    /** Vanilla's own target height for the land (in offset units), which a peak also needs at its summit: see landAt. */
+    /**
+     * The land's target height (in offset units), which a peak also needs at its summit: see landAt. Vanilla's own,
+     * except along rivers in mountain country, which the data pack cuts down to water level since 0.6.1 ("overworld/land").
+     */
     private static final ResourceKey<DensityFunction> LAND_KEY =
+            ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/land"));
+    /** Vanilla's own target height, before the mod cuts its rivers, and how far the mod cuts (0.6.1). */
+    private static final ResourceKey<DensityFunction> VANILLA_KEY =
             ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/vanilla_offset"));
+    private static final ResourceKey<DensityFunction> CUT_KEY =
+            ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/river_cut"));
+    /** The river cut is nothing where |weirdness| is this or more. MUST be at least RIVER_CUT_NONE of tools/build_overhaul.py (0.16). */
+    private static final double CUT_REACH = 0.2;
+    private static volatile DensityFunction vanillaFunction, cutFunction;
     private static final ResourceKey<DensityFunction> ABOVE_KEY =
             ResourceKey.create(Registries.DENSITY_FUNCTION, Identifier.fromNamespaceAndPath(AtlasMountainsMod.MOD_ID, "overworld/peak_height"));
     /** Vanilla's weirdness map, whose zero line is where rivers run: see RiverDistance. */
@@ -66,12 +77,15 @@ final class PeakStrength {
         state = null;
         function = null;
         landFunction = null;
+        vanillaFunction = null;
+        cutFunction = null;
         aboveFunction = null;
         weirdnessFunction = null;
         temperatureFunction = null;
         countryFunction = null;
         RiverDistance.reset();
         HornsFunction.forget();
+        Massif.forget();
         ErodedPeaks.reset();
         remembered.clear();
         rememberedLand.clear();
@@ -90,10 +104,19 @@ final class PeakStrength {
         state = RandomState.create(registries.lookupOrThrow(Registries.NOISE), seed, generator.generatorSettings().value());
         function = wanted.get().value();
         landFunction = land.get().value();
+        vanillaFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(VANILLA_KEY).map(h -> h.value()).orElse(null);
+        cutFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(CUT_KEY).map(h -> h.value()).orElse(null);
         aboveFunction = above.map(h -> h.value()).orElse(null);
         weirdnessFunction = weird.map(h -> h.value()).orElse(null);
         temperatureFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(TEMPERATURE_KEY).map(h -> h.value()).orElse(null);
         countryFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(COUNTRY_KEY).map(h -> h.value()).orElse(null);
+        // and once more now the maps can be read: anything worked out by another thread while they could not is wrong
+        RiverDistance.reset();
+        HornsFunction.forget();
+        Massif.forget();
+        ErodedPeaks.reset();
+        remembered.clear();
+        rememberedLand.clear();
     }
 
     /** Strength for the peak of cell (ix, iz), whose summit is at block (x, z). */
@@ -108,6 +131,13 @@ final class PeakStrength {
         if (remembered.size() > MAX_REMEMBERED) remembered.clear();
         remembered.put(key, value);
         return value;
+    }
+
+    /** How strongly mountain country holds at any column (not remembered); 0 with no world loaded. */
+    static double strength(int x, int z) {
+        RandomState rs = state;
+        DensityFunction fn = function;
+        return (rs == null || fn == null) ? 0.0 : rs.sampleBlockValueUncached(fn, x, 64, z);
     }
 
     /**
@@ -128,11 +158,33 @@ final class PeakStrength {
         return value;
     }
 
-    /** Vanilla's own target height for the land at a column, in offset units (y = 128 + 128 * value). */
+    /**
+     * The land's target height at a column, in offset units (y = 128 + 128 * value): vanilla's own, less the cut the
+     * mod makes along rivers in mountain country. (Away from rivers, where there is no cut, vanilla's own is read
+     * alone: the land with its cut costs twice as much to work out, and this is asked for every column of a mountain.)
+     */
     static double land(int x, int z) {
         RandomState rs = state;
-        DensityFunction fn = landFunction;
-        return (rs == null || fn == null) ? 0.0 : rs.sampleBlockValueUncached(fn, x, 64, z);
+        DensityFunction fn = landFunction, v = vanillaFunction;
+        if (rs == null || fn == null) return 0.0;
+        if (v != null && Math.abs(weirdness(x, z)) >= CUT_REACH) return rs.sampleBlockValueUncached(v, x, 64, z);
+        return rs.sampleBlockValueUncached(fn, x, 64, z);
+    }
+
+    /** Vanilla's own target height at a column (out[0]) and the land's with the mod's river cut (out[1]), both in offset units. */
+    static void lands(int x, int z, double[] out) {
+        RandomState rs = state;
+        DensityFunction v = vanillaFunction, cut = cutFunction;
+        if (rs == null || v == null) { out[0] = out[1] = land(x, z); return; }
+        out[0] = out[1] = rs.sampleBlockValueUncached(v, x, 64, z);
+        if (cut != null && Math.abs(weirdness(x, z)) < CUT_REACH) out[1] += rs.sampleBlockValueUncached(cut, x, 64, z);
+    }
+
+    /** Vanilla's own target height at a column, before the mod's river cut, in offset units. */
+    static double vanillaLand(int x, int z) {
+        RandomState rs = state;
+        DensityFunction v = vanillaFunction;
+        return (rs == null || v == null) ? land(x, z) : rs.sampleBlockValueUncached(v, x, 64, z);
     }
 
     /** Vanilla's own temperature at a column (its climate map, before the mod touches what the biomes see); 0 with no world loaded. */

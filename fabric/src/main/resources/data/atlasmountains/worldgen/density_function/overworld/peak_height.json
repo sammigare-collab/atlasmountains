@@ -11,7 +11,7 @@
     "right": {
      "type": "minecraft:mul",
      "left": -1.0,
-     "right": "atlasmountains:overworld/vanilla_offset"
+     "right": "atlasmountains:overworld/land"
     }
    }
   },

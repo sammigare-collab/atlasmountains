@@ -83,7 +83,7 @@ final class Surface {
     static double STEEP_FROM = 1.95, STEEP_FULL = 2.6, STEEP_LOSS = 45;
     /** Vanilla's temperature under which a place is frozen country (in full, and from where it begins), and how far over the snow line all ground counts as being there. */
     static double FROZEN_FULL = -0.52, FROZEN_FROM = -0.42, FROZEN_ABOVE = 12;
-    static double SNOW_LOWER = 35, SMALL = 0.35, FULL_SIZE = 170, SNOW_UP = 0.4, UP_LOSS = 22;
+    static double SNOW_LOWER = 35, SMALL = 0.35, FULL_SIZE = 255, SNOW_UP = 0.4, UP_LOSS = 22;   // FULL_SIZE 170 up to 0.6.0 (the mountains are half as big again)
     /** Below this far under the snow line nothing can be snow whatever the ground: skip the work. */
     static double REACH = 90;
 

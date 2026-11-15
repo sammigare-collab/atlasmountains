@@ -41,6 +41,13 @@ COLOURS = {
     'cherry_leaves': (229, 172, 194), 'cherry_log': (54, 33, 44), 'pink_petals': (150, 170, 110),
     'azure_bluet': (110, 155, 75), 'cornflower': (110, 155, 75), 'oxeye_daisy': (110, 155, 75), 'allium': (110, 155, 75),
     'lilac': (110, 155, 75), 'peony': (110, 155, 75), 'rose_bush': (110, 155, 75), 'sweet_berry_bush': (60, 100, 60),
+    'terracotta': (152, 94, 68), 'orange_terracotta': (162, 84, 38), 'red_terracotta': (143, 61, 47), 'yellow_terracotta': (186, 133, 35),
+    'white_terracotta': (210, 178, 161), 'light_gray_terracotta': (135, 107, 98), 'brown_terracotta': (77, 51, 36), 'red_sand': (190, 103, 33),
+    'red_sandstone': (186, 99, 29), 'sandstone': (216, 203, 155), 'dead_bush': (150, 110, 60), 'short_dry_grass': (187, 158, 108), 'tall_dry_grass': (187, 158, 108),
+    'cactus': (88, 127, 44), 'sugar_cane': (130, 168, 89), 'acacia_log': (103, 96, 86), 'jungle_log': (85, 68, 25), 'melon': (113, 146, 30),
+    'bamboo': (93, 144, 19), 'cocoa': (150, 90, 40), 'firefly_bush': (90, 140, 60), 'cactus_flower': (88, 127, 44), 'coarse_dirt': (119, 85, 59),
+    'pale_oak_leaves': (116, 124, 110), 'pale_oak_log': (88, 78, 76), 'pale_moss_block': (106, 112, 100), 'pale_moss_carpet': (106, 112, 100), 'pale_hanging_moss': (106, 112, 100),
+    'red_mushroom_block': (200, 46, 45), 'brown_mushroom_block': (149, 111, 81), 'mushroom_stem': (203, 196, 185), 'dark_oak_log': (60, 46, 26),
     'pumpkin': (198, 118, 24), 'bee_nest': (196, 150, 77), 'dripstone_block': (134, 107, 92), 'pointed_dripstone': (134, 107, 92),
 }
 DEFAULT = (200, 0, 200)   # anything not in the table shows magenta, so it is noticed

@@ -1,5 +1,25 @@
 # Handover: atlasmountains, 14 November 2026
 
+UPDATE, 15 November 2026, later: 0.6.1 is the current build. READ ITS CHANGELOG ENTRY FIRST. He tried 0.6.0
+in the game (seed -5156097255193664704) and said: general shape liked, but "very small", "feel free to make
+the biome bigger and make them taller", "these should be replacing snowy peaks etc not just jagged", "rivers
+are scuffed", "it seems to have stopped covering river valleys as we agree and rivers are gone". So 0.6.1
+changes WHERE peaks stand and HOW BIG they are, at his asking: mountain country is all of vanilla's two
+lowest erosion bands; everything is half as big again (cell 345, height 258); a summit stands on the
+strongest spot of its cell; rivers in mountain country are cut down to water level (the mod LOWERS vanilla's
+land along river channels, nowhere else); a river is covered wherever the mountains would stand 120 blocks or
+more over it. Two old rules below are therefore out of date: "do not change where peaks generate" (he asked)
+and "vanilla's land is never lowered" (true except along rivers). Also in 0.6.1: a cache-key fault that had
+been mixing up mirrored cells since 0.6.0 (HornsFunction.cellKey), and the erosion made twice as fast.
+Traps met this time: a 1536 snapshot runs the dev server out of memory on its second go (keep to 1024);
+`pkill` without -9 does not stop a hung server and the next one then fails to bind its port;
+`./gradlew runServer` recompiles, so to run the build before your edits use `git stash`; never print a long
+list from a script into the chat. New dev scripts: `tools/dev/srv_start.sh`, `tools/dev/batch2.sh <tag>
+"<name|seed|x y z>" ...`, `tools/dev/topdown.py <out.png> <snapshot.bin> ...`, and
+`tools/preview/.../Seams.java` (how far two neighbouring regions disagree; run it after any change of size).
+The preview tool's stand-in for the game does NOT have the room rule or the filling of covered valleys;
+judge rivers on the dev server only. Waiting for his in-game verdict on 0.6.1.
+
 UPDATE, 15 November 2026: 0.6.0 is the current build. READ ITS CHANGELOG ENTRY FIRST: it records the
 finding that changed everything (the mod had only been shaping the 60-odd blocks it adds on top of
 vanilla's smooth 80-block hill; the preview's flat land hid it) and the rules it bends. How to work now:
@@ -25,7 +45,7 @@ Written by Claude at the end of a long chat, for the next chat to start from. Re
 - A Fabric mod for Minecraft 26.3 that replaces vanilla's mountains with better-looking ones, in
   a normal world (no world type). Sammi's first coding project, built entirely by prompting Claude.
 - Repo `sammigare-collab/atlasmountains`, branch `claude/vanilla-overhaul`, PR #8. Current
-  version 0.5.3 (commit "Sampler build: snow in hollows, bands of growth, scooped faces, a shared base").
+  version 0.6.1 (this paragraph was written at 0.5.3: commit "Sampler build: snow in hollows, bands of growth, scooped faces, a shared base").
 - Fabric Loader 0.20.1, Fabric API 0.165.2+26.3, Loom 1.19.4, Gradle 9.8.2, Java 25 (a cloud
   session has to download a JDK 25 first). Build: `python3 tools/build_overhaul.py` (regenerates
   the data pack; easy to forget, and the Gradle build does not do it), then `./gradlew build`.
@@ -78,14 +98,15 @@ his call. Ask before building it.
 ## Rules that still stand
 
 - Do not change where peaks generate or their spacing (erosion, inland, river settings, "cell"
-  in `tools/build_overhaul.py`) unless he asks.
+  in `tools/build_overhaul.py`) unless he asks. (He asked, for 0.6.1. The rule stands again from there.)
 - Rejected, do not bring back: flat-plane peaks in any form (0.4.x: plain pyramid, ribs,
   buttress panels, steps, folded star, two-tier base, skirt); vanilla 3-D roughness on peaks;
   the old mod's layouts (rings round a bowl, ridge skeleton, long straight side ridges, long
   parallel ranges); a raised valley floor (0.4.13); a "rectangular" level top (asked for and
   withdrawn); the rock line (painted ordinary land as rock); round cones; matching the mountain
   to the surrounding biome.
-- Vanilla's land is never lowered under the peaks.
+- Vanilla's land is never lowered under the peaks. (Since 0.6.1: except along river channels in mountain
+  country, which are cut down to water level so the rivers are real.)
 
 ## How 0.5.3 works (file map, all under `fabric/src/main/java/com/atlasmountains/fabric/`)
 

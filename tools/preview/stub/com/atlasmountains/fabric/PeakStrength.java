@@ -83,6 +83,9 @@ final class PeakStrength {
                 + 5 * HornsFunction.valueNoise(x / 170.0, z / 170.0, seed + 9003) + 2 * HornsFunction.valueNoise(x / 45.0, z / 45.0, seed + 9004);
     }
     static double land(int x, int z) { return (groundY(x, z) - 128) / 128.0; }
+    /** The real one tells vanilla's own land from the land with the mod's river cut; here they are the same (no rivers are cut in the preview). */
+    static void lands(int x, int z, double[] out) { out[0] = out[1] = land(x, z); }
+    static double vanillaLand(int x, int z) { return land(x, z); }
     static double landAt(long ix, long iz, int x, int z) { return land(x, z); }
     static double temperature(int x, int z) { return realTemp != null ? real(realTemp, x, z) : 0.0; }
 }

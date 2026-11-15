@@ -12,21 +12,25 @@ vanilla's biomes, rivers, caves and structures. It applies to the normal world t
 
 ## What it changes
 
-In vanilla's mountain country (low erosion, away from the coast) the blobby ranges are replaced
-by mountains shaped by erosion:
+In all of vanilla's mountain country (where its peak and slope biomes are: its two lowest bands of
+erosion, inland) the blobby ranges are replaced by mountains shaped by erosion, standing about
+260 blocks above the land at their tallest (summits to about y 400):
 
 - **Whole mountains, from the valley floor to the summit.** Each mountain is shaped as one
   thing from the low ground round it: running water cuts valleys and leaves ridges that run out
   into the land, couloirs are cut into the faces and the rock between them stands as sharp ribs.
   Peaks close together share a base and meet at saddles. What is added to vanilla's land is
-  whatever of that shape stands above it; vanilla's land is never lowered.
+  whatever of that shape stands above it; vanilla's land is never lowered, except along rivers
+  (below).
 - **Snow and rock that follow the shape.** Snow lies in the couloirs and hollows and on the
   gentler ground high up; ribs and cliffs stand out of it as dark rock. In frozen country a
   mountain is white down to its foot. Lower down are open grass and then vanilla's own woods.
 - **One tallest peak, others stepping down**, biggest in the heart of the mountain country and
   shrinking towards its edges.
-- **Rivers still run between them**: a mountain comes down to vanilla's land at a river. (A
-  river valley between two peaks of the same group is covered.)
+- **Real rivers.** Vanilla lifts its river valleys clear of the water inside mountain country,
+  so they are dry there. The mod cuts them down to water level like vanilla's rivers everywhere
+  else. A mountain comes down to the land at a river; where the mountains would stand 120
+  blocks or more over a river, they cover it and it comes out again on the far side.
 - **A taller world.** Vanilla's land keeps its own height and the peaks stand on top of it, so
   the overworld's build height is raised from y 320 to y 512 and terrain may reach about y 480.
 

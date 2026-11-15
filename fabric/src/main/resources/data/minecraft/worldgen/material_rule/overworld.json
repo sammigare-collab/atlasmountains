@@ -103,7 +103,7 @@
            "wobble": 8.0,
            "blend_width": 0.6,
            "top_fraction": 0.72,
-           "span": 220,
+           "span": 330,
            "stops": [
             {
              "state": "minecraft:andesite",

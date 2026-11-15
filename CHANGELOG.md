@@ -1,5 +1,139 @@
 # Changelog
 
+## 0.6.1 (unreleased): bigger mountains, all of vanilla's mountain country, real rivers
+
+Sammi, of 0.6.0 in the game on seed -5156097255193664704 (15 Nov 2026): "very small im liking the
+general shape but they are very small feel free to make the biome bigger and make them taller";
+"rivers are scuffed aswell" (a dry green strip along a badlands valley at 4964 178 -1162); "these
+should be replacing snowy peaks etc not just jagged. and it seems to have stopped covering river
+valleys as we agree and rivers are gone". Several changes in one build, since they share a cause.
+
+### What was wrong (measured on his seed, 16,384 blocks square round 3000 1000)
+- SMALL: full-size peaks needed erosion below -0.65, which is 0.4% of that world. Vanilla's
+  mountain country (its two lowest erosion bands, below -0.375, inland: every peak and slope
+  biome) is 3.7%. In most of it the mod shrank peaks to a third or left them out. Within 6,000
+  blocks of him one mountain was over 110 blocks tall; the horn in his badlands screenshot
+  (768 2383) stood 56 blocks above the land. And 58% of mountain country lies where |weirdness|
+  is under 0.27, where peaks were shrunk again for being "near a river".
+- VANILLA'S MOUNTAINS STILL THERE: the mod's mountains stood on 9% of vanilla's land above y 140,
+  and on 1% of frozen mountain country. Much of vanilla's mountain country is strips and patches
+  narrower than a cell (frozen high ground at 88 -5432: patches 60 to 130 blocks across); a
+  cell had a peak only if its one drawn summit place happened to fall on one.
+- RIVERS: vanilla itself lifts river valleys 27 blocks clear of the water wherever erosion is
+  below about -0.42 (valley floor y 89; y 36 either side of that erosion). So in vanilla they
+  are dry too, but they are badlands, or whatever is round them. The mod's biome fix of 0.4.10
+  (the erosion the biomes are shown off the peaks) turned them into river biome, which paints
+  them grass: 81% of the river biome round 800 2400 was dry grass.
+- VALLEYS NOT COVERED: the covering of 0.5.6 was still there, but it needs two lumps to reach
+  across the river, and peaks that small never did.
+
+### What changed
+1. MOUNTAIN COUNTRY is all of vanilla's (`tools/build_overhaul.py`): from erosion -0.36, full
+   strength by -0.46 (was -0.40 and -0.65); from continentalness -0.11, full by 0.03 (was -0.05
+   and 0.20); the river guard on a summit's weirdness 0.065 to 0.20 (was 0.05 to 0.27).
+2. A SUMMIT STANDS ON THE BEST OF ITS CELL (`HornsFunction.summitOf`): where the drawn place is
+   not in the heart of mountain country, eight more places in the cell are looked at and the
+   summit stands on the strongest. In the heart of mountain country nothing moves.
+3. HALF AS BIG AGAIN, same shape: cell 230 to 345, height 172 to 258, least height 60 to 90,
+   and with them the noise on the lumps, the crest on top (68 to 120 blocks), the base level's
+   reach (165), the river fades (24 to 105), the rock gradient (330) and the size a mountain
+   needs for its full snow (255). What carves the faces (gullies, couloirs, ridges) is NOT
+   scaled: a face now carries more of them. No summit above y 440 (the terrain ends at 472).
+4. REAL RIVERS (`overworld/land`, `river_cut`): in mountain country the land along a river is cut
+   down to the cross-section vanilla's own rivers have just outside it, a little narrower.
+   THIS IS THE ONE PLACE THE MOD LOWERS VANILLA'S LAND. The channel the mountains keep clear
+   of is widened to match the water (|weirdness| 0.065, was 0.04).
+5. COVERING, ONE RULE IN BLOCKS (`Massif.COVER_FROM`): a river is covered where the mountains
+   would stand 120 blocks or more above their base level over it, keeps its valley where they
+   would stand under 70, and the valley closes in between. It replaces the test of 0.5.6 (the
+   second peak's share of its height). The covered valley is filled to the mountains' base
+   level column by column (`ErodedPeaks.datum`, `HornsFunction.evaluateEroded`).
+6. NO MOUNTAIN WHERE VANILLA'S OWN LAND IS UNDER WATER (`Massif.SEA_NONE`): the sea, a lake, and
+   every river vanilla itself runs at water level (all rivers outside mountain country). Those
+   are never covered. It is vanilla's land before the mod's cut that counts, so the valleys
+   vanilla lifts dry are the only ones a mountain may cover. (Without this the bigger lumps ran
+   150 to 200 blocks out to sea: the frozen island at -2880 1030 on seed -3465664254209586682
+   came out twice its size, and on the coast seed a river that held water in 0.6.0 was buried.)
+   NO PEAK TALLER THAN ITS ROOM beside open water (`HornsFunction.ROOM`: 20 blocks plus 1.3 for
+   each block from its summit to the nearest open river, sea or lake). A full-size peak in
+   mountain country either covers the dry valley near it or has the room; this lowers the ones
+   near the coast and near vanilla's rivers.
+7. The data pack's old limit near rivers (`river_wall`) limits nothing now. With the taller
+   peaks it sliced summits off along a slanting plane (the peak at 529 2249 lost 27 blocks).
+
+### Two faults found on the way
+- MIRRORED CELLS SHARED A MEMORY (since 0.6.0). The key under which a peak's base level was
+  remembered was (ix * A) ^ (iz * B): the cell (ix, iz) and the cell (-ix, -iz) come out the
+  same whenever one of them is odd. Whichever was asked about first answered for both, so some
+  peaks had the base level of their mirror cell, and which ones depended on where the player
+  had been. Found when a 155-block peak at 527 2535 kept being told "no peak here" in one run
+  and not in the next. `HornsFunction.cellKey` now.
+- Nothing about a peak is remembered from before the world's maps can be read (the game asks
+  about peaks, placing strongholds, while the world is still being put together).
+
+### Speed
+A region took over 2 seconds to make at the new size. The erosion was made about twice as
+fast (a heap of packed numbers instead of three million little arrays a region; cheap powers;
+flat ground skipped; the blends worked out coarsely and read between) with the shape the same
+(0.06 blocks different on average, 6 at worst). The overlap between regions then went from 256
+blocks to 384, which costs some of that back: neighbouring regions disagree by 1.7 blocks on
+average across the band where they are blended and by over 10 on a twentieth of it (at 256:
+3.9 and a tenth; 0.6.0 at its own size: 3.0 and a tenth). In the preview, on a square full of
+mountains, 1.6 seconds a region. On the dev server (2 cores): 334 ms a region on average over
+968 regions, about 750 round his spots, 2.0 seconds at worst (0.6.0: 699 on average, 1.8 at
+worst). Regions kept in memory: 24 of 4 MB (was 36 of 2.4).
+
+OPENING A WORLD IS SLOWER, AND THIS IS NOT FIXED: 52 seconds on the dev server, 21 with 0.6.0.
+All of it is the game placing its 128 strongholds: for each it looks at the biomes for 112
+blocks round, the biome on a mountain depends on the mountain, and so every region with a
+mountain near a stronghold site is eroded (63 regions on his seed; 0.6.0 did the same for
+26). It happens every time a world is opened, not only when it is made. Ways out, none
+tried: keep eroded regions on disk; or answer that one search without eroding.
+
+### RULES THIS CHANGES (he asked for the first two; the third follows from "rivers are gone")
+- Where peaks generate and how far apart: every mountain is somewhere else and there are many
+  more of them. Any world from 0.6.0 will not match.
+- Summit heights.
+- "Vanilla's land is never lowered": true except along river channels in mountain country.
+
+### Tried on the way and dropped
+- Keeping every peak low enough for the room it has beside its river, with nothing covered:
+  the badlands round 800 2400, where channels lie 200 to 400 blocks apart, was left with peaks
+  of 60 to 100 blocks again.
+- Covering by shares (the second peak's, or the heart of one peak): never either on or off
+  along a river inside a group, which left a slot 30 to 50 blocks deep and a few wide all
+  along it (4585 -1048).
+- Filling the covered valley from the land as `Massif` knows it (every 16 blocks): a groove
+  along the river.
+- Closing the edge of the square being eroded instead of letting water run off it: regions
+  agreed worse, not better.
+- Rivers at vanilla's full width (profile out to |weirdness| 0.20): 100 to 200 blocks wide
+  where weirdness changes slowly; a sixth of the square at his badlands spot was water.
+- 1536-block snapshots: the dev server runs out of memory on the second.
+
+### Checked, and not
+- Real chunks on the dev server, seed -5156097255193664704, 1,024-block squares at his three
+  spots (800 2400, 4964 -1162, 6300 1750) before and after, and the same on the frozen seed
+  (-3465664254209586682 at -2880 1030) and the coast seed (-6677413799414465054 at -1380 1750).
+  No errors in the server log on any run.
+- His seed, 16,384 blocks square round 3000 1000, 0.6.0 then 0.6.1: mountains on 0.32% then
+  3.27% of it; on 9% then 71% of vanilla's land above y 140; on 8% then 63% of vanilla's
+  mountain country; on 1% then 52% of frozen mountain country; highest ground y 299 then 395;
+  ground above y 250 on 0.007% then 0.35%. River biome that is dry land: 4.3% of it, then
+  0.03%. River biome under a mountain: none, then 0.4%. Rivers that held water in 0.6.0 now
+  under a mountain: 0.1%.
+- /locate mountain: the y it gives is the real top (813 311 2206 against a set summit of 310).
+- NOT CHECKED: anything in the game itself, by eye; the hot seed and the snowy seed of the
+  usual four; a long flight (memory, hitches when a region is made); the Nether and the End;
+  other mods. The preview tool's stand-in does not have the room rule, the sea rule or the
+  filling of covered valleys, so nothing about rivers was judged there.
+- KNOWN: his exact screenshot spots at 4964 178 -1162 and 6247 139 1930 are now inside
+  mountains. Small ponds are left inside a massif where vanilla's land dips under water
+  (three in the 800 2400 square). Snow lies on summits in hot country (badlands) above about
+  y 300: the snow line was always a share of the mountain's height and the mountains are
+  taller. Rock is dark over much of the upper half of a big mountain, for the same reason.
+  The neighbouring-region disagreement above is measured on the preview's stand-in land.
+
 ## 0.6.0 (unreleased): the whole mountain shaped, and snow and rock that follow the shape
 
 Sammi, after 0.5.13 and with his two reference pictures already agreed (knife-edge ridges,
