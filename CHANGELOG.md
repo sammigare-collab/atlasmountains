@@ -1,5 +1,28 @@
 # Changelog
 
+## Companion: Atlas Continents 0.5.0 (15 Nov 2026, in `companion/atlascontinents/`, a separate mod file)
+
+Sammi, having called 0.6.3 "releasable I think": "can we check if works for the continents mod we added". The old
+Atlas Continents 0.4.0 was never put on GitHub and could not be found. He uploaded
+"NoCaves-LargerBiomes-HugeContinents-Standalone-26.3.zip" ("think this is it"). It is not: it is a heavier pack that
+removes caves, raises the world to 768 blocks and builds its own ranges, and it replaces SEVEN of the nine vanilla
+files Atlas Mountains replaces (noise settings, dimension type, offset, sloped cheese, depth, preliminary surface
+level, final density). Tested together as they are, real chunks: the pack's files win, no mountain is built, and the
+mod's rock and snow are painted on rolling land where its mountains should be. No error is logged.
+
+He then said what the continents mod is to be: "this continents mod shouldnt effect the mountains at all, just make
+land masses 30% of world and biomes half way between vanilla and larger biomes similar to the minecraft mod by star
+labs continents". Built from scratch as that and nothing more (see its README and `build.py`): three vanilla files,
+none of them ours, erosion untouched. A Fabric mod with no code; the same file is a data pack.
+
+Measured with 0.6.3, seed 4381596988616472538: land inside the shore line 30.0% of a sample 393,216 blocks square
+(vanilla on the same seed: 68% of 65,536 square); landmasses a median 9,600 blocks across, 3,400 to 18,900 for the
+middle 80%; biomes 2.45 times slower to change than vanilla; erosion map identical with and without it; mountain
+country on 3.0% of the land with it, 2.8% without; spawn on land (-16 16, continentalness 0.63); real chunks at the
+tallest mountain near spawn (-1879 4589, y 403) within a block of what the mod intends; no errors.
+Not tested: in a real client; more than one seed; how the coasts look from the ground; Atlas Continents on its own
+without Atlas Mountains. His verdict: pending.
+
 ## 0.6.3 (unreleased): no blades and towers on a mountain that stands over a river
 
 Sammi, of 0.6.2 in a new world (seed 4381596988616472538, 15 Nov 2026): "wow fantastic 10/10" from -219 117 2430,

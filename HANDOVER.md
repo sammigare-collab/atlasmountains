@@ -1,5 +1,15 @@
 # Handover: atlasmountains, 14 November 2026
 
+UPDATE, 15 November 2026, 23:00: ATLAS CONTINENTS 0.5.0 BUILT AND SENT (a separate, code-free mod; source in
+`companion/atlascontinents/`, so it cannot be lost again; see the CHANGELOG entry above 0.6.3). He called 0.6.3
+"releasable I think" (no screenshot of it yet). What Continents is allowed to do is his sentence in that entry: land
+30% of the world, biomes halfway to Large Biomes, NOTHING that touches the mountains (so: never erosion, ridges or any
+of our nine files). Likely next: coast shapes (they are smooth, potato-like at 10,000 blocks; more of the noise's
+middle octaves in `CONTINENT_AMPLITUDES` would roughen them, and then `QUANTILES` must be measured again with
+`python3 build.py --calibrate` and a dfmap of `atlascontinents:base`); a repo of its own if he makes one.
+To test both together put the jar in `fabric/run/mods/` and TAKE IT OUT AGAIN afterwards, or every later test of the
+mountains runs on continents.
+
 UPDATE, 15 November 2026, 19:00: 0.6.3 IS BUILT AND SENT: one fix on top of 0.6.2 (blades and towers on mountains
 that stand over a cut river; see its CHANGELOG entry: the land under a mountain is now taken off column by column,
 `HornsFunction` LAND_DEAD). He called 0.6.2 "wow fantastic 10/10" on seed 4381596988616472538 and then pointed at the
