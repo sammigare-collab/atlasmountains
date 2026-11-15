@@ -1,6 +1,13 @@
 # Handover: atlasmountains, 14 November 2026
 
-UPDATE, 15 November 2026, evening: 0.6.2 IS BUILT AND SENT. READ ITS CHANGELOG ENTRY FIRST: it records what he
+UPDATE, 15 November 2026, 19:00: 0.6.3 IS BUILT AND SENT: one fix on top of 0.6.2 (blades and towers on mountains
+that stand over a cut river; see its CHANGELOG entry: the land under a mountain is now taken off column by column,
+`HornsFunction` LAND_DEAD). He called 0.6.2 "wow fantastic 10/10" on seed 4381596988616472538 and then pointed at the
+spikes from 62 251 2534. He does not mind the water and lava streaks. Waiting for his verdict on 0.6.3. If spikes
+remain, look first where a river is only PARTLY covered (`buried` between 0 and 1): the cut valley shows through in
+part there, steep sides and all, and 0.6.3 does nothing about it.
+
+EARLIER THE SAME EVENING: 0.6.2 was built and sent. READ ITS CHANGELOG ENTRY FIRST: it records what he
 meant by "smaller" (not the mountains, not the edges of the range: whole stretches of a range gone, the rest as
 packed as it was) and the two wrong turns before that. HIS VERDICT ON 0.6.2 in the game, a new world (seed
 4381596988616472538 at -219 117 2430): "wow fantastic 10/10". SO 0.6.2 IS THE BASELINE: the mountains, how packed a

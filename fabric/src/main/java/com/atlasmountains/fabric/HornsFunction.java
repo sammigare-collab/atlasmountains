@@ -233,7 +233,24 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     double warpX(double x, double z, long seed) { return x + warp * fbm(x / WARP_LENGTH, z / WARP_LENGTH, seed + 1, 3); }
     double warpZ(double x, double z, long seed) { return z + warp * fbm(x / WARP_LENGTH, z / WARP_LENGTH, seed + 2, 3); }
 
-    private static final ThreadLocal<double[]> ERODED_OUT = ThreadLocal.withInitial(() -> new double[2]);
+    private static final ThreadLocal<double[]> ERODED_OUT = ThreadLocal.withInitial(() -> new double[5]);
+
+    /**
+     * 0.6.3: THE LAND UNDER A MOUNTAIN IS TAKEN OFF COLUMN BY COLUMN. The shape of a mountain is measured from its base
+     * level, and what is added to the land is the shape less the land's height over that level. Massif takes that
+     * height from the land every 16 blocks. Since 0.6.1 the land in mountain country is cut down to water level along
+     * every river, with sides as steep as 17 blocks in one: far finer than 16 blocks. Where a mountain stood over such
+     * a cut the difference between the land as it is and the land as Massif took it came out on the mountain's face,
+     * as blades and towers 10 to 35 blocks tall and a few blocks thick (Sammi, seed 4381596988616472538, looking east
+     * from 62 251 2534: "these spikes do look a bit odd"; measured at 240 2530, a 20-block tower at y 300 over land at
+     * y 40 to 90). Here the difference is put back, so the face is the shape and nothing of the land under it.
+     * Differences under LAND_DEAD blocks are left alone, so mountains over ordinary land are as they were; and it is
+     * only done where the mountain adds LAND_OWN_FROM blocks or more (in full from LAND_OWN_FULL), so that at a
+     * mountain's foot and on the skin it lays in hollows the land still shows as it is, river banks included.
+     */
+    static final double LAND_DEAD = 2, LAND_OWN_FROM = 12, LAND_OWN_FULL = 40, LAND_FLOOR = 3;
+    /** For testing: with a file /tmp/atlas_nolandfix the land is not put back, as before 0.6.3. */
+    static final boolean NO_LAND_FIX = new java.io.File("/tmp/atlas_nolandfix").exists();
 
     /** column() for the eroded mountains: the mountain's height here is laid on top of vanilla's land at this column. */
     private void evaluateEroded(int blockX, int blockZ, double[] out) {
@@ -263,6 +280,15 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
             if (relief < 0.01) return;
         }
         double land = PeakStrength.land(blockX, blockZ);
+        if (!NO_LAND_FIX && e[4] > 0 && relief > LAND_OWN_FROM) {
+            double base = e[3] / e[4];
+            double delta = e[2] - e[4] * Math.max(0, 128 + 128 * land - base);     // what Massif took off, less what the land here really is
+            delta -= Math.max(-LAND_DEAD, Math.min(LAND_DEAD, delta));
+            if (delta != 0) {
+                double own = Math.max(0, Math.min(1, (relief - LAND_OWN_FROM) / (LAND_OWN_FULL - LAND_OWN_FROM)));
+                relief = Math.max(Math.min(relief, LAND_FLOOR), relief + own * own * (3 - 2 * own) * delta);
+            }
+        }
         if (covered > 0) {
             // 0.6.1: a covered river's valley (cut down to water level, far under the mountains' base level) is
             // filled to the base level first, or the mountain would sag into the valley it covers. See Massif.build.

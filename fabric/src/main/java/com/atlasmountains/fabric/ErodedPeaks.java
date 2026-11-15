@@ -61,6 +61,7 @@ final class ErodedPeaks {
         float[] buried;   // 1 where a river between two peaks of a group is covered (Massif.BURY_FROM)
         float[] up;       // how far up its mountain a column is: 0 at the base level, 1 at the summit (0.6.0)
         float[] datum;    // the mountains' base level here, y (0.6.1): a covered river's valley is filled up to it
+        float[] over;     // the land's height over the base level as it was taken off the shape, from the land every 16 blocks (0.6.3)
         int originX, originZ;
         volatile long used;
         volatile boolean walked;   // a chunk has been made from this region (as against single columns asked about): see KeptColumns
@@ -156,6 +157,7 @@ final class ErodedPeaks {
      */
     static void sample(HornsFunction horns, int x, int z, double[] out) {
         out[0] = 0; out[1] = 0;
+        if (out.length >= 5) { out[2] = 0; out[3] = 0; out[4] = 0; }
         if (!PeakStrength.ready()) return;
         int rx = Math.floorDiv(x, REGION), rz = Math.floorDiv(z, REGION);
         // The game asks about single far-off columns all the time (finding the spawn, placing
@@ -345,6 +347,12 @@ final class ErodedPeaks {
         float[] cv = r.carve;
         int i = iz * GRID + ix;
         out[1] += weight * (cv[i] * (1 - tx) * (1 - tz) + cv[i + 1] * tx * (1 - tz) + cv[i + GRID] * (1 - tx) * tz + cv[i + GRID + 1] * tx * tz);
+        if (out.length >= 5 && r.over != null) {     // for HornsFunction.LAND_DEAD: what was taken off for the land, the base level, and the weight they came with
+            float[] ov = r.over, dm = r.datum;
+            out[2] += weight * (ov[i] * (1 - tx) * (1 - tz) + ov[i + 1] * tx * (1 - tz) + ov[i + GRID] * (1 - tx) * tz + ov[i + GRID + 1] * tx * tz);
+            out[3] += weight * (dm[i] * (1 - tx) * (1 - tz) + dm[i + 1] * tx * (1 - tz) + dm[i + GRID] * (1 - tx) * tz + dm[i + GRID + 1] * tx * tz);
+            out[4] += weight;
+        }
     }
 
     // ---- one region ---------------------------------------------------------------------------
@@ -354,12 +362,14 @@ final class ErodedPeaks {
         r.originX = rx * REGION - OVERLAP * SPACING;
         r.originZ = rz * REGION - OVERLAP * SPACING;
         float[] relief = new float[GRID * GRID], carve = new float[GRID * GRID], buried = new float[GRID * GRID], up = new float[GRID * GRID], datum = new float[GRID * GRID];
-        if (Massif.build(horns, AtlasMountainsMod.seed(), r.originX, r.originZ, GRID, SPACING, relief, carve, buried, up, datum)) {
+        float[] over = new float[GRID * GRID];
+        if (Massif.build(horns, AtlasMountainsMod.seed(), r.originX, r.originZ, GRID, SPACING, relief, carve, buried, up, datum, over)) {
             r.relief = relief;
             r.carve = carve;
             r.buried = buried;
             r.up = up;
             r.datum = datum;
+            r.over = over;
         }
         return r;                                  // no mountains here: relief stays null, nothing was eroded
     }

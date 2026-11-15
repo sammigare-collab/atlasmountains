@@ -259,6 +259,11 @@ final class Massif {
      * Returns false, leaving both untouched, if no peak reaches the square.
      */
     static boolean build(HornsFunction horns, long seed, int originX, int originZ, int size, int spacing, float[] relief, float[] carve, float[] buried, float[] up, float[] datum) {
+        return build(horns, seed, originX, originZ, size, spacing, relief, carve, buried, up, datum, null);
+    }
+
+    /** As above; landOver, if given, is filled with the land's height over the base level as this class took it off the shape (see HornsFunction.LAND_DEAD). */
+    static boolean build(HornsFunction horns, long seed, int originX, int originZ, int size, int spacing, float[] relief, float[] carve, float[] buried, float[] up, float[] datum, float[] landOver) {
         long t0 = System.nanoTime();
         Massif m = new Massif(horns, seed, originX, originZ, size * spacing);
         if (m.peaks.isEmpty()) return false;
@@ -335,6 +340,7 @@ final class Massif {
         // column from the land's real height (a first try filled it here, from the land as this class knows it,
         // every 16 blocks: that left a groove along the river).
         for (int gz = 0; gz < size; gz++) for (int gx = 0; gx < size; gx++) datum[gz * size + gx] = (float) m.datumAt(originX + gx * spacing, originZ + gz * spacing);
+        if (landOver != null) System.arraycopy(over, 0, landOver, 0, over.length);
         return true;
     }
     /** See drape(). */

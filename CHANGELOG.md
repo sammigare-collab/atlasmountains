@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.6.3 (unreleased): no blades and towers on a mountain that stands over a river
+
+Sammi, of 0.6.2 in a new world (seed 4381596988616472538, 15 Nov 2026): "wow fantastic 10/10" from -219 117 2430,
+then, from 62 251 2534 looking east at the same mountain: "i dont mind the streaks too much however these spikes do
+look a bit odd". In his screenshot: on the left shoulder of the big mountain a tower and thin blades standing 20 to
+35 blocks off the ridge, a few blocks thick; needles of the same kind along the lower range to its left.
+
+**Cause (a fault of 0.6.1, not of the shape).** A mountain's shape is measured from its base level, and what is
+added to the land is the shape less the land's height over that level. `Massif` takes that height from the land
+every 16 blocks. Since 0.6.1 the land in mountain country is cut down to water level along every river, with sides
+as steep as 17 blocks in one. Where a mountain stands over such a cut, the difference between the land as it is and
+the land every 16 blocks came out on the mountain's face. Measured at 240 2530 on that seed: a tower to y 302 on a
+face at y 285, over land between y 37 and y 92. Before 0.6.1 the land was vanilla's own, smooth at that scale.
+
+**Changed.** `HornsFunction.erodedFresh` (LAND_DEAD): the difference is put back column by column, so the face is
+the shape and nothing of the land under it. Differences under 2 blocks are left alone, so a mountain over ordinary
+land is as it was. Only where the mountain adds 12 blocks or more (in full from 40): at a mountain's foot and on
+the skin it lays in hollows the land still shows as it is, river banks included. `ErodedPeaks.Region.over` (new)
+keeps what `Massif` took off; `sample()` hands it back with the base level, blended across regions like the relief.
+The regions themselves are untouched: preview checksums 677954a2 and 6fb51169 as before.
+
+**Measured, real chunks.**
+- His view, rendered before and after from 1,024 blocks square: the tower, the blades and the needles are gone; the
+  summit, the faces and the snow are where they were.
+- 256 blocks square at 240 2530, the mod's own surface every block: steepest step 13.3 blocks in one before, 5.0
+  after; columns steeper than 3 in one, 5.6% before, 1.0% after.
+- That 1,024 square: height the same in 95.3% of columns, changed by more than 2 blocks in 1.9%, by more than 8 in
+  0.35%; largest change 22 blocks either way. Water on 14.94% of columns before and after: no river filled.
+- His other world (seed 2089824661498644259), 1,024 square at 493 774, the mountain he called "loving it": height
+  the same in 92.4% of columns, changed by more than 2 blocks in 2.9%, by more than 8 in 0.57% (largest: a 31-block
+  blade gone at 89 1120); highest ground y 381 before and after; water on 19.58% of columns before and after.
+- With a file /tmp/atlas_nolandfix the fix is off (for an A/B run). No errors in any run.
+
+**Not tested.** The jar in a real client (dev server only). More than these two places.
+
+**Not looked for.** The same fault where a river is only partly covered (the valley shows through in part there,
+by design, and its steep sides with it). Blue and orange streaks on the faces (vanilla's springs): he does not mind
+them. The dark notch at the foot of the big mountain in his first screenshot.
+
 ## 0.6.2 (unreleased): ranges that end, and a world that opens quickly the second time
 
 Sammi, of 0.6.1 on seed 2089824661498644259 (15 Nov 2026): "loving it good job" (at 493 774), then,
