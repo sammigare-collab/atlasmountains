@@ -83,7 +83,7 @@ final class Massif {
     /** A gully is cut at full strength where this many 4-block samples drain through. */
     static double GULLY_FULL = 30;
     /** Faces are cut from this height above the foot, and fully from this. */
-    static double GULLY_FROM = 22, GULLY_ABOVE = 60;
+    static double GULLY_FROM = 10, GULLY_ABOVE = 40;   // 22 and 60 up to 0.5.13, when a mountain was only the part the mod adds
     /** The steepest a gully's wall may stand (62 degrees). */
     static double GULLY_WALL = 1.9;
     /** How strongly the faces' water keeps to the steepest way down. Lower than FLOW_POWER: at 4 some gullies ran dead straight along the grid. */
@@ -100,18 +100,79 @@ final class Massif {
     private final float[] h, base, bury;
     private final boolean[] outlet;
     private final List<ErodedPeaks.Peak> peaks = new ArrayList<>();
+    /** Per peak: its base level (y), the y of its summit, and how high its summit stands above the blended base level there. */
+    private double[] baseY, topY, target;
+
+    // ---- 0.6.0: the whole mountain, from the low ground to the summit ----
+    // Up to 0.5.13 a mountain was its own height (60 to 172 blocks) of carved rock set on top of
+    // vanilla's land, and vanilla's land under mountain country is itself a smooth hill 50 to 80
+    // blocks high. Measured on Sammi's seed -3465664254209586682 at -2840 998: the peak of his
+    // screenshots stood 145 blocks above the plain, of which 63 were the mod's and 80 vanilla's
+    // smooth hill. Every pass that carves (water, gullies, ridges) only ever had that cap to work
+    // on, which is why the game showed smooth blobs with a rough tip while the preview tool, on
+    // flat land, showed ridged massifs.
+    // Now a mountain is shaped as one thing from the low ground round it (its "base") to its
+    // summit: its lump is that tall (its "stature") and as wide as a mountain that tall, and is
+    // eroded and carved as before. What is put on top of vanilla's land at a column is then
+    // whatever of that shape stands above the land there: where vanilla's hill is higher than the
+    // shape (a valley of the shape running over the hill), the hill shows and nothing is added.
+    // Vanilla's land is still never lowered, and summits are where and as high as they were.
+    /** A peak's base is the level this share of the land round it lies below (0.25: a quarter of it), ... */
+    static double BASE_SHARE = 0.25;
+    /** false: as up to 0.5.13 (a mountain is only its own height, set on the land), for comparing in the preview. */
+    static boolean WHOLE = true;
+    static boolean DEBUG = Boolean.getBoolean("atlasmountains.debug") || new java.io.File("/tmp/atlas_debug").exists();
+    /** ... but never more than this far below the land at its summit. */
+    static double BASE_DROP_MAX = 110;
+    /** The base level between peaks is blended over this many cells. */
+    static double BASE_BLEND = 0.6;
+    private static final java.util.concurrent.ConcurrentHashMap<Long, double[]> FOOT = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final double[] RING = {0.55, 0.8, 1.05};
+
+    /** For a peak: {the land at its summit (y), its base level (y)}. Worked out once per peak and kept. */
+    static double[] foot(HornsFunction horns, ErodedPeaks.Peak p) {
+        long key = (p.ix() * 0x9E3779B97F4A7C15L) ^ (p.iz() * 0xC2B2AE3D27D4EB4FL) ^ (AtlasMountainsMod.seed() * 0x165667B19E3779F9L) ^ Double.doubleToLongBits(horns.cell());
+        double[] f = FOOT.get(key);
+        if (f != null) return f;
+        double top = 128 + 128 * PeakStrength.landAt(p.ix(), p.iz(), (int) Math.floor(p.x()), (int) Math.floor(p.z()));
+        double r = JOIN_REACH * horns.cell();
+        double[] ring = new double[RING.length * 12];
+        int k = 0;
+        for (int j = 0; j < RING.length; j++) for (int a = 0; a < 12; a++) {
+            double ang = (a + 0.33 * j) * Math.PI / 6;
+            ring[k++] = 128 + 128 * PeakStrength.land((int) Math.floor(p.x() + RING[j] * r * Math.cos(ang)), (int) Math.floor(p.z() + RING[j] * r * Math.sin(ang)));
+        }
+        java.util.Arrays.sort(ring);
+        double base = Math.max(top - BASE_DROP_MAX, Math.min(top, ring[(int) (BASE_SHARE * (ring.length - 1))]));
+        if (!WHOLE) base = top;
+        f = new double[]{top, base};
+        if (FOOT.size() > 50000) FOOT.clear();
+        FOOT.put(key, f);
+        return f;
+    }
+
+    /** A peak's stature: from its base level to its summit, in blocks. */
+    static double stature(HornsFunction horns, ErodedPeaks.Peak p) {
+        double[] f = foot(horns, p);
+        return p.h() + f[0] - f[1];
+    }
+
+    private static double radius(HornsFunction horns, ErodedPeaks.Peak p) {
+        return JOIN_REACH * horns.cell() * (0.55 + 0.45 * Math.min(1, stature(horns, p) / horns.height()));
+    }
 
     /** How far from its summit a peak's lump can reach, in blocks. */
     static double reach(HornsFunction horns, ErodedPeaks.Peak p) {
-        return JOIN_REACH * horns.cell() * (0.55 + 0.45 * p.h() / horns.height()) * (1 + SHAPE_WARP);
+        return radius(horns, p) * (1 + SHAPE_WARP);
     }
 
     /**
-     * Fills relief (blocks above the ground), carve (how far below its lump the ground ended up)
-     * and buried (1 where a river between two peaks is covered, see BURY_FROM) for a square of size x size samples, spacing blocks apart, from (originX, originZ).
+     * Fills relief (blocks above the ground), carve (how deep the couloirs cut), buried (1 where a
+     * river between two peaks is covered, see BURY_FROM) and up (how far up its mountain a column
+     * is, 0 at the base level to 1 at the summit) for a square of size x size samples, spacing blocks apart, from (originX, originZ).
      * Returns false, leaving both untouched, if no peak reaches the square.
      */
-    static boolean build(HornsFunction horns, long seed, int originX, int originZ, int size, int spacing, float[] relief, float[] carve, float[] buried) {
+    static boolean build(HornsFunction horns, long seed, int originX, int originZ, int size, int spacing, float[] relief, float[] carve, float[] buried, float[] up) {
         Massif m = new Massif(horns, seed, originX, originZ, size * spacing);
         if (m.peaks.isEmpty()) return false;
         m.lumps(horns, seed);
@@ -122,7 +183,7 @@ final class Massif {
             double v = Math.max(0, cubicAt(m.h, m.n, gx * step, gz * step));
             double b = Math.max(v, cubicAt(m.base, m.n, gx * step, gz * step));
             relief[i] = (float) v;
-            carve[i] = (float) (b - v);
+            carve[i] = 0;      // 0.6.0: only what the couloirs cut (gullies, ridges) counts, for the snow; up to 0.5.13 it began as lump minus eroded, above zero nearly everywhere
             buried[i] = (float) Math.max(0, Math.min(1, cubicAt(m.bury, m.n, gx * step, gz * step)));
         }
         // SAMPLER (0.5.11): each peak has one of three looks; what differs is blended smoothly between neighbouring peaks
@@ -135,6 +196,22 @@ final class Massif {
             relief[i] = (float) (ref[i] * Math.pow(was / ref[i], sharp[i]));
             carve[i] += was - relief[i];
         }
+        // Where vanilla's land still stands above the shape (the broad hollows between the ribs: the drape
+        // only lifts the shape on average), the surface is the land's own smooth one. From BOWL_FROM of
+        // the way up a mountain it is given a skin BOWL blocks thick before the faces are carved, so the
+        // carving bites into it and what covers it is the mountain's own rock, grass and snow, not
+        // vanilla's surface with its trees. Lower down the land shows as it is: wooded valley floors.
+        float[] over = new float[relief.length], skin = new float[relief.length];
+        if (WHOLE) for (int gz = 0; gz < size; gz++) for (int gx = 0; gx < size; gx++) {
+            int i = gz * size + gx;
+            if (relief[i] <= 0) continue;
+            over[i] = (float) m.overAt(originX + gx * spacing, originZ + gz * spacing);
+            double t = Math.max(0, Math.min(1, (Math.max(relief[i], over[i]) / Math.max(20, ref[i]) - BOWL_FROM) / (BOWL_FULL - BOWL_FROM)));
+            // only where the mountain itself has some height (a neighbouring hill of vanilla's under the mountain's outer foot is left alone)
+            double own = m.own == null ? 0 : Math.max(0, Math.min(1, cubicAt(m.own, m.n, gx * step, gz * step)));
+            skin[i] = (float) (t * t * (3 - 2 * t) * own);
+            relief[i] = (float) Math.max(relief[i], over[i] + BOWL * skin[i]);
+        }
         // where each summit really is on this grid (the highest sample within 30 blocks of where it is set), for the ridges to spare
         java.util.List<int[]> tops = new ArrayList<>();
         for (ErodedPeaks.Peak p : m.peaks) {
@@ -146,9 +223,54 @@ final class Massif {
             }
             if (best >= 0 && relief[best] > 5) tops.add(new int[]{best % size, best / size});
         }
+        float[] dbg = DEBUG ? relief.clone() : null;
         if (GULLY_RUNS > 0) gullies(relief, carve, deep, tops, size, spacing, originX, originZ, seed);
+        if (DEBUG) for (int[] t : tops) {
+            int i = t[1] * size + t[0];
+            System.err.printf("MASSIF top at %d %d: before carving %.0f, after %.0f, land over base %.0f, so above land %.0f; ref %.0f%n", originX + t[0] * spacing, originZ + t[1] * spacing, dbg[i], relief[i], over[i], relief[i] - over[i], ref[i]);
+        }
+        // 0.6.0: so far "relief" is the shape above the base level. What goes on top of vanilla's
+        // land is what of it stands above the land.
+        for (int i = 0; i < relief.length; i++) {
+            up[i] = 0;
+            if (relief[i] <= 0) continue;
+            up[i] = (float) Math.min(1, Math.max(relief[i], over[i]) / Math.max(20, ref[i]));
+            // whatever the carving took, SKIN blocks of the skin are left, so the hollow stays the mountain's own surface
+            relief[i] = (float) Math.max(SKIN * skin[i], relief[i] - over[i]);
+        }
         return true;
     }
+    /** See drape(). */
+    static double COVER = 16, DRAPE_BLUR = 40, DRAPE_FROM = 3, DRAPE_FULL = 18, DRAPE_CLEAR = 70, OWN_FROM = 0.28, OWN_FULL = 0.6, RIVER_DRAPE = 40;
+    /** See build(): the skin put over the land in the hollows, from this share of the way up a mountain, in full from this. */
+    static double BOWL = 9, SKIN = 3, BOWL_FROM = 0.22, BOWL_FULL = 0.34;
+
+    /** A smooth blur (a box of the given radius, three times over). */
+    private static float[] blur(float[] src, int n, int radius) {
+        float[] a = src.clone(), b = new float[src.length];
+        for (int pass = 0; pass < 3; pass++) {
+            for (int z = 0; z < n; z++) {                       // along x
+                double sum = 0; int row = z * n;
+                for (int x = -radius; x <= radius; x++) sum += a[row + Math.max(0, Math.min(n - 1, x))];
+                for (int x = 0; x < n; x++) {
+                    b[row + x] = (float) (sum / (2 * radius + 1));
+                    sum += a[row + Math.min(n - 1, x + radius + 1)] - a[row + Math.max(0, x - radius)];
+                }
+            }
+            for (int x = 0; x < n; x++) {                       // along z
+                double sum = 0;
+                for (int z = -radius; z <= radius; z++) sum += b[Math.max(0, Math.min(n - 1, z)) * n + x];
+                for (int z = 0; z < n; z++) {
+                    a[z * n + x] = (float) (sum / (2 * radius + 1));
+                    sum += b[Math.min(n - 1, z + radius + 1) * n + x] - b[Math.max(0, z - radius) * n + x];
+                }
+            }
+        }
+        return a;
+    }
+
+    /** Blocks between the places the land is looked up. */
+    static final int LAND_STEP = 16;
 
     // ---- SAMPLER (0.5.11): three looks, for Sammi to compare in the game ("im not sure if the mountain shape is right yet") ----
     // A as it was. B the faces carved about twice as deep (the "deep" carve he passed over in renders on 14 Nov, where
@@ -172,7 +294,7 @@ final class Massif {
                 double dx = x - p.x(), dz = z - p.z();
                 if (Math.abs(dx) > 4 * sig || Math.abs(dz) > 4 * sig) continue;
                 double w = Math.exp(-(dx * dx + dz * dz) / (2 * sig * sig));
-                sw += w; sv += w * (perLook == null ? p.h() : perLook[FORCE_LOOK >= 0 ? FORCE_LOOK : p.look()]);
+                sw += w; sv += w * (perLook == null ? target[peaks.indexOf(p)] : perLook[FORCE_LOOK >= 0 ? FORCE_LOOK : p.look()]);
             }
             out[gz * size + gx] = sw < 1e-5 ? (perLook == null ? 120f : 1f) : (float) (sv / sw);
         }
@@ -338,12 +460,25 @@ final class Massif {
     private void lumps(HornsFunction horns, long seed) {
         int np = peaks.size();
         double[] radius = new double[np], fadeOf = new double[np];
-        for (int a = 0; a < np; a++) radius[a] = JOIN_REACH * cell * (0.55 + 0.45 * peaks.get(a).h() / horns.height());
+        free = new float[n * n]; riverAt = new float[n * n];
+        baseY = new double[np]; topY = new double[np]; target = new double[np];
+        for (int a = 0; a < np; a++) {
+            double[] f = foot(horns, peaks.get(a));
+            baseY[a] = f[1]; topY[a] = f[0] + peaks.get(a).h();
+            radius[a] = radius(horns, peaks.get(a));
+        }
+        // a summit stands its own height above the land under it, whatever the blended base is there
+        for (int a = 0; a < np; a++) {
+            ErodedPeaks.Peak p = peaks.get(a);
+            target[a] = p.h() + Math.max(0, topY[a] - p.h() - datumAt(p.x(), p.z()));
+        }
+        reachOf = radius;
+        if (WHOLE) lookUpLand();
         RiverWallFunction walls = RiverWallFunction.current;
         for (int gz = 0; gz < n; gz++) for (int gx = 0; gx < n; gx++) {
             double x = ox + gx * sp, z = oz + gz * sp;
             double wx = horns.warpX(x, z, seed), wz = horns.warpZ(x, z, seed);
-            double sum = 0, sumFree = 0, river = Double.NaN, first = 0, second = 0;
+            double sum = 0, sumFree = 0, river = Double.NaN, first = 0, second = 0, datum = Double.NaN, landHere = Double.NaN;
             for (int a = 0; a < np; a++) {
                 ErodedPeaks.Peak p = peaks.get(a);
                 double r = radius[a];
@@ -357,14 +492,15 @@ final class Massif {
                 // the summit (its direction and length the peak's own), and the crest falls a little
                 // from the summit towards each end, further towards one than the other.
                 double ca = Math.PI * HornsFunction.hash(p.ix(), p.iz(), seed + 540), cx = Math.cos(ca), cz = Math.sin(ca);
-                double half = (CREST_MIN + (CREST_MAX - CREST_MIN) * HornsFunction.hash(p.ix(), p.iz(), seed + 541)) / 2 * Math.min(1, p.h() / 120);
+                double half = (CREST_MIN + (CREST_MAX - CREST_MIN) * HornsFunction.hash(p.ix(), p.iz(), seed + 541)) / 2 * Math.min(1, (topY[a] - baseY[a]) / 150);
                 double lean = 0.3 + 0.7 * HornsFunction.hash(p.ix(), p.iz(), seed + 542);            // one end is shorter
                 double along = dx * cx + dz * cz, lim = along > 0 ? half : half * lean;
                 double on = Math.max(-lim, Math.min(lim, along));
                 double ex = dx - on * cx, ez = dz - on * cz;
                 double t = Math.hypot(ex, ez) / (r * wob);
                 if (t >= 1) continue;
-                double share = Math.pow(1 - t, PROFILE) * (1 - CREST_FALL * Math.abs(on) / Math.max(1, half)), m = p.h() * share;
+                if (Double.isNaN(datum)) datum = datumAt(x, z);
+                double share = Math.pow(1 - t, PROFILE) * (1 - CREST_FALL * Math.abs(on) / Math.max(1, half)), m = Math.max(0, topY[a] - datum) * share;
                 if (share > first) { second = first; first = share; } else if (share > second) second = share;
                 sumFree += Math.pow(m, SMOOTH_MAX);
                 if (walls != null) {
@@ -373,11 +509,25 @@ final class Massif {
                     if (fadeOf[a] == 0) fadeOf[a] = Math.max(ErodedPeaks.RIVER_FADE_MIN, Math.min(ErodedPeaks.RIVER_FADE,
                             ErodedPeaks.RIVER_SHARE * RiverDistance.at((int) Math.floor(p.x()), (int) Math.floor(p.z()), walls.channel())));
                     double f = river / fadeOf[a];
-                    if (f < 1) m *= f <= 0 ? 0 : f * f * (3 - 2 * f);
+                    if (f < 1) {
+                        f = f <= 0 ? 0 : f * f * (3 - 2 * f);
+                        if (WHOLE) {
+                            // 0.6.0: towards a river a mountain comes down to vanilla's LAND, not to nothing. (Fading to
+                            // nothing, as 0.5.1 to 0.5.13 did, took the whole side facing a river off a mountain shaped
+                            // whole and left vanilla's smooth hill there.) The fade is still complete well short of the
+                            // summit (RIVER_SHARE of the summit's own distance to the river), so no summit is touched.
+                            // A FIRST TRY capped a mountain at one block of height for each block from the river: summits
+                            // near rivers moved 30 blocks or more and came out up to 23 lower (seed -5999978045571072206).
+                            if (Double.isNaN(landHere)) landHere = overAt(x, z);
+                            m = Math.min(m, landHere + Math.max(0, m - landHere) * f);
+                        } else m *= f;
+                    }
                 }
                 sum += Math.pow(m, SMOOTH_MAX);
             }
             // between two peaks of a group the river is covered: no fade
+            free[gz * n + gx] = (float) Math.pow(sumFree, 1 / SMOOTH_MAX);
+            riverAt[gz * n + gx] = Double.isNaN(river) ? 1e9f : (float) river;
             double b = Math.max(0, Math.min(1, (second - BURY_FROM) / (BURY_FULL - BURY_FROM)));
             b = b * b * (3 - 2 * b);
             bury[gz * n + gx] = sumFree > sum ? (float) b : 0f;
@@ -394,6 +544,88 @@ final class Massif {
         }
     }
 
+    private double[] reachOf;
+    private float[] land, own, free, riverAt;   // free: the lumps before any fade towards rivers; riverAt: blocks to the nearest river
+    private int ln;
+
+    private static double ramp(double t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
+
+    /** Looks up vanilla's land every LAND_STEP blocks wherever a lump stands (it is vanilla's smooth target height, and looking it up is slow). */
+    private void lookUpLand() {
+        ln = (int) Math.ceil((n - 1) * sp / LAND_STEP) + 4;
+        land = new float[ln * ln];
+        boolean[] need = new boolean[ln * ln];
+        for (int a = 0; a < peaks.size(); a++) {
+            ErodedPeaks.Peak p = peaks.get(a);
+            double r = 1.45 * reachOf[a];
+            int x0 = (int) Math.floor((p.x() - r - ox) / LAND_STEP), x1 = (int) Math.ceil((p.x() + r - ox) / LAND_STEP) + 3;
+            int z0 = (int) Math.floor((p.z() - r - oz) / LAND_STEP), z1 = (int) Math.ceil((p.z() + r - oz) / LAND_STEP) + 3;
+            for (int zz = Math.max(0, z0); zz <= Math.min(ln - 1, z1); zz++) for (int xx = Math.max(0, x0); xx <= Math.min(ln - 1, x1); xx++) need[zz * ln + xx] = true;
+        }
+        for (int lz = 0; lz < ln; lz++) for (int lx = 0; lx < ln; lx++) if (need[lz * ln + lx])
+            land[lz * ln + lx] = (float) (128 + 128 * PeakStrength.land((int) ox + (lx - 1) * LAND_STEP, (int) oz + (lz - 1) * LAND_STEP));
+    }
+
+    /** How far vanilla's land stands above the base level at a place (0 where it is below it). */
+    private double overAt(double x, double z) {
+        double gx = (x - ox) / LAND_STEP + 1, gz = (z - oz) / LAND_STEP + 1;
+        if (gx < 1 || gz < 1 || gx > ln - 3 || gz > ln - 3) return 0;
+        return Math.max(0, cubicAt(land, ln, gx, gz) - datumAt(x, z));
+    }
+
+    /**
+     * The drape. Vanilla's hill under a peak is often higher than the eroded shape over much of
+     * the mountain (a first try without this, on real chunks at -2840 998 of Sammi's seed
+     * -3465664254209586682: carved ridges ran out to either side and the whole front was vanilla's
+     * smooth dome). The land cannot be lowered, so the shape is lifted, smoothly, until on average
+     * it lies COVER blocks above the land; the couloirs cut afterwards then run down to the land
+     * and the ribs stand out of it. The lift is worked out from the shape and the land both
+     * blurred over DRAPE_BLUR blocks, so what the water carved is kept; it fades to nothing
+     * towards the foot of the mountain (where the shape is under DRAPE_FULL blocks high), so land
+     * beyond the mountain is left alone; and ground already standing well clear of the land is
+     * lifted less. It comes before the summits are set to their heights, so it cannot move them.
+     */
+    private void drape() {
+        float[] gap = new float[h.length], over = new float[h.length];
+        for (int i = 0; i < h.length; i++) {
+            if (base[i] <= 0) continue;
+            over[i] = (float) overAt(ox + (i % n) * sp, oz + (i / n) * sp);
+            gap[i] = over[i] - h[i];
+        }
+        int radius = Math.max(1, (int) Math.round(DRAPE_BLUR / sp));
+        float[] blurGap = blur(gap, n, radius), blurShape = blur(free, n, radius), blurOver = blur(over, n, radius);
+        own = new float[h.length];
+        for (int i = 0; i < h.length; i++) {
+            if (outlet[i] || h[i] <= 0) continue;
+            double x = blurGap[i] + COVER, lift = 0.5 * (x + Math.sqrt(x * x + 36));        // a soft "above zero"
+            // "the mountain's own ground": where its shape has some height, and at least a fair share of the
+            // land's own height above the base level. (Without the second, the thin outer foot of a mountain
+            // was lifted over the top of a neighbouring hill of vanilla's 80 blocks high and skinned it in rock.)
+            // (Judged by the lump as it was before its fade towards rivers: the side of a mountain that
+            // faces a river is its own ground too. There the lift itself fades out, within RIVER_DRAPE
+            // blocks of the river, so the river keeps its banks.)
+            double f = ramp((blurShape[i] - DRAPE_FROM) / (DRAPE_FULL - DRAPE_FROM)) * ramp((blurShape[i] / (blurOver[i] + 8) - OWN_FROM) / (OWN_FULL - OWN_FROM))
+                    * ramp(riverAt[i] / RIVER_DRAPE);
+            own[i] = (float) f;
+            double clear = ramp((h[i] - over[i] - COVER) / DRAPE_CLEAR);
+            h[i] += (float) (lift * f * (1 - clear));
+        }
+    }
+
+    /** The base level at a place: the peaks' own base levels, blended. */
+    private double datumAt(double x, double z) {
+        double sig = BASE_BLEND * cell, sw = 0, sv = 0, nearest = Double.MAX_VALUE, nearestBase = 0;
+        for (int a = 0; a < baseY.length; a++) {
+            ErodedPeaks.Peak p = peaks.get(a);
+            double dx = x - p.x(), dz = z - p.z(), d2 = dx * dx + dz * dz;
+            if (d2 < nearest) { nearest = d2; nearestBase = baseY[a]; }
+            if (d2 > 36 * sig * sig) continue;
+            double w = Math.exp(-d2 / (2 * sig * sig));
+            sw += w; sv += w * baseY[a];
+        }
+        return sw < 1e-9 ? nearestBase : sv / sw;
+    }
+
     private void erode() {
         // The range rises slowly (fastest under the summits) while the water cuts it; it starts as a low rough plain.
         for (int i = 0; i < h.length; i++) h[i] = outlet[i] ? 0 : (float) (0.03 * base[i]);
@@ -401,6 +633,11 @@ final class Massif {
             for (int i = 0; i < h.length; i++) if (!outlet[i]) h[i] += (float) (UPLIFT * base[i] / STEPS);
             water(); thermal(THERMAL_PASSES);
         }
+        if (WHOLE && COVER > 0) drape();
+        // Three times: the ratios are blended between neighbouring peaks, and since 0.6.0 they differ more from
+        // peak to peak (one held down by a river beside one that is not), so once left summits up to 23 blocks
+        // short of their set heights (seed -5999978045571072206, 4098 -732: y 283 in 0.5.13, 260 after one pass).
+        rescale(); rescale();
         rescale();
         thermal(2);
     }
@@ -418,7 +655,8 @@ final class Massif {
                 int xx = gx + dx, zz = gz + dz;
                 if (xx >= 0 && zz >= 0 && xx < n && zz < n) top = Math.max(top, h[zz * n + xx]);
             }
-            ratio[a] = top < 5 ? 1 : Math.max(0.4, Math.min(4, p.h() / top));
+            ratio[a] = top < 5 ? 1 : Math.max(0.4, Math.min(4, target[a] / top));
+            if (DEBUG && top >= 5) System.err.printf("MASSIF peak %d %d: own height %.0f, stature %.0f, target %.0f, eroded to %.0f, ratio %.2f%n", (int) p.x(), (int) p.z(), p.h(), topY[a] - baseY[a], target[a], top, ratio[a]);
         }
         double sig = 0.35 * cell;
         for (int gz = 0; gz < n; gz++) for (int gx = 0; gx < n; gx++) {

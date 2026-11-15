@@ -13,13 +13,20 @@ vanilla's biomes, rivers, caves and structures. It applies to the normal world t
 ## What it changes
 
 In vanilla's mountain country (low erosion, away from the coast) the blobby ranges are replaced
-by clusters of separate pyramid peaks:
+by mountains shaped by erosion:
 
-- **Horn peaks.** Each peak is its own point, steep at the top and flaring into the land, with
-  three to five sharp ridges running down from the summit and a deep notch to its neighbour.
+- **Whole mountains, from the valley floor to the summit.** Each mountain is shaped as one
+  thing from the low ground round it: running water cuts valleys and leaves ridges that run out
+  into the land, couloirs are cut into the faces and the rock between them stands as sharp ribs.
+  Peaks close together share a base and meet at saddles. What is added to vanilla's land is
+  whatever of that shape stands above it; vanilla's land is never lowered.
+- **Snow and rock that follow the shape.** Snow lies in the couloirs and hollows and on the
+  gentler ground high up; ribs and cliffs stand out of it as dark rock. In frozen country a
+  mountain is white down to its foot. Lower down are open grass and then vanilla's own woods.
 - **One tallest peak, others stepping down**, biggest in the heart of the mountain country and
   shrinking towards its edges.
-- **Rivers still run between them**: river valleys are left as vanilla made them.
+- **Rivers still run between them**: a mountain comes down to vanilla's land at a river. (A
+  river valley between two peaks of the same group is covered.)
 - **A taller world.** Vanilla's land keeps its own height and the peaks stand on top of it, so
   the overworld's build height is raised from y 320 to y 512 and terrain may reach about y 480.
 
@@ -27,9 +34,11 @@ The top of each peak takes vanilla's own peak biome for its climate (jagged, fro
 peaks). Other biomes, caves, structures and everything outside mountain country are vanilla's.
 It applies to the default world type only (not Large Biomes or Amplified).
 
-The peak shape is the `atlasmountains:horns` density function (`HornsFunction.java`); where the
-peaks go and how they meet vanilla's land is set in `tools/build_overhaul.py`. The shape was
-worked out in `tools/prototype_horns.py`, which draws ground-level previews in seconds.
+Where the peaks stand and how tall they are is `HornsFunction.java`; their shape is `Massif.java`
+(read back by `ErodedPeaks.java`); where the snow lies and how dark the rock is, `Surface.java`;
+how they meet vanilla's land and biomes is set in `tools/build_overhaul.py`. `tools/preview` draws
+the mountains in seconds without Minecraft, from the mod's own code, on a stand-in land or on a
+real world's land and rivers dumped from the dev server (`tools/preview/real.sh`).
 
 Commands: `/locate mountain` finds the nearest mountain and `/locate mountain tallest` the
 tallest within 6,000 blocks, answered as vanilla's `/locate` answers (click the coordinates to

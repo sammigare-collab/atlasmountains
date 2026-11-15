@@ -12,8 +12,8 @@ final class SnowLine {
     /** Vanilla temperature at which the line has dropped fully, and where it starts to. */
     static final double COLD_FULL = -0.55, COLD_FROM = -0.35, COLD_DROP = 12.0;
 
-    private static final ThreadLocal<double[]> LAST = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, Double.NaN, 0, 0, 0});
-    private static final ThreadLocal<double[]> HEIGHT = ThreadLocal.withInitial(() -> new double[1]);
+    private static final ThreadLocal<double[]> LAST = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, Double.NaN, 0, 0, 0, 0, 0});
+    private static final ThreadLocal<double[]> HEIGHT = ThreadLocal.withInitial(() -> new double[2]);
 
     private SnowLine() {
     }
@@ -25,9 +25,10 @@ final class SnowLine {
         if (last[0] == x && last[1] == z && last[3] == world && last[4] == self) return last[2];
         double[] height = HEIGHT.get();
         double line = horns.snowLine(x, z, height);
-        last[5] = height[0];
+        last[5] = height[0]; last[6] = height[1];
         if (!Double.isNaN(line)) {
             double t = PeakStrength.temperature(x, z);
+            last[7] = t;
             line += WARM_RAISE * ramp(t, WARM_FROM, WARM_FULL) - COLD_DROP * (1 - ramp(t, COLD_FULL, COLD_FROM));
         }
         last[0] = x; last[1] = z; last[2] = line; last[3] = world; last[4] = self;
@@ -38,6 +39,18 @@ final class SnowLine {
     static double peakHeight(HornsFunction horns, int x, int z) {
         at(horns, x, z);
         return LAST.get()[5];
+    }
+
+    /** Vanilla's temperature at a column where there is a snow line (looked up once per column). Call after at(). */
+    static double temperature(HornsFunction horns, int x, int z) {
+        at(horns, x, z);
+        return LAST.get()[7];
+    }
+
+    /** The stature (blocks, base level to summit; see Massif) of the peaks round a column, blended as the snow line is. */
+    static double stature(HornsFunction horns, int x, int z) {
+        at(horns, x, z);
+        return LAST.get()[6];
     }
 
     private static double ramp(double v, double from, double to) {

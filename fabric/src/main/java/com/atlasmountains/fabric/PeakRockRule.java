@@ -95,6 +95,7 @@ public record PeakRockRule(List<Stop> stops, float wobble, float blendWidth, dou
             double zero = span > 0 ? capY - span * Math.max(SMALL_SPAN, Math.min(1, SnowLine.peakHeight(horns, x, z) / FULL_SPAN_HEIGHT))
                     : floor == NO_FLOOR ? baseY : floor;
             double h = 100 * (y + wobble * wobbleNoise.getAsDouble() - zero) / Math.max(8, capY - zero);
+            if (HornsFunction.ERODED) h += Surface.rockShift(horns, x, z);       // 0.6.0: darker where steep, lighter in hollows
             if (n == 1 || h <= stops.get(0).at()) return stops.get(0).state();
             if (h >= stops.get(n - 1).at()) return stops.get(n - 1).state();
             int k = 0;

@@ -22,7 +22,7 @@ COLOURS = {
     'stone': (125, 125, 125), 'andesite': (136, 136, 137), 'tuff': (108, 109, 103),
     'deepslate': (80, 80, 83), 'smooth_basalt': (72, 72, 78), 'calcite': (223, 224, 220),
     'gravel': (131, 127, 126), 'dirt': (134, 96, 67), 'coarse_dirt': (119, 85, 59),
-    'grass_block': (110, 155, 75), 'podzol': (91, 63, 24), 'moss_block': (89, 109, 45),
+    'grass_block': (110, 155, 75), 'vanilla_land': (88, 128, 92), 'podzol': (91, 63, 24), 'moss_block': (89, 109, 45),
     'water': (60, 90, 200), 'ice': (145, 183, 253), 'packed_ice': (141, 180, 250), 'blue_ice': (116, 167, 253),
     'sand': (219, 207, 163), 'clay': (160, 166, 179), 'mud': (60, 57, 61),
     'short_grass': (110, 155, 75), 'tall_grass': (110, 155, 75), 'fern': (100, 140, 70),
@@ -51,7 +51,8 @@ def load(path):
     n = int(round(np.sqrt(len(raw))))
     names = open(path[:-4] + '.txt').read().split('\n')
     parts = os.path.basename(path)[:-4].split('_')
-    x0, z0 = int(parts[1]), int(parts[2])
+    nums = [q for q in parts if q.lstrip('-').isdigit()]        # the label may itself hold underscores
+    x0, z0 = int(nums[0]), int(nums[1])
     height = raw[:, 0].reshape(n, n).astype(np.float64)   # [z, x]
     ids = raw[:, 1].reshape(n, n)
     pal = np.array([COLOURS.get(nm.split(':')[-1], DEFAULT) for nm in names], dtype=np.float64)
@@ -65,7 +66,8 @@ def top_map(height, ids, pal):
     return np.clip(col * light[..., None], 0, 255).astype(np.uint8)
 
 
-def view(x0, z0, height, ids, pal, cam, yaw, pitch, fov=70, w=1280, h=720):
+def view(x0, z0, height, ids, pal, cam, yaw, pitch, fov=70, w=1280, h=720, sun=None):
+    """sun=(azimuth, altitude) in degrees lights the ground by its slope, as a photograph would be (NOT as the game does): for judging shape only."""
     n = height.shape[0]
     yr, pr = np.radians(yaw), np.radians(pitch)
     fwd = np.array([-np.sin(yr) * np.cos(pr), -np.sin(pr), np.cos(yr) * np.cos(pr)])
@@ -91,6 +93,7 @@ def view(x0, z0, height, ids, pal, cam, yaw, pitch, fov=70, w=1280, h=720):
     out = np.zeros((m, 3)); done = np.zeros(m, bool); face = np.zeros(m, int)  # 0 sky
     sky = np.array([150, 180, 255.0])
     face_axis = np.zeros(m, int)                        # the axis of the step that entered the current column
+    hitx = np.zeros(m, int); hitz = np.zeros(m, int)
     for _ in range(int(2.2 * n)):
         act = ~done
         if not act.any():
@@ -114,6 +117,7 @@ def view(x0, z0, height, ids, pal, cam, yaw, pitch, fov=70, w=1280, h=720):
             sh = idx[side_hit]
             face[sh] = np.where(face_axis[sh] == 0, 3, 2)   # 3: east/west face, 2: north/south face
             out[hi] = pal[ids[cz[hi], cx[hi]]]
+            hitx[hi] = cx[hi]; hitz[hi] = cz[hi]
         step_x = act & (tmx < tmz)
         step_z = act & ~step_x
         face_axis = np.where(step_x, 0, np.where(step_z, 1, face_axis))
@@ -121,6 +125,14 @@ def view(x0, z0, height, ids, pal, cam, yaw, pitch, fov=70, w=1280, h=720):
         cx = np.where(step_x, cx + sx, cx); tmx = np.where(step_x, tmx + tdx, tmx)
         cz = np.where(step_z, cz + sz, cz); tmz = np.where(step_z, tmz + tdz, tmz)
     shade = np.array([1.0, 1.0, 0.8, 0.6])[face]
+    if sun is not None:
+        from scipy.ndimage import gaussian_filter
+        hs = gaussian_filter(height.astype(float), 1.0)
+        gz, gx = np.gradient(hs)
+        az, alt = np.radians(sun[0]), np.radians(sun[1])
+        lx, lz, ly = np.sin(az) * np.cos(alt), -np.cos(az) * np.cos(alt), np.sin(alt)
+        lam = np.clip((-gx * lx - gz * lz + ly) / np.sqrt(gx * gx + gz * gz + 1), 0, 1)
+        shade = 0.30 + 0.85 * lam[hitz, hitx]
     img = np.where((face > 0)[:, None], out * shade[:, None], sky)
     fog = np.clip((tcur - 0.45 * n) / (1.3 * n), 0, 0.6)[:, None] * (face > 0)[:, None]
     img = img * (1 - fog) + sky * fog

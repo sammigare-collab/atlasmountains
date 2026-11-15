@@ -27,7 +27,7 @@ final class ErodedPeaks {
     static final int GRID = REGION / SPACING + 2 * OVERLAP;
     /** The overlap in blocks, and half the width of the band over which one region hands over to the next. */
     static final double PAD = OVERLAP * SPACING, BLEND = 64;
-    /** Regions kept in memory (1.8 MB each); the least recently used are dropped beyond this. */
+    /** Regions kept in memory (2.4 MB each); the least recently used are dropped beyond this. */
     static final int KEEP = 36;
 
     /** Fine noise added when the 4-block grid is read back, so faces are not glassy. */
@@ -44,7 +44,9 @@ final class ErodedPeaks {
      * erosion: a summit nearer a river than that was squashed to a low mound of bare rock
      * (Sammi's screenshot at -9837 -2238, seed -3550034452994718772).
      */
-    static final double RIVER_FADE = 90, RIVER_FADE_MIN = 16, RIVER_SHARE = 0.7;
+    // 0.6.0: RIVER_SHARE 0.7 to 0.45 and RIVER_FADE 90 to 70. A mountain is now shaped whole, from the low ground up, and the
+    // long fade took the whole side facing a river off it (Sammi's seed -3465664254209586682 at -2836 997).
+    static double RIVER_FADE = 70, RIVER_FADE_MIN = 16, RIVER_SHARE = 0.45;
 
     /** One peak as HornsFunction places it: summit (in its warped coordinates), height, sampler look, cell. */
     record Peak(double x, double z, double h, int look, long ix, long iz) {}
@@ -53,6 +55,7 @@ final class ErodedPeaks {
         float[] relief;   // blocks above the ground after erosion; null where the region has no mountains at all
         float[] carve;    // how far erosion lowered the ground (above zero in a gully)
         float[] buried;   // 1 where a river between two peaks of a group is covered (Massif.BURY_FROM)
+        float[] up;       // how far up its mountain a column is: 0 at the base level, 1 at the summit (0.6.0)
         int originX, originZ;
         volatile long used;
     }
@@ -166,6 +169,21 @@ final class ErodedPeaks {
         return b[i] * (1 - tx) * (1 - tz) + b[i + 1] * tx * (1 - tz) + b[i + GRID] * (1 - tx) * tz + b[i + GRID + 1] * tx * tz;
     }
 
+    /** How far up its mountain a column is: 0 at the mountain's base level, 1 at its summit. Call after sample(). */
+    static double up(HornsFunction horns, int x, int z) {
+        int rx = Math.floorDiv(x, REGION), rz = Math.floorDiv(z, REGION);
+        if (!REGIONS.containsKey(key(rx, rz))) return 0;
+        Region r = region(horns, rx, rz);
+        if (r.up == null) return 0;
+        double gx = (x - r.originX) / (double) SPACING, gz = (z - r.originZ) / (double) SPACING;
+        int ix = (int) Math.floor(gx), iz = (int) Math.floor(gz);
+        if (ix < 0 || iz < 0 || ix > GRID - 2 || iz > GRID - 2) return 0;
+        double tx = gx - ix, tz = gz - iz;
+        float[] b = r.up;
+        int i = iz * GRID + ix;
+        return b[i] * (1 - tx) * (1 - tz) + b[i + 1] * tx * (1 - tz) + b[i + GRID] * (1 - tx) * tz + b[i + GRID + 1] * tx * tz;
+    }
+
     /** Whether any mountain could reach this column (by the reach of its lump, with 16 blocks to spare). */
     private static boolean anyNear(HornsFunction horns, int x, int z) {
         long seed = AtlasMountainsMod.seed();
@@ -194,7 +212,9 @@ final class ErodedPeaks {
     // most of the way up a rib and a wood sat half-way up between two peaks.
     // 0.5.7: GRASS_SLOPE 0.85 to 1.1. The feet of the water-made mountains are steeper than the old flanks
     // (37 degrees and up), so nearly all of the foot counted as too steep and rock met forest at a hard line.
-    static final double GRASS_SLOPE = 1.1, TREES_UP = 0.12, GRASS_UP = 0.24, PATCH_UP = 0.34;
+    // 0.6.0: the bands are shares of the WHOLE mountain now (base level to summit) and reach higher: TREES_UP 0.12 to 0.16,
+    // GRASS_UP 0.24 to 0.36, PATCH_UP 0.34 to 0.50; GRASS_SLOPE 1.1 to 1.2.
+    static double GRASS_SLOPE = 1.2, TREES_UP = 0.16, GRASS_UP = 0.36, PATCH_UP = 0.50;
     private static final ThreadLocal<double[]> ROCKY = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, 0, 0, 0});
 
     /** 1 where a mountain's surface is bare rock at this column, 0 where it is grass (or there is no mountain). Remembers the last column per thread. */
@@ -216,10 +236,9 @@ final class ErodedPeaks {
         sample(horns, x, z, o);
         double relief = o[0];
         if (relief < 2) return 0;
-        double tall = SnowLine.peakHeight(horns, x, z);
-        if (!(tall > 20)) tall = 120;
         long seed = AtlasMountainsMod.seed();
-        double up = relief / tall + 0.06 * HornsFunction.valueNoise(x / 37.0, z / 37.0, seed + 771);
+        // 0.6.0: how far up the whole mountain (base level to summit), not up the part the mod adds
+        double up = up(horns, x, z) + 0.06 * HornsFunction.valueNoise(x / 37.0, z / 37.0, seed + 771);
         if (up >= PATCH_UP) return 2;
         sample(horns, x + 3, z, o); double e = o[0];
         sample(horns, x - 3, z, o); double w = o[0];
@@ -294,11 +313,12 @@ final class ErodedPeaks {
         Region r = new Region();
         r.originX = rx * REGION - OVERLAP * SPACING;
         r.originZ = rz * REGION - OVERLAP * SPACING;
-        float[] relief = new float[GRID * GRID], carve = new float[GRID * GRID], buried = new float[GRID * GRID];
-        if (Massif.build(horns, AtlasMountainsMod.seed(), r.originX, r.originZ, GRID, SPACING, relief, carve, buried)) {
+        float[] relief = new float[GRID * GRID], carve = new float[GRID * GRID], buried = new float[GRID * GRID], up = new float[GRID * GRID];
+        if (Massif.build(horns, AtlasMountainsMod.seed(), r.originX, r.originZ, GRID, SPACING, relief, carve, buried, up)) {
             r.relief = relief;
             r.carve = carve;
             r.buried = buried;
+            r.up = up;
         }
         return r;                                  // no mountains here: relief stays null, nothing was eroded
     }

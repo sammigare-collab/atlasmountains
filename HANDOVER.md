@@ -1,5 +1,13 @@
 # Handover: atlasmountains, 14 November 2026
 
+UPDATE, 15 November 2026: 0.6.0 is the current build. READ ITS CHANGELOG ENTRY FIRST: it records the
+finding that changed everything (the mod had only been shaping the 60-odd blocks it adds on top of
+vanilla's smooth 80-block hill; the preview's flat land hid it) and the rules it bends. How to work now:
+`tools/dev/snap5.sh <dir> "<x y z>"` dumps a real world's maps; add the seed to `tools/preview/real.sh`;
+iterate there in seconds on real land and rivers; `tools/dev/batch.sh <tag>` then runs real chunks on four
+of his seeds (15 minutes) and `tools/preview/sheet.py` makes before and after sheets from his camera spots.
+Never judge a change on the stand-in land alone. Waiting for his in-game verdict on 0.6.0.
+
 UPDATE, later the same day: 0.5.4 is built and sent (see CHANGELOG.md). The preview tool exists
 (`tools/preview`: `build.sh`, then `java -cp classes com.atlasmountains.fabric.Preview ...`,
 then `render.py`). The open question below is answered: he chose joined peaks (version C), to be

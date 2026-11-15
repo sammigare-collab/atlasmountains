@@ -50,20 +50,8 @@ public record PeakSnowCondition(double edge, double gully, double fringe) implem
         return () -> {
             HornsFunction horns = HornsFunction.current;
             if (horns == null) return false;
-            int x = context.blockX(), z = context.blockZ();
-            double line = SnowLine.at(horns, x, z);
-            if (Double.isNaN(line)) return false;
-            double above = context.blockY() - line;
-            if (above < -(edge + gully) * 1.5) return false;                         // far below: skip the noises
-            // on the eroded mountains: real gullies and sheltered hollows both hold snow lower down
-            double depth = horns.column(x, z)[3];
-            double rib = Math.max(-1, Math.min(1, depth / FULL_RIB));
-            above += edge * Math.max(-1.5, Math.min(1.5, 2 * edgeNoise.getAsDouble())) + gully * rib;
-            if (HornsFunction.ERODED) above += ErodedPeaks.snowShift(horns, x, z);   // hollows hold snow, steep ribs shed it
-            if (above < 0) return false;
-            if (above >= fringe) return true;
-            // patches: about a quarter covered right at the line, filling in with height
-            return patchNoise.getAsDouble() > 0.25 - 0.85 * above / fringe;
+            // 0.6.0: where the snow lies is worked out in Surface (hollows and couloirs hold it, steep ground and ribs shed it)
+            return Surface.snow(horns, context.blockX(), context.blockY(), context.blockZ(), edge, fringe, edgeNoise, patchNoise);
         };
     }
 }

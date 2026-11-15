@@ -509,9 +509,10 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     private static final class Near {
         long cx = Long.MIN_VALUE, cz, seed;
         int owner, count;
-        final double[] peaks = new double[25 * 4];
+        final double[] peaks = new double[25 * 5];
     }
 
+    static final double SNOW_STATURE = 1.6;
     private static final ThreadLocal<Near> NEAR = ThreadLocal.withInitial(Near::new);
 
     /** As snowLine; also puts the height of the peaks round here (blended the same way) in heightOut[0]. */
@@ -531,17 +532,20 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
                     if (h < minHeight) continue;
                     near.peaks[n++] = sx; near.peaks[n++] = sz; near.peaks[n++] = h;
                     near.peaks[n++] = 128 + 128 * PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + h;
+                    // 0.6.0: the snow starts SNOW_SHARE of the way down the whole mountain (base level to summit), not of the
+                    // part the mod adds; at most SNOW_STATURE times that part, so a small peak on a big hill keeps a small cap
+                    near.peaks[n++] = Math.min(SNOW_STATURE * h, Massif.stature(this, new ErodedPeaks.Peak(sx, sz, h, 0, ix, iz)));
                 }
             near.count = n; near.cx = cx; near.cz = cz; near.seed = seed; near.owner = System.identityHashCode(this);
         }
-        double spread = SNOW_BLEND_CELLS * cell, sum = 0, weight = 0, heights = 0;
-        for (int k = 0; k < near.count; k += 4) {
+        double spread = SNOW_BLEND_CELLS * cell, sum = 0, weight = 0, heights = 0, statures = 0;
+        for (int k = 0; k < near.count; k += 5) {
             double dx = blockX - near.peaks[k], dz = blockZ - near.peaks[k + 1], h = near.peaks[k + 2], tall = h / height;
             double w = tall * tall * Math.exp(-(dx * dx + dz * dz) / (2 * spread * spread));
-            sum += w * (near.peaks[k + 3] - SNOW_SHARE * h); weight += w; heights += w * h;
+            sum += w * (near.peaks[k + 3] - SNOW_SHARE * near.peaks[k + 4]); weight += w; heights += w * h; statures += w * near.peaks[k + 4];
         }
         if (weight < 1e-12) return Double.NaN;
-        if (heightOut != null) heightOut[0] = heights / weight;
+        if (heightOut != null) { heightOut[0] = heights / weight; if (heightOut.length > 1) heightOut[1] = statures / weight; }
         return sum / weight;
     }
 

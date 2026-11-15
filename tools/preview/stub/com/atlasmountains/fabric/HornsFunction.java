@@ -53,7 +53,7 @@ record HornsFunction(double cell, double warp, double height, double heightVar, 
     double snowLine(int blockX, int blockZ, double[] heightOut) {
         long seed = AtlasMountainsMod.seed();
         long cx = (long) Math.floor(blockX / cell), cz = (long) Math.floor(blockZ / cell);
-        double spread = SNOW_BLEND_CELLS * cell, sum = 0, weight = 0, heights = 0;
+        double spread = SNOW_BLEND_CELLS * cell, sum = 0, weight = 0, heights = 0, statures = 0;
         for (long iz = cz - 2; iz <= cz + 2; iz++)
             for (long ix = cx - 2; ix <= cx + 2; ix++) {
                 double sx = (ix + 0.5 + (hash(ix, iz, seed + 3) - 0.5) * JITTER) * cell;
@@ -62,12 +62,13 @@ record HornsFunction(double cell, double warp, double height, double heightVar, 
                 h *= PeakStrength.at(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz));
                 if (h < minHeight) continue;
                 double top = 128 + 128 * PeakStrength.landAt(ix, iz, (int) Math.floor(sx), (int) Math.floor(sz)) + h;
+                double snowH = Math.min(1.6 * h, Massif.stature(this, new ErodedPeaks.Peak(sx, sz, h, 0, ix, iz)));
                 double dx = blockX - sx, dz = blockZ - sz, tall = h / height;
                 double w = tall * tall * Math.exp(-(dx * dx + dz * dz) / (2 * spread * spread));
-                sum += w * (top - SNOW_SHARE * h); weight += w; heights += w * h;
+                sum += w * (top - SNOW_SHARE * snowH); weight += w; heights += w * h; statures += w * snowH;
             }
         if (weight < 1e-12) return Double.NaN;
-        if (heightOut != null) heightOut[0] = heights / weight;
+        if (heightOut != null) { heightOut[0] = heights / weight; if (heightOut.length > 1) heightOut[1] = statures / weight; }
         return sum / weight;
     }
 }

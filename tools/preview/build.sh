@@ -3,4 +3,4 @@
 cd "$(dirname "$0")"
 SRC=../../fabric/src/main/java/com/atlasmountains/fabric
 rm -rf classes && mkdir classes
-javac -d classes $(find stub src -name '*.java') $SRC/ErodedPeaks.java $SRC/Massif.java $SRC/SnowLine.java
+javac -d classes $(find stub src -name '*.java') $SRC/ErodedPeaks.java $SRC/Massif.java $SRC/SnowLine.java $SRC/Surface.java

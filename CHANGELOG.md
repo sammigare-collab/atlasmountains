@@ -1,5 +1,100 @@
 # Changelog
 
+## 0.6.0 (unreleased): the whole mountain shaped, and snow and rock that follow the shape
+
+Sammi, after 0.5.13 and with his two reference pictures already agreed (knife-edge ridges,
+hollow faces, dark rock standing out of snow; "I just want the feel"): get "as close to my
+reference images as possible, go really hard like it's your last ever attempt". Several
+changes in one build, at his asking.
+
+### What was wrong (measured, not guessed)
+On his seed -3465664254209586682 the peak of his screenshots (-2836 997) stood 145 blocks above
+the plain. 63 of those were the mod's. The other 80 were vanilla's own smooth hill under it.
+Everything that carves (water, gullies, ridges) had only ever worked on the mod's part, as if
+the ground under it were flat. So the game showed a smooth blob with a rough tip, while the
+preview tool, which had flat land, showed ridged massifs: the preview had been showing a
+different thing from the game since 0.5.4. (Found by dumping the mountain's own height map at
+full resolution next to the real terrain: `tools/dev/snap4.sh`.)
+
+### What changed
+1. THE WHOLE MOUNTAIN IS SHAPED (`Massif.java`). Each peak has a base level (the level a
+   quarter of the land round it lies below, at most 110 under its summit's land) and its lump is
+   as tall as base to summit (its "stature") and as wide as a mountain that tall. It is eroded
+   and carved as before. What is added to vanilla's land at a column is whatever of that shape
+   stands above the land there. Vanilla's land is still never lowered.
+   - The drape: vanilla's hill is often higher than the eroded shape, so the shape is lifted,
+     smoothly, to lie about 16 blocks over the land on the mountain's own ground (not over a
+     neighbouring hill of vanilla's). It comes before the summits are set to their heights.
+   - High on a mountain (from a fifth of the way up) the hollows between the ribs get a skin of
+     the mountain's own surface, so vanilla's woods do not sit in a hollow half-way up.
+   - Faces are carved from 10 blocks up (was 22): the mountain is the whole thing now.
+2. RIVERS: towards a river a mountain now comes down to vanilla's LAND, not to nothing, over
+   45% of its summit's distance to the river (was 70%), at most 70 blocks (was 90).
+3. SNOW AND ROCK FOLLOW THE SHAPE (new `Surface.java`; the game's rules and the preview both
+   ask it). Minecraft has no sun: a smooth face of one rock looks the same whether it is a rib
+   or a hollow, so the ribs of 0.5.12 could hardly be seen.
+   - Snow lies up to 35 blocks below the range's snow line where the ground holds it (hollows,
+     couloirs, gentle ground), is shed by the crests of ribs and by cliffs, is kept off the
+     lower two-fifths of a mountain, and reaches less far down small mountains.
+   - In vanilla's frozen country (temperature under about -0.45) a mountain is white down to
+     its foot, with ribs and cliffs dark. Before, it had a white cap, a band of dark rock and
+     green grass, in a white landscape.
+   - Rock is darker on the crests of ribs and on cliffs and lighter on the floors of hollows,
+     on top of the dark-to-light gradient by height he chose.
+   - The snow line and the bands of growth are measured on the whole mountain (base to
+     summit). Bands: trees to 16% of the way up, open grass to 36%, patches to 50%.
+4. The preview tool can now use a REAL world: `tools/dev/snap5.sh` dumps a world's land, peak
+   strength, river and temperature maps from the dev server and `tools/preview/real.sh` runs the
+   mod's code on them. On his seeds it puts the same peaks in the same places as the game. Its
+   stand-in land now has hills like vanilla's. `panel.py` draws a sun-lit view (shape only, not
+   how the game looks) beside a game-lit one; `sheet.py` makes before and after sheets.
+
+### RULES THIS BENDS (he has said not to touch these unless he asks)
+- Heights and places of summits. Most are within 3 blocks of 0.5.13, but a few are lower by 8
+  to 14 and their highest point up to 30 blocks to one side (below).
+- River settings: see 2.
+- Vanilla's own surface (woods, whatever biome) now shows in the valleys between a mountain's
+  ridges, where before the whole footprint was rock. On the coast seed that is a pale garden.
+
+### Tried on the way and dropped
+- Lifting the shape over the land AFTER the summits were set: summits 11 too high.
+- Capping a mountain at one block of height per block from a river: summits near rivers moved
+  30 blocks and came out up to 23 low. (Fading to the land instead: see 2.)
+- Scaling summits to height once: 23 low where neighbouring peaks needed very different
+  scaling. It is done three times now.
+- Shedding snow by steepness from 1.15: the carved upper mountain stands at 1.9 everywhere
+  (the ridge pass), so all of it went bare. Ribs and couloirs are told apart by whether the
+  ground stands proud of or below the ground round it; only cliffs steeper than 1.95 shed.
+- No limit on how low snow can lie: half the snow of a test square lay at the feet of small peaks.
+- Draping wherever the lump had any height: the thin outer foot of a mountain was lifted over a
+  neighbouring vanilla hill 80 blocks high and skinned it in rock.
+
+### Checked
+Dev server, real generated chunks, 1024 squares on four of his seeds, no errors in any log:
+-3465664254209586682 at -2880 1030 (frozen), -5999978045571072206 at 4200 -650 (hot),
+6021084639467433954 at -7500 5600 (snowy), -6677413799414465054 at -1380 1750 (coast).
+- Summits, 0.5.13 (or the last build run there) then 0.6.0: frozen 211 212. Hot 191 191;
+  194 181 (31 blocks to one side); 192 193; 280 272; 283 270; 269 258. Snowy 266 263; 252 253;
+  200 200; 212 214; 225 227; 259 257. Coast 237 240; 216 202; 197 197; 238 238; 224 225; 235 232.
+  Against the heights the peaks are SET to, the preview has them within 5.
+- Snow blocks, share of each square: 0.8% to 1.7%, 0.2% to 0.8%, 1.1% to 3.7%, 0.9% to 1.7%.
+- Columns with a step of 10 or more to a neighbour: 0.31 to 0.32%, 0.40 to 0.44%, 0.99 to
+  1.07%, 0.89 to 0.97% (the sheer-wall fault of 0.5.10's notes is neither better nor worse).
+- Erosion 670 to 790 ms per region on average, 1.3 to 1.8 s at worst (0.5.13: 631 and 1342).
+- No jungle on any of the four.
+Seen in renders of those chunks from his camera spots: horns with ridges running out and
+wooded valleys between, where there were cones; snow in streaks with dark ribs through it.
+
+### Not tested, and known
+- NOT in the game by eye. The renders colour a whole column by its top block; the game shows
+  the sides of blocks too, and vanilla's cold-biome snow layer whitens the tops of bare rock
+  high up. Expect the game to differ from the renders.
+- A lone peak in frozen country seen from the side its river is on (his first camera spot on
+  the frozen seed) is still a plain white pyramid with one dark ridge.
+- The side of a mountain facing a river is still its smoothest.
+- Cold biomes other than these; coasts; other mods; a long flight; memory (regions are 2.4 MB
+  each now, 36 kept).
+
 ## 0.5.13 (unreleased): a short crest for a top
 
 Sammi's five screenshots of 0.5.12, lone peaks in frozen country, seed -3465664254209586682
