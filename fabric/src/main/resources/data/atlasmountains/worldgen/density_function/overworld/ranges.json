@@ -1,0 +1,11 @@
+{
+ "type": "minecraft:cache",
+ "input": {
+  "type": "minecraft:noise",
+  "noise": "atlasmountains:ranges",
+  "shift_x": -4000.0,
+  "shift_z": -44500.0,
+  "xz_scale": 1.0,
+  "y_scale": 0.0
+ }
+}

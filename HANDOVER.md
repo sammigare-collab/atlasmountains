@@ -1,32 +1,26 @@
 # Handover: atlasmountains, 14 November 2026
 
-PAUSED, 15 November 2026, 15:30 ("lets pause and carry on later"). THE JAR HE HAS IS 0.6.1 (commit f5cd6f6); nothing
-newer has been built or sent. Two things are open, both asked for after he said he loved 0.6.1:
-1. SMALLER: looking at his world map (seed 2089824661498644259) he asked "how big are these though ?? can we make
-   them slightly smaller ? maybe like 60% of what they are currently". Told him: 60% means tallest 155 above its land
-   and about 415 across (0.6.1: 258 and 690), a little under 0.6.0's full size but with every peak full size; and that
-   it shrinks each mountain, not the range, so he should say if it was the amount of mountain on the map he minded.
-   He has not answered that. Promised: his own world from above at 100 and 60 before the jar. Size is now ONE NUMBER,
-   `SIZE` in `tools/build_overhaul.py` (committed at 1.0, which is 0.6.1 exactly: same checksum). To do: set 0.6,
-   regenerate, run `tools/preview` Seams at that size and try OVERLAP 64 again (reach falls to 270 blocks), set the
-   preview stand-in's `game()` to the same cell and height, `tools/dev/mapshot.sh /tmp/M60 2089824661498644259
-   "-500 100 400" 8192 16` and draw it beside /tmp/M100 (made at SIZE 1.0, lost if the workspace is new), real chunks
-   at his spot 493 774 and on two more seeds, then build 0.6.2.
-2. LOADING, "without effecting it at all": every change must leave the terrain the same to the last bit. The preview
-   now prints "checksum of the relief"; at SIZE 1.0 it is 677954a2 (dense scene) and 6fb51169 (sparse) for 0.6.1.
-   - Done and committed: the rock-slide step skips cells that cannot change. Same checksums. It saved nothing
-     measurable, because most cells do move every pass. Harmless; left in.
-   - Measured, in the preview, one full region: lumps 0.1 s, running water 0.5 to 0.8 (the heap of the flood),
-     rock slides 0.3 to 0.5, faces 0.3 to 0.4.
-   - Measured, in the game (flight recorder during a snapshot in mountain country): the mod is on the stack in 15% of
-     chunk generation; 8.5% is `PeakStrength.land` (vanilla's land height worked out afresh for every column each
-     time a surface rule asks; remembering it per column would be exact), the rest is vanilla's own.
-   - Opening a world: 52 s on the dev server on his first seed and 88 s on 2089824661498644259, all of it stronghold
-     placement (see the 0.6.1 changelog). Planned and NOT started: remember, in the world folder, the answers given
-     to single-column questions for regions no chunk has used yet (`ColumnFunction.sampleValue` is the single-column
-     path, `sampleVolume` the chunk path), so only the first open of a world pays. Check it by comparing
-     `/locate structure stronghold` between the first and second open of the same world. A new world still pays in
-     full; nothing exact has been found for that beyond making a region quicker to build.
+UPDATE, 15 November 2026, evening: 0.6.2 IS BUILT AND SENT. READ ITS CHANGELOG ENTRY FIRST: it records what he
+meant by "smaller" (not the mountains, not the edges of the range: whole stretches of a range gone, the rest as
+packed as it was) and the two wrong turns before that. He has NOT yet seen 0.6.2 in the game. Waiting for his verdict.
+- The amount of mountain is the RANGES block in `tools/build_overhaul.py`: `RANGE_FROM`/`RANGE_FULL` move the share
+  (the noise's 40th percentile is -0.08: lower both for more mountain), `RANGE_OCTAVE` the size of the stretches,
+  `RANGE_SHIFT_X/Z` which stretches are on in any one world (picked for his world: 493 774 on, the belt east of
+  x 1,700 off). `SIZE` (how big each mountain is) stays 1.0: he loves the mountain itself.
+- Likely next complaints: what stands in a stretch that is off (vanilla's high ground and snow biomes, without its
+  spikes, rivers cut to water level); worlds made in 0.6.1 get a hard stop where old chunks meet new.
+- Loading: reopening a world is fixed (`KeptColumns.java`, 81 s to 2 s to the first stronghold). Creating a world
+  is not (64 s on the dev server on his seed, all of it eroding regions near stronghold sites). Making chunks is
+  no faster than 0.6.1: the per-thread column memory is exact but saved nothing measurable.
+- Every speed change must leave terrain the same to the last bit. Checks that exist: the preview prints "checksum
+  of the relief" (677954a2 dense, 6fb51169 sparse, at SIZE 1.0); files /tmp/atlas_nomemory and /tmp/atlas_nokeeping
+  switch the two memories off for an A/B run; `/tmp/strong.sh`-style `/locate` from fixed places between openings.
+- Dev scripts are in `tools/dev/` (they expect to be run from /tmp copies or by path): srv_start.sh (fresh world), srv_again.sh (same world),
+  mapshot.sh (land and peak height maps, no chunks), drawzoom.py/drawmaps.py (his world from above from those maps).
+  Never run a second server command while a timing run is going: the box has two cores.
+- A straight edge between jungle and badlands at about 1700..2050, 1120 on his seed (in the stretch that is now
+  off) was looked at and taken to be vanilla's own biome boundary. Not checked against a world without the mod.
+
 Also since 0.6.1: his screenshot is the README's picture (docs/atlas-mountains.png) and the mod's icon.
 
 UPDATE, 15 November 2026, later: 0.6.1 is the current build. READ ITS CHANGELOG ENTRY FIRST. He tried 0.6.0

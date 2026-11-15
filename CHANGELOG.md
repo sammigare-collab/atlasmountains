@@ -1,5 +1,75 @@
 # Changelog
 
+## 0.6.2 (unreleased): ranges that end, and a world that opens quickly the second time
+
+Sammi, of 0.6.1 on seed 2089824661498644259 (15 Nov 2026): "loving it good job" (at 493 774), then,
+looking at his world map, where one belt of mountains ran 3,900 blocks by 2,200: "how big are these
+though ?? can we make them slighlty smaller ?", "maybe like 60% of what they are currently", and
+"anything we can do to optimise loading without effecting it at all".
+
+**What he meant by smaller, in three steps (keep these, they cost two wrong turns).**
+1. First read as smaller mountains (one number, `SIZE`, added for it; still 1.0 and still there).
+   Asked which he meant: "it was how much of the map was mountain and not the actualy mountain, i love
+   the actual mountain".
+2. Then read as mountain country drawn in from its edges (the erosion limits at -0.49 and -0.59: 62%
+   of the area). Shown his world from above: "i liked the density just not the spread", with the
+   eastern third of the belt scribbled out, and "doesnt have to cut the far end but you get the idea
+   more rather then shrinking thee exterior". That version thinned every range and kept its length.
+3. So: the mountains and mountain country are as in 0.6.1, and a second, much larger pattern says
+   which stretches of mountain country have mountains at all.
+
+**Changed.**
+- `tools/build_overhaul.py`, RANGES: a noise of the mod's own (`atlasmountains:ranges`, first octave
+  -12, 4,096 blocks to a wave, read at a fixed offset) multiplies each peak's strength: 1 where the
+  noise is above -0.04, 0 below -0.12. Its 40th percentile is -0.08, so it is on over 60% of any
+  world. A stretch that is off is typically 1,800 blocks across. The join is about 260 blocks wide:
+  one row of peaks, shorter than their neighbours. The offset (-4000, -44500) was picked so that on
+  his world the part he scribbled out is off and the mountains round 493 774 are on; any offset gives
+  the same 60% on average.
+- NOT changed where a stretch is off: the land (rivers are still cut to water level there) and
+  vanilla's spikes, which stay switched off over all of mountain country as in 0.6.1. What stands
+  there is vanilla's high ground and biomes without the spikes. He has not seen this in the game.
+- `KeptColumns.java` (new): the answers the mod gives about single columns in regions no chunk has
+  been made from (the game asks for thousands of them to place its 128 strongholds each time a world
+  is opened) are kept in the world's folder, `atlasmountains/columns.bin` (1.7 MB on his seed), and
+  given again next time. Only single-column questions are ever answered from it, never a chunk being
+  made. Thrown away if the seed, the mod's version, the peaks' settings or the list of data packs
+  differs. `ColumnFunction.sampleValue` marks a single-column question; a region is marked once a
+  chunk reads it (`ErodedPeaks.walk`), after which nothing in it is kept.
+- `HornsFunction.column`: remembers the last 4,096 columns per thread, shared between the copies
+  of the function the game makes (it kept one column per copy). Same numbers.
+
+**Measured.**
+- His world, 8,192 blocks square round -500 400, 16-block grid: mountains on 60% of the ground they
+  stood on in 0.6.1 (10.6% of the square to 6.4%); highest ground y 407 in both. Of 0.6.1's mountain
+  ground more than 400 blocks inside a stretch that is on, 99% is the same to within a block; 200 to
+  400 blocks inside, 76%; nearer the join about half.
+- His earlier seed -5156097255193664704, 16,384 blocks square: 57% (3.27% of the square to 1.88%);
+  the land under the mountains the same in every column; highest ground y 395 in both.
+- Real chunks, 1,024 blocks square at 493 774: 0.6.1 as committed against this code with the pattern
+  on everywhere: identical byte for byte (surface height and top block of every column). Against
+  this code with the pattern as shipped: height the same in 98.9% of columns, the rest 1.8 blocks out
+  on average, 18 at most, all towards the join to the east.
+- Real chunks across the join (1,024 square at 1800 1000): the last mountain whole (y 331), a low
+  rock shoulder beside it, then forest and badlands. Looked at from above and in one view. No errors.
+- Preview checksums unchanged: 677954a2 and 6fb51169.
+- Opening his world a second time, to the first stronghold found: 81 s without the kept answers
+  (80 regions eroded), 2.2 s with them (none); 0.8 s on the earlier seed. Strongholds from five
+  places and jagged peaks from two: found in the same places first time, second time, and with the
+  keeping switched off.
+- Creating his world: 64 to 66 s on the dev server (0.6.1: 88 to 91), only because fewer regions
+  have mountains. Nothing exact was found to make a new world quicker.
+- Making chunks: no measurable change. The same 1,024 square took 248 s in 0.6.1 and 243 s now, one
+  run each. The column memory is exact and saved nothing that could be measured; left in.
+
+**Tried and dropped.** Mountain country drawn in by erosion (step 2 above). Drawing it in only on
+vanilla's valley ground (low |weirdness|): for the same area it kept barely more of vanilla's high
+land (49% of the land above y 120 at 69% of the area, against 42% at 62%).
+
+**Not tested.** The jar in a real client (dev server only). The join at more than one place. What a
+stretch that is off looks like in the game beyond one view. Worlds already made with 0.6.1: new
+chunks will follow the new pattern, so a range may stop at the edge of what was explored.
+
 ## 0.6.1 (unreleased): bigger mountains, all of vanilla's mountain country, real rivers
 
 Sammi, of 0.6.0 in the game on seed -5156097255193664704 (15 Nov 2026): "very small im liking the

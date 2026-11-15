@@ -63,6 +63,23 @@ final class ErodedPeaks {
         float[] datum;    // the mountains' base level here, y (0.6.1): a covered river's valley is filled up to it
         int originX, originZ;
         volatile long used;
+        volatile boolean walked;   // a chunk has been made from this region (as against single columns asked about): see KeptColumns
+    }
+
+    // ---- 0.6.2: see KeptColumns (answers kept between one opening of a world and the next) ----
+    /** Whether the answer for a single column is worth keeping: it took an eroded region to give, and no chunk has been made from that region. */
+    static boolean keepable(HornsFunction horns, int x, int z) {
+        CompletableFuture<Region> made = REGIONS.get(key(Math.floorDiv(x, REGION), Math.floorDiv(z, REGION)));
+        if (made == null || !made.isDone()) return false;    // no region was needed for this column
+        Region r = made.getNow(null);
+        if (r == null || r.walked) return false;             // chunks are made here: the region will be wanted anyway
+        return anyNear(horns, x, z);                         // (no mountain reaches this column: the answer costs nothing to give again)
+    }
+
+    /** A region as sample() reads it: marked once a chunk, not a single column, has read from it. */
+    private static Region walk(Region r) {
+        if (!r.walked && !KeptColumns.single()) r.walked = true;
+        return r;
     }
 
     private static final ConcurrentHashMap<Long, CompletableFuture<Region>> REGIONS = new ConcurrentHashMap<>();
@@ -149,10 +166,10 @@ final class ErodedPeaks {
         // Almost everywhere one region answers. Within BLEND of an edge the neighbour's answer is
         // mixed in, by a weight that goes from 0 to 1 across the band, so the two erosions meet.
         int nx = lx < BLEND ? -1 : lx >= REGION - BLEND ? 1 : 0, nz = lz < BLEND ? -1 : lz >= REGION - BLEND ? 1 : 0;
-        if (nx == 0 && nz == 0) { read(region(horns, rx, rz), x, z, 1, out); finish(x, z, out); return; }
+        if (nx == 0 && nz == 0) { read(walk(region(horns, rx, rz)), x, z, 1, out); finish(x, z, out); return; }
         double wx = nx == 0 ? 1 : nx < 0 ? (lx + BLEND) / (2 * BLEND) : (REGION - lx + BLEND) / (2 * BLEND);
         double wz = nz == 0 ? 1 : nz < 0 ? (lz + BLEND) / (2 * BLEND) : (REGION - lz + BLEND) / (2 * BLEND);
-        read(region(horns, rx, rz), x, z, wx * wz, out);
+        read(walk(region(horns, rx, rz)), x, z, wx * wz, out);
         if (nx != 0) read(region(horns, rx + nx, rz), x, z, (1 - wx) * wz, out);
         if (nz != 0) read(region(horns, rx, rz + nz), x, z, wx * (1 - wz), out);
         if (nx != 0 && nz != 0) read(region(horns, rx + nx, rz + nz), x, z, (1 - wx) * (1 - wz), out);
@@ -244,7 +261,10 @@ final class ErodedPeaks {
     static double cover(HornsFunction horns, int x, int z) {
         double[] c = ROCKY.get();
         if (c[0] == x && c[1] == z && c[3] == System.identityHashCode(horns) && c[4] == AtlasMountainsMod.seed()) return c[2];
-        double v = rockyUncached(horns, x, z);
+        double[] known = KeptColumns.kept(x, z);
+        double v;
+        if (known != null && !Double.isNaN(known[4])) v = known[4];
+        else { v = rockyUncached(horns, x, z); KeptColumns.keep(horns, x, z, null, v); }
         c[0] = x; c[1] = z; c[2] = v; c[3] = System.identityHashCode(horns); c[4] = AtlasMountainsMod.seed();
         return v;
     }

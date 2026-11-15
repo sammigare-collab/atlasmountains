@@ -47,7 +47,10 @@ public final class AtlasMountainsMod implements ModInitializer {
             PeakStrength.world(server);
             LOGGER.info("world seed {}", seed);
         });
-        ServerLifecycleEvents.SERVER_STOPPED.register(server -> PeakStrength.world(null));
+        // the answers given while the world was put together (KeptColumns) are written once it is up, and again as it closes
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> KeptColumns.save());
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> KeptColumns.save());
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> { PeakStrength.world(null); KeptColumns.open(null); });
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> FindCommand.register(dispatcher));
         LOGGER.info("Atlas Mountains loaded (vanilla mountain overhaul)");
     }

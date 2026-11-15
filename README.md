@@ -14,9 +14,11 @@ vanilla's biomes, rivers, caves and structures. It applies to the normal world t
 
 ## What it changes
 
-In all of vanilla's mountain country (where its peak and slope biomes are: its two lowest bands of
+In vanilla's mountain country (where its peak and slope biomes are: its two lowest bands of
 erosion, inland) the blobby ranges are replaced by mountains shaped by erosion, standing about
-260 blocks above the land at their tallest (summits to about y 400):
+260 blocks above the land at their tallest (summits to about y 400). They stand in whole
+stretches of that country, about three fifths of it, so a range is a few thousand blocks long and
+then ends; in the stretches between, the land is vanilla's high ground without its spikes:
 
 - **Whole mountains, from the valley floor to the summit.** Each mountain is shaped as one
   thing from the low ground round it: running water cuts valleys and leaves ridges that run out

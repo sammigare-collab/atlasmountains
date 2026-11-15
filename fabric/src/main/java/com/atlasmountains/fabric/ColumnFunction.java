@@ -34,7 +34,10 @@ public interface ColumnFunction extends DensityFunction {
             /** One point: used for scattered lookups such as the aquifer and structure checks. */
             @Override
             public float sampleValue(SamplerContext ctx, int x, int y, int z) {
-                return (float) at(x, z);
+                // (noted for KeptColumns: this is a single column being asked about, not a chunk being made)
+                KeptColumns.Asking asking = KeptColumns.ASKING.get();
+                asking.single++;
+                try { return (float) at(x, z); } finally { asking.single--; }
             }
 
             /** A box of points, as chunk generation asks for: one at() per column, copied down y. */

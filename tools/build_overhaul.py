@@ -89,6 +89,26 @@ SIZE = 1.0            # 0.6.2: HOW BIG THE MOUNTAINS ARE, as a share of 0.6.1's 
                       # (seed 2089824661498644259): "can we make them slightly smaller ? maybe like 60% of what they are currently"
 EROSION_FROM = -0.36  # mountain country starts where erosion is below this (-0.40 up to 0.6.0) ...
 EROSION_FULL = -0.46  # ... and is at full strength below this (-0.65 up to 0.6.0)
+# 0.6.2 RANGES. Sammi, of 0.6.1 on his world map (seed 2089824661498644259, one belt of mountains 3,900 blocks by 2,200):
+# "how big are these though ?? ... maybe like 60% of what they are currently", then "it was how much of the map was mountain
+# and not the actualy mountain, i love the actual mountain", and, shown the belt drawn in from its edges (the two limits
+# above at -0.49 and -0.59, 62% of the area): "i liked the density just not the spread", with a whole stretch of the belt
+# scribbled out, "more rather then shrinking thee exterior". So mountain country is as it was, and a second, much larger
+# pattern says which stretches of it have mountains at all: a noise of its own, with features some thousands of blocks
+# across, on where it is above RANGE_FULL and off below RANGE_FROM. Where it is on, the mountains are those of 0.6.1.
+RANGE_OCTAVE = -12                      # the pattern's first octave: 4,096 blocks to a wave (erosion's is 2,048); a stretch
+                                        # that is off is typically 1,800 blocks across, the size of the one he scribbled out
+RANGE_FROM, RANGE_FULL = -0.12, -0.04   # the pattern's 40th percentile is -0.08 (measured over 131,072 blocks square), so it is
+                                        # on over 60% of the world; 0.1 of the pattern is some 330 blocks, so the join between
+                                        # is about 260 blocks wide: one row of peaks, each shorter than the last
+RANGE_SHIFT_X, RANGE_SHIFT_Z = -4000.0, -44500.0   # where the pattern is read from. Any pair gives 60% on average; this one was
+                                        # picked so that on his world the stretch he scribbled out (the belt east of x 1,700) is
+                                        # off and the mountains he likes (493 774) are on
+# Measured on his world (8,192 blocks square round -500 400, land and peak height on a 16-block grid): mountains on 60% of
+# the ground they stood on in 0.6.1; more than 400 blocks inside a stretch that is on they are the same to within a block
+# (99% of that ground), 200 to 400 blocks inside 76%, nearer the join about half. What is NOT changed in a stretch that is
+# off: the land (rivers are still cut to water level there) and vanilla's own spikes, which stay switched off over all of
+# mountain country as in 0.6.1, so what stands there is vanilla's high ground and its biomes without the spikes.
 INLAND_FROM = -0.11   # and where continentalness is above this (vanilla's near-inland band; -0.05 up to 0.6.0) ...
 INLAND_FULL = 0.03    # ... full strength above this (vanilla's mid-inland band; 0.20 up to 0.6.0)
 RIVER_FROM = 0.065    # a peak is weaker if its SUMMIT is where |weirdness| is below RIVER_FULL (near a river) ...
@@ -289,7 +309,12 @@ def main():
     #    Each peak reads "strength" once, at its own summit, and is that fraction of its full
     #    height with its slopes unchanged (HornsFunction, PeakStrength). Multiplying every column
     #    by the local value instead, as up to 0.4.2, squashed most peaks into rounded humps.
-    write(f'{DF}/strength.json', cache(mul(AMP, RIVER)))
+    # 0.6.2: ... and only in the stretches of mountain country that have mountains (RANGES above)
+    write(f'{NS}/worldgen/noise/ranges.json', {'base_amplitude': 0.9494731054427981, 'base_octave': RANGE_OCTAVE, 'octave_count': 2})
+    write(f'{DF}/ranges.json', cache({'type': 'minecraft:noise', 'noise': f'{NS}:ranges', 'shift_x': RANGE_SHIFT_X, 'shift_z': RANGE_SHIFT_Z,
+                                      'xz_scale': 1.0, 'y_scale': 0.0}))
+    RANGE = smooth('range', ramp(f'{NS}:overworld/ranges', RANGE_FROM, RANGE_FULL))
+    write(f'{DF}/strength.json', cache(mul(mul(AMP, RIVER), RANGE)))
     write(f'{DF}/river_wall.json', cache({'type': f'{NS}:river_wall', 'channel': CHANNEL, 'slope': RIVER_WALL, 'max_slope': RIVER_WALL_MAX,
                                             'rib_room': 40.0}))
     valley = f'{NS}:overworld/river_wall'

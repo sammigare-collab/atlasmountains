@@ -9,4 +9,4 @@ for q in atlasmountains:overworld/land atlasmountains:overworld/peak_height; do 
 for i in $(seq 1 90); do n=$(ls fabric/run/world/atlasmountains/ 2>/dev/null | grep -c "dfmap.*_$4_$5\.f32"); [ "$n" -ge 2 ] && break; sleep 5; done
 cp fabric/run/world/atlasmountains/dfmap_* $1/
 python3 tools/dev/rcon.py "execute positioned $3 run atlasmountains debug peaks" | tail -1 | cut -c1-200 > $1/peaks
-grep -v JAVA_TOOL /tmp/server.log | grep -c -E "ERROR|Exception|OutOfMemory" > $1/errors
+grep -v JAVA_TOOL /tmp/server.log | grep -c -E "ERROR|Exception|OutOfMemory" > $1/errors; true

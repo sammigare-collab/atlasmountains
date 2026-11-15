@@ -110,6 +110,7 @@ final class PeakStrength {
         weirdnessFunction = weird.map(h -> h.value()).orElse(null);
         temperatureFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(TEMPERATURE_KEY).map(h -> h.value()).orElse(null);
         countryFunction = registries.lookupOrThrow(Registries.DENSITY_FUNCTION).get(COUNTRY_KEY).map(h -> h.value()).orElse(null);
+        KeptColumns.open(server);
         // and once more now the maps can be read: anything worked out by another thread while they could not is wrong
         RiverDistance.reset();
         HornsFunction.forget();

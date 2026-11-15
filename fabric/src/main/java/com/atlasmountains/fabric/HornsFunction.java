@@ -237,6 +237,15 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
 
     /** column() for the eroded mountains: the mountain's height here is laid on top of vanilla's land at this column. */
     private void evaluateEroded(int blockX, int blockZ, double[] out) {
+        // 0.6.2: a single column asked about, in a region no chunk has been made from, may have its answer kept from the
+        // last time this world was open (KeptColumns): the same four numbers, without eroding the region again.
+        double[] known = KeptColumns.kept(blockX, blockZ);
+        if (known != null && !Double.isNaN(known[0])) { System.arraycopy(known, 0, out, 0, 4); return; }
+        erodedFresh(blockX, blockZ, out);
+        KeptColumns.keep(this, blockX, blockZ, out, Double.NaN);
+    }
+
+    private void erodedFresh(int blockX, int blockZ, double[] out) {
         out[0] = NO_PEAK; out[1] = 0; out[2] = 0; out[3] = 0;
         double[] e = ERODED_OUT.get();
         ErodedPeaks.sample(this, blockX, blockZ, e);
@@ -477,8 +486,6 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
         return column(blockX, blockZ)[0];
     }
 
-    /** The last column asked for, per thread: terrain, surface rules and biomes ask about the same column in a row. */
-    private static final ThreadLocal<double[]> LAST = ThreadLocal.withInitial(() -> new double[]{Double.NaN, Double.NaN, NO_PEAK, 0, 0});
     private static final ThreadLocal<double[]> RIB = ThreadLocal.withInitial(() -> new double[1]);
 
     /**
@@ -490,14 +497,51 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
      * of its own. The returned array is reused by the calling thread: read it, don't keep it.
      */
     double[] column(int blockX, int blockZ) {
-        double[] last = LAST.get();
-        double world = AtlasMountainsMod.seed(), self = System.identityHashCode(this);
         double[] out = RESULT.get();
-        if (last[0] == blockX && last[1] == blockZ && last[2] == world && last[3] == self) return out;
+        if (NO_MEMORY) { evaluate(blockX, blockZ, out); return out; }
+        Columns c = COLUMNS.get();
+        // Answers belong to one world and one set of settings. The game builds this same function many times over
+        // (equal settings, different objects): they share the answers.
+        if (c.world != WORLD || !(c.owner == this || c.also == this)) {
+            if (c.world == WORLD && c.owner != null && c.owner.equals(this)) c.also = this;
+            else { c.clear(); c.world = WORLD; c.owner = this; c.also = null; }
+        }
+        int slot = (blockX & Columns.MASK) | ((blockZ & Columns.MASK) << Columns.BITS);
+        if (c.has[slot] && c.xs[slot] == blockX && c.zs[slot] == blockZ) {
+            System.arraycopy(c.values, slot * 4, out, 0, 4);
+            return out;
+        }
+        boolean ready = PeakStrength.ready();
         evaluate(blockX, blockZ, out);
-        last[0] = blockX; last[1] = blockZ; last[2] = world; last[3] = self;
+        if (ready) {                        // (nothing is remembered from before the world's maps can be read)
+            c.has[slot] = true; c.xs[slot] = blockX; c.zs[slot] = blockZ;
+            System.arraycopy(out, 0, c.values, slot * 4, 4);
+        }
         return out;
     }
+
+    /**
+     * 0.6.2: the answers for the last few thousand columns, per thread. Up to 0.6.1 only the very last column was
+     * kept, and kept per copy of this function: the game holds several copies, and when two of them were asked
+     * about the same column in turn each threw the other's answer away. Working a column out again means reading
+     * vanilla's land height again, which was the largest single thing the mod did while chunks were made (8.5% of
+     * all the time spent making chunks in mountain country, measured with the flight recorder). The answers are
+     * the same numbers either way: this only stops them being worked out twice.
+     */
+    private static final class Columns {
+        static final int BITS = 6, MASK = (1 << BITS) - 1, SLOTS = 1 << (2 * BITS);     // 64 by 64 columns
+        long world = -1;
+        HornsFunction owner, also;
+        final boolean[] has = new boolean[SLOTS];
+        final int[] xs = new int[SLOTS], zs = new int[SLOTS];
+        final double[] values = new double[SLOTS * 4];
+        void clear() { java.util.Arrays.fill(has, false); }
+    }
+    private static final ThreadLocal<Columns> COLUMNS = ThreadLocal.withInitial(Columns::new);
+    /** Goes up each time the world changes (forget()), so that no thread carries an answer from one world into the next. */
+    private static volatile long WORLD = 0;
+    /** For testing: with a file /tmp/atlas_nomemory nothing is remembered between columns, as before 0.6.2. */
+    static final boolean NO_MEMORY = new java.io.File("/tmp/atlas_nomemory").exists();
 
     private static final ThreadLocal<double[]> RESULT = ThreadLocal.withInitial(() -> new double[4]);
 
@@ -607,7 +651,7 @@ public record HornsFunction(double cell, List<Integer> sides, double sideJitter,
     private static final java.util.concurrent.ConcurrentHashMap<Long, Float> WALL_SLOPES = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Forgets the remembered wall slopes: called when a world starts or stops. */
-    static void forget() { WALL_SLOPES.clear(); HEIGHTS.clear(); SUMMITS.clear(); }
+    static void forget() { WALL_SLOPES.clear(); HEIGHTS.clear(); SUMMITS.clear(); WORLD++; }
 
     /** A step stands on its edge between STEP_NEAR and STEP_NEAR + STEP_SPREAD of the peak's height out from the summit; a second one on the same edge at least STEP_GAP further out. */
     static final double STEP_NEAR = 0.30, STEP_SPREAD = 0.15, STEP_GAP = 0.25, STEP_FAR = STEP_NEAR + STEP_GAP + 2 * STEP_SPREAD;
