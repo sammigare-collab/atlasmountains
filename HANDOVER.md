@@ -2,7 +2,9 @@
 
 UPDATE, 15 November 2026, evening: 0.6.2 IS BUILT AND SENT. READ ITS CHANGELOG ENTRY FIRST: it records what he
 meant by "smaller" (not the mountains, not the edges of the range: whole stretches of a range gone, the rest as
-packed as it was) and the two wrong turns before that. He has NOT yet seen 0.6.2 in the game. Waiting for his verdict.
+packed as it was) and the two wrong turns before that. HIS VERDICT ON 0.6.2 in the game, a new world (seed
+4381596988616472538 at -219 117 2430): "wow fantastic 10/10". SO 0.6.2 IS THE BASELINE: the mountains, how packed a
+range is, how much of the map is mountain. Change none of it unless he asks. Nothing is open.
 - The amount of mountain is the RANGES block in `tools/build_overhaul.py`: `RANGE_FROM`/`RANGE_FULL` move the share
   (the noise's 40th percentile is -0.08: lower both for more mountain), `RANGE_OCTAVE` the size of the stretches,
   `RANGE_SHIFT_X/Z` which stretches are on in any one world (picked for his world: 493 774 on, the belt east of

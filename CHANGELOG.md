@@ -70,6 +70,11 @@ land (49% of the land above y 120 at 69% of the area, against 42% at 62%).
 stretch that is off looks like in the game beyond one view. Worlds already made with 0.6.1: new
 chunks will follow the new pattern, so a range may stop at the edge of what was explored.
 
+HIS VERDICT IN THE GAME (15 Nov 2026, a new world, seed 4381596988616472538 at -219 117 2430): "wow fantastic
+10/10". His screenshot: one tall snow-capped mountain with a row of lower horn peaks beside it, seen over forest.
+Nothing criticised. Visible in it and not raised by him: blue and orange streaks on the faces (vanilla's water and
+lava springs) and a dark notch at the foot of the big mountain (a cave mouth, by the look of it).
+
 ## 0.6.1 (unreleased): bigger mountains, all of vanilla's mountain country, real rivers
 
 Sammi, of 0.6.0 in the game on seed -5156097255193664704 (15 Nov 2026): "very small im liking the
