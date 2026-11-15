@@ -19,7 +19,7 @@ a plain data pack.
 """
 import json, os, shutil, sys, zipfile
 
-VERSION = '0.5.0'
+VERSION = '0.5.1'
 NS = 'atlascontinents'
 
 LAND_SHARE = 0.30          # of the world, measured where continentalness is above the coast line (-0.19)
@@ -29,15 +29,24 @@ BIOME_SCALE = 2.5          # halfway between vanilla (1) and Large Biomes (4)
 # landmass (the part of a wave above the 70th percentile) comes out at roughly 0.4 of that across.
 CONTINENT_OCTAVE = -14
 CONTINENT_XZ = 1.3          # 12,600 blocks to a wave: landmasses about 10,000 blocks across (at 0.8 they measured 16,000)
-CONTINENT_AMPLITUDES = [1.0, 0.55, 0.3, 0.18, 0.1]
+CONTINENT_AMPLITUDES = [1.0, 0.75, 0.5, 0.32, 0.2]     # 0.5.0 had [1, 0.55, 0.3, 0.18, 0.1]: see OUTLINES
+
+# OUTLINES (0.5.1). Sammi, of the 0.5.0 map: "Outlines are a bit boring can we add more noise too the continent
+# outlines ?" (they were smooth, bean-shaped at 10,000 blocks). Three things, all on the outline only:
+# more of the slow noise's shorter waves (above: 6,300, 3,150, 1,575 and 790 blocks), which makes bays, headlands and
+# necks; the whole pattern pushed about sideways by a second noise (WARP), which bends coasts without adding or
+# removing land; and a little more of vanilla's own coast detail. The land share is measured again after any of these.
+WARP_OCTAVE = -13          # the push changes over 8,192 blocks, with half as much at 4,096 and a quarter at 2,048
+WARP_AMPLITUDES = [1.0, 0.5, 0.25]
+WARP_BLOCKS = 2500         # blocks of push where the warp noise is 1; it is mostly within 0.25 of 0, so 500 to 700 blocks
 
 # Vanilla's own continent noise, at vanilla's size, laid on top at this strength: bays, headlands and offshore islands.
-COAST_DETAIL = 0.11
+COAST_DETAIL = 0.14         # 0.11 in 0.5.0
 
 # So that a new world does not begin at sea: the field is lifted round the origin, by ORIGIN_LIFT at 0 0 falling to
 # nothing ORIGIN_REACH blocks away along each axis. It is added before the field is turned into land and sea, so what
 # it makes is an ordinary landmass with the noise's own outline, not an island of its own shape.
-ORIGIN_LIFT = 0.6          # the noise is under -0.5 (so 0 0 could still be sea) in about one world in 300
+ORIGIN_LIFT = 0.75         # the noise is under -0.64 (so 0 0 could still be sea) in about one world in 300
 ORIGIN_REACH = 4000
 
 # Where vanilla's coast value (-0.19) sits, as a share of the world below it. Not simply 1 - LAND_SHARE: between -0.19
@@ -61,7 +70,16 @@ SHAPE = [
 ]
 # The slow noise's value at each of those shares of the world, measured on the dev server over 393,216 blocks square
 # (tools: /atlasmountains debug dfmap "atlascontinents:base"). None until measured: see CALIBRATE below.
-QUANTILES = [-0.8791, -0.4492, -0.1799, 0.0496, 0.0982, 0.1227, 0.1656, 0.2629, 0.9209]
+QUANTILES = [-1.0116, -0.5077, -0.204, 0.0559, 0.1103, 0.1376, 0.1856, 0.2961, 1.0295]
+
+# How rough the outlines are. 'medium' is what ships; 'strong' is the same three things turned further up, for him to
+# compare. Each has its own measured table, because the noise's spread changes with its amplitudes.
+PRESETS = {
+    'medium': dict(amplitudes=[1.0, 0.75, 0.5, 0.32, 0.2], warp=2500, coast=0.14, quantiles=[-1.0116, -0.5077, -0.204, 0.0559, 0.1103, 0.1376, 0.1856, 0.2961, 1.0295]),
+    'strong': dict(amplitudes=[1.0, 0.9, 0.7, 0.5, 0.35], warp=3500, coast=0.17, quantiles=[-1.1117, -0.5622, -0.2253, 0.0619, 0.1217, 0.1517, 0.205, 0.3271, 1.1299]),
+}
+OUTLINE = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--outline=')), 'medium')
+CONTINENT_AMPLITUDES, WARP_BLOCKS, COAST_DETAIL, QUANTILES = (PRESETS[OUTLINE][k] for k in ('amplitudes', 'warp', 'coast', 'quantiles'))
 
 CALIBRATE = '--calibrate' in sys.argv      # build with a plain pass-through so the noise itself can be measured
 
@@ -95,7 +113,7 @@ def spline(coordinate, points):
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     out = os.path.join(here, 'build', 'pack')
-    shutil.rmtree(os.path.join(here, 'build'), ignore_errors=True)
+    shutil.rmtree(out, ignore_errors=True)
     data = os.path.join(out, 'data')
     df = os.path.join(data, NS, 'worldgen', 'density_function')
     mc = os.path.join(data, 'minecraft', 'worldgen', 'density_function', 'overworld')
@@ -103,8 +121,15 @@ def main():
     write(os.path.join(data, NS, 'worldgen', 'noise', 'continents.json'),
           {'amplitude_modifiers': CONTINENT_AMPLITUDES, 'base_amplitude': 0.9494731054427981,
            'base_octave': CONTINENT_OCTAVE, 'octave_count': len(CONTINENT_AMPLITUDES)})
+    for axis in ('x', 'z'):
+        write(os.path.join(data, NS, 'worldgen', 'noise', f'warp_{axis}.json'),
+              {'amplitude_modifiers': WARP_AMPLITUDES, 'base_amplitude': 0.9494731054427981,
+               'base_octave': WARP_OCTAVE, 'octave_count': len(WARP_AMPLITUDES)})
+        write(os.path.join(df, f'warp_{axis}.json'),
+              cache(mul(WARP_BLOCKS * CONTINENT_XZ, {'type': 'minecraft:noise', 'noise': f'{NS}:warp_{axis}', 'xz_scale': 1.0, 'y_scale': 0.0})))
     write(os.path.join(df, 'base.json'),
-          cache({'type': 'minecraft:noise', 'noise': f'{NS}:continents', 'xz_scale': CONTINENT_XZ, 'y_scale': 0.0}))
+          cache({'type': 'minecraft:noise', 'noise': f'{NS}:continents', 'shift_x': f'{NS}:warp_x', 'shift_z': f'{NS}:warp_z',
+                 'xz_scale': CONTINENT_XZ, 'y_scale': 0.0}))
 
     def away(axis):     # 1 at the origin, 0 from ORIGIN_REACH blocks away along this axis
         g = {'type': 'minecraft:gradient', 'axis': axis, 'from_coordinate': -ORIGIN_REACH, 'from_value': -1.0,
@@ -136,7 +161,7 @@ def main():
         'authors': ['Sammi'], 'license': 'MIT', 'environment': '*',
         'depends': {'fabricloader': '>=0.20.0', 'fabric-api': '*', 'minecraft': '~26.3'}})
 
-    jar = os.path.join(here, 'build', f'{NS}-{VERSION}.jar')
+    jar = os.path.join(here, 'build', f'{NS}-{VERSION}' + ('' if OUTLINE == 'medium' else '-' + OUTLINE) + '.jar')
     with zipfile.ZipFile(jar, 'w', zipfile.ZIP_DEFLATED) as z:
         for root, _, files in os.walk(out):
             for f in sorted(files):

@@ -1,5 +1,17 @@
 # Changelog
 
+## Companion: Atlas Continents 0.5.1 (15 Nov 2026): rougher outlines
+
+Sammi, of the 0.5.0 map: "Outlines are a bit boring can we add more noise too the continent outlines ?" Only the
+outline is changed: more of the slow noise's shorter waves, the whole pattern pushed sideways by a second noise
+(a warp, typically 430 blocks, at most 1,750), a little more of vanilla's coast detail. Two settings built for him
+to choose from one picture (A = 0.5.0, B = `medium`, C = `strong`), each with its own measured table so the land
+stays at 30%: B 30.1%, landmasses a median 8,600 blocks across; C 30.2%, 7,400 across, four times the small islands
+of 0.5.0. Mountain country 3.0% and 3.1% of the land (2.8% without the mod); erosion map identical. Real chunks on
+the nearest coast to spawn with C (-3328 0): beach, rivers, a village, no errors. Recommended to him: C.
+Not done: landmass size not brought back up to 10,000 (lower `CONTINENT_XZ` to do it; the tables stay valid).
+His pick: pending.
+
 ## Companion: Atlas Continents 0.5.0 (15 Nov 2026, in `companion/atlascontinents/`, a separate mod file)
 
 Sammi, having called 0.6.3 "releasable I think": "can we check if works for the continents mod we added". The old
