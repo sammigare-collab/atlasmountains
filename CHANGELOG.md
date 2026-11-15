@@ -1,5 +1,20 @@
 # Changelog
 
+## Companion: Atlas Continents 0.5.2 (15 Nov 2026): an Earth-like setting (`--outline=earth`)
+
+Sammi, after the A/B/C picture (no pick given): "can we go again for another seed , is there a way we can make it
+feel similar to earths continents ?" What B and C lack is Earth's spread of sizes: every landmass is about one wave
+of the noise across, so they are alike and evenly scattered. The `earth` setting adds a second, far slower noise
+(50,000 blocks to a wave) to the first: where it is high the landmasses run together into a few very large ones
+with gulfs and inland seas, where it is low there is open ocean with island groups. Landmasses are also drawn out
+north to south by a quarter. Outline roughness as C. Calibrated over six areas of 393,216 blocks square.
+New seed 7741903325518266401, 262,144 blocks square: land 29.4% (C: 29.5%); the three largest landmasses hold 24%,
+12% and 8% of the land (C: 4%, 3%, 3%); mountain country 2.9% of the land (C: 3.0%). Real chunks on the nearest
+coast to spawn (-6016 -3968): no errors. Spawn on land in both.
+NOT done, and offered to him: climate by latitude (cold poles, hot equator). It would change which biome is where
+across the whole world, so it waits for his say.
+His pick between C and earth: pending.
+
 ## Companion: Atlas Continents 0.5.1 (15 Nov 2026): rougher outlines
 
 Sammi, of the 0.5.0 map: "Outlines are a bit boring can we add more noise too the continent outlines ?" Only the

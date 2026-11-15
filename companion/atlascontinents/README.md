@@ -14,7 +14,8 @@ It replaces three of vanilla's files (`overworld/continents`, `overworld/tempera
 is what decides where mountain country is, so mountains are the size and spacing they are without it.
 
 Build: `python3 build.py` writes `build/atlascontinents-<version>.jar` (outlines 'medium'); `python3 build.py
---outline=strong` writes the rougher one beside it. Both have the same mod id: install one, not both. The same file renamed to `.zip`
+--outline=strong` writes the rougher one beside it. `--outline=earth` writes the Earth-like one: a few very large landmasses with gulfs and inland seas, open ocean
+with island groups between. All have the same mod id: install one only. The same file renamed to `.zip`
 works as a plain data pack.
 
 Measured on the dev server with Atlas Mountains 0.6.3 (seed 4381596988616472538), 0.5.1:
