@@ -83,6 +83,10 @@ NS = 'atlasmountains'
 # all of vanilla's: it starts just inside the edge of those bands and is at full strength a little
 # further in, and it starts where vanilla's near-inland band does.
 # Offsets are in vanilla's units: ground height is about y = 128 + 128 * offset.
+SIZE = 1.0            # 0.6.2: HOW BIG THE MOUNTAINS ARE, as a share of 0.6.1's (tallest 258 blocks above its land, one peak per
+                      # 345 blocks). It scales the height and the spacing here and, in the mod, every length that belongs to a
+                      # mountain as a whole (Massif.size), so the shape is the same at any size. Sammi, of 0.6.1 on his world map
+                      # (seed 2089824661498644259): "can we make them slightly smaller ? maybe like 60% of what they are currently"
 EROSION_FROM = -0.36  # mountain country starts where erosion is below this (-0.40 up to 0.6.0) ...
 EROSION_FULL = -0.46  # ... and is at full strength below this (-0.65 up to 0.6.0)
 INLAND_FROM = -0.11   # and where continentalness is above this (vanilla's near-inland band; -0.05 up to 0.6.0) ...
@@ -129,7 +133,7 @@ SNOW_EDGE = 0.06      # the cold biome's lower edge wanders up and down by this 
 SNOW = {'edge': 9.0,   # the snow itself (PeakSnowCondition.java): its edge wanders up and down by this many blocks,
         'gully': 14.0, # it reaches this much lower in the gullies and starts this much higher on the ribs,
         'fringe': 12.0}  # and it is in patches for this many blocks above its edge, complete above that
-ROCK_SPAN = 330       # the rock gradient: 100% is the snow line, 0% is this many blocks below it (on the tallest peaks;
+ROCK_SPAN = round(330 * SIZE)       # the rock gradient: 100% is the snow line, 0% is this many blocks below it (on the tallest peaks;
 ROCK = [               # in proportion on smaller ones). Dark smooth basalt and deepslate in a band about 30 blocks deep
     ('minecraft:andesite', 5), ('minecraft:stone', 30), ('minecraft:tuff', 62),    # under the snow, tuff then stone on the
     ('minecraft:deepslate', 86), ('minecraft:smooth_basalt', 95)]                  # body, andesite only about 200 down.
@@ -145,16 +149,16 @@ WORLD_MIN_Y, WORLD_HEIGHT = -64, 576   # the overworld: y -64 to 511 (vanilla: h
 TOP_FROM, TOP_TO = 472, 488   # the terrain ceiling (vanilla: 240 to 256)
 # the peaks themselves: see HornsFunction.java and tools/prototype_horns.py (same names)
 HORNS = {
-    'cell': 345.0,          # one peak per square this size (230 up to 0.6.0; 0.6.1: everything half as big again, see 'height')
+    'cell': float(round(345 * SIZE)),          # one peak per square this size (230 up to 0.6.0; 0.6.1: everything half as big again, see 'height')
     'sides': [3, 4],        # flat faces per peak. Five and more read as a cone, not a pyramid
     'side_jitter': 0.3,     # how unevenly the faces are turned (0 = a regular pyramid)
     'slope': 0.95,          # how steep a face is: blocks down per block out (0.95 is 44 degrees) ...
     'slope_var': 0.25,      # ... give or take this fraction, face by face (35 to 50 degrees): one steeper side, one longer (0.12 to 0.4.9)
     'edge_min': 0.45,       # no edge between two faces is shallower than this fraction of 'slope'
     'warp': 3.0,            # edges wander this many blocks from a ruler line
-    'height': 258.0,        # the tallest peaks, above the land they stand on (172 up to 0.6.0; Sammi: "very small")
+    'height': float(round(258 * SIZE)),        # the tallest peaks, above the land they stand on (172 up to 0.6.0; Sammi: "very small")
     'height_var': 0.42,     # other peaks are up to this much lower
-    'min_height': 90.0,     # a peak that would be shorter than this (weak mountain country) is left out (60 up to 0.6.0)
+    'min_height': float(round(90 * SIZE)),     # a peak that would be shorter than this (weak mountain country) is left out (60 up to 0.6.0)
     # Look D, which Sammi picked from four in the game (12 Nov 2026): strong ribs and shoulders
     'shoulders': [1, 2],    # how many steps (sub-summits) a peak has on its edges; see the piece loop in HornsFunction.java
     'shoulder_size': 0.65,  # not used since 0.4.10 (a step's height comes from the edge it stands on)

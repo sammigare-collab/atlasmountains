@@ -46,6 +46,12 @@ public final class Preview {
             relief[z * size + x] = (float) Math.min(o[0], PeakStrength.riverCap(x0 + x, z0 + z));   // the data pack's cap near rivers
         }
         long ms = (System.nanoTime() - t0) / 1_000_000;
+        // every number the mountains are made of, as one figure: two runs that print the same figure made the same mountains, bit for bit
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        java.nio.ByteBuffer bits = java.nio.ByteBuffer.allocate(4 * relief.length);
+        for (float v : relief) bits.putInt(Float.floatToRawIntBits(v));
+        crc.update(bits.array());
+        System.out.printf("checksum of the relief: %08x%n", crc.getValue());
         short[] data = new short[2 * size * size];
         int[] counts = new int[NAMES.length];
         int land = 0;

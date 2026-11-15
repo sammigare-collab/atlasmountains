@@ -32,6 +32,17 @@ import java.util.List;
  * (measured in the preview).
  */
 final class Massif {
+    // ---- 0.6.2: one number for size ----
+    // The settings below that are lengths belonging to the mountains themselves (not to the detail carved into their
+    // faces, and not to vanilla's land) are written for a tallest peak of FULL_HEIGHT blocks, the size of 0.6.1, and
+    // are used times size(): the data pack's tallest peak over FULL_HEIGHT. So the whole mountain, with its spacing
+    // (the data pack's "cell"), is made bigger or smaller by one number there (SIZE in tools/build_overhaul.py) and
+    // keeps its shape. Sammi, of 0.6.1 on his world map: "how big are these though ?? can we make them slightly
+    // smaller ? maybe like 60% of what they are currently".
+    static final double FULL_HEIGHT = 258;
+    static double size(HornsFunction horns) { return horns.height() / FULL_HEIGHT; }
+    private double size = 1;
+
     // ---- the lumps ----
     /** A lump's radius in cells for a full-height peak (smaller peaks: down to 0.55 of it). */
     static double JOIN_REACH = 1.00;
@@ -203,7 +214,7 @@ final class Massif {
             ring[k++] = 128 + 128 * PeakStrength.land((int) Math.floor(p.x() + RING[j] * r * Math.cos(ang)), (int) Math.floor(p.z() + RING[j] * r * Math.sin(ang)));
         }
         java.util.Arrays.sort(ring);
-        double base = Math.min(top, Math.max(Math.max(SEA, top - BASE_DROP_MAX), ring[(int) (BASE_SHARE * (ring.length - 1))]));
+        double base = Math.min(top, Math.max(Math.max(SEA, top - BASE_DROP_MAX * size(horns)), ring[(int) (BASE_SHARE * (ring.length - 1))]));
         if (!WHOLE) base = top;
         f = new double[]{top, base};
         if (!ready) return f;       // see HornsFunction.heightOf: nothing is remembered from before the world's maps can be read
@@ -233,7 +244,7 @@ final class Massif {
     static double coveredAt(HornsFunction horns, ErodedPeaks.Peak p, double distance) {
         double t = distance / radius(horns, p);
         if (t >= 1) return 0;
-        return ramp((stature(horns, p) * Math.pow(1 - t, PROFILE) - COVER_FROM) / (COVER_FULL - COVER_FROM));
+        return ramp((stature(horns, p) / size(horns) * Math.pow(1 - t, PROFILE) - COVER_FROM) / (COVER_FULL - COVER_FROM));
     }
 
     /** How far from its summit a peak's lump can reach, in blocks. */
@@ -565,6 +576,7 @@ final class Massif {
     private Massif(HornsFunction horns, long seed, int originX, int originZ, int span) {
         ox = originX; oz = originZ;
         cell = horns.cell();
+        size = size(horns);
         n = (int) Math.ceil(span / sp) + 1;
         h = new float[n * n]; base = new float[n * n]; bury = new float[n * n]; outlet = new boolean[n * n];
         long c0x = (long) Math.floor((ox - 8) / cell) - 2, c0z = (long) Math.floor((oz - 8) / cell) - 2;
@@ -614,7 +626,7 @@ final class Massif {
                 // the summit (its direction and length the peak's own), and the crest falls a little
                 // from the summit towards each end, further towards one than the other.
                 double ca = Math.PI * HornsFunction.hash(p.ix(), p.iz(), seed + 540), cx = Math.cos(ca), cz = Math.sin(ca);
-                double half = (CREST_MIN + (CREST_MAX - CREST_MIN) * HornsFunction.hash(p.ix(), p.iz(), seed + 541)) / 2 * Math.min(1, (topY[a] - baseY[a]) / CREST_FULL);
+                double half = size * (CREST_MIN + (CREST_MAX - CREST_MIN) * HornsFunction.hash(p.ix(), p.iz(), seed + 541)) / 2 * Math.min(1, (topY[a] - baseY[a]) / (size * CREST_FULL));
                 double lean = 0.3 + 0.7 * HornsFunction.hash(p.ix(), p.iz(), seed + 542);            // one end is shorter
                 double along = dx * cx + dz * cz, lim = along > 0 ? half : half * lean;
                 double on = Math.max(-lim, Math.min(lim, along));
@@ -631,7 +643,7 @@ final class Massif {
                 if (walls != null) {
                     // each mountain's own fade towards rivers, as in 0.5.1 (ErodedPeaks.RIVER_FADE)
                     if (Double.isNaN(river)) river = RiverDistance.at((int) Math.floor(x), (int) Math.floor(z), walls.channel());
-                    if (fadeOf[a] == 0) fadeOf[a] = Math.max(ErodedPeaks.RIVER_FADE_MIN, Math.min(ErodedPeaks.RIVER_FADE,
+                    if (fadeOf[a] == 0) fadeOf[a] = Math.max(size * ErodedPeaks.RIVER_FADE_MIN, Math.min(size * ErodedPeaks.RIVER_FADE,
                             ErodedPeaks.RIVER_SHARE * RiverDistance.at((int) Math.floor(p.x()), (int) Math.floor(p.z()), walls.channel())));
                     double f = river / fadeOf[a];
                     if (f < 1) {
@@ -653,7 +665,7 @@ final class Massif {
             // where the mountains would stand high over the river it is covered: no fade (COVER_FROM)
             free[gz * n + gx] = (float) Math.pow(sumFree, 1 / SMOOTH_MAX);
             riverAt[gz * n + gx] = Double.isNaN(river) ? 1e9f : (float) river;
-            double b = ramp((Math.pow(sumFree, 1 / SMOOTH_MAX) - COVER_FROM) / (COVER_FULL - COVER_FROM));
+            double b = ramp((Math.pow(sumFree, 1 / SMOOTH_MAX) / size - COVER_FROM) / (COVER_FULL - COVER_FROM));
             // 0.6.1: wherever two lumps overlap that far, river or no river (up to 0.6.0 only where a lump had been faded
             // towards a river). The valley of a covered river is filled to the base level by this share (see build()), and
             // the valley is wider than the fade: with the old test the fill stopped dead at the fade's edge.
@@ -661,9 +673,9 @@ final class Massif {
             sum += (sumFree - sum) * b;
             double v = Math.pow(sum, 1 / SMOOTH_MAX);
             if (v > 0.5) {
-                double share = Math.min(1, v / ROUGH_FULL), noise = 0, amp = 1, freq = 1 / ROUGH_LENGTH, norm = 0;
+                double share = Math.min(1, v / (size * ROUGH_FULL)), noise = 0, amp = 1, freq = 1 / (size * ROUGH_LENGTH), norm = 0;
                 for (int o = 0; o < 4; o++) { noise += amp * HornsFunction.valueNoise(x * freq, z * freq, seed + 610 + 13L * o); norm += amp; amp *= 0.5; freq *= 2.1; }
-                v = Math.max(0, v + ROUGH * share * noise / norm);
+                v = Math.max(0, v + size * ROUGH * share * noise / norm);
             }
             int i = gz * n + gx;
             base[i] = (float) v;
@@ -939,20 +951,51 @@ final class Massif {
     private double[] wArea;
     private Heap wHeap;
 
-    /** Rock slides: wherever the ground is steeper than it can stand, some of it moves down. */
+    /**
+     * Rock slides: wherever the ground is steeper than it can stand, some of it moves down.
+     * <p>
+     * 0.6.2, the same result with less work. What happens at a cell depends only on the nine heights round it, so a
+     * cell at which nothing moved, and round which nothing has moved since, need not be looked at again: looking
+     * would change nothing. The first pass looks at every cell (everything has just been lifted and cut); the later
+     * passes only at cells marked because they or a neighbour moved. Up to 0.6.1 all six passes looked at every cell,
+     * 480 times over a region, which was the largest single part of making one. The figures that come out are the
+     * same to the last bit (the preview prints a checksum of them: tools/preview, "checksum of the relief").
+     */
     private void thermal(int passes) {
+        if (tMark == null) tMark = new boolean[n * n];
+        boolean[] mark = tMark;
+        java.util.Arrays.fill(mark, false);
+        final double band = size * TALUS_BAND;
         for (int p = 0; p < passes; p++) {
+            boolean all = p == 0;
             for (int z = 1; z < n - 1; z++) for (int x = 1; x < n - 1; x++) {
                 int i = z * n + x;
+                if (!all && !mark[i]) continue;
+                mark[i] = false;
                 double hi = h[i];
                 if (hi <= 0.5) continue;
-                double crit = hi > TALUS_BAND ? TALUS : TALUS_LOW + (TALUS - TALUS_LOW) * hi / TALUS_BAND;
+                double crit = hi > band ? TALUS : TALUS_LOW + (TALUS - TALUS_LOW) * hi / band;
+                boolean moved = false;
                 for (int d = 0; d < 8; d++) {
                     int j = (z + DZ[d]) * n + x + DX[d];
                     double drop = hi - h[j], max = crit * sp * (d < 4 ? 1 : SQRT2);
-                    if (drop > max) { double m = (drop - max) * 0.25; hi -= m; h[j] += m; }
+                    if (drop > max) { double m = (drop - max) * 0.25; hi -= m; h[j] += m; moved = true; markRound(mark, x + DX[d], z + DZ[d]); }
                 }
-                h[i] = (float) hi;
+                if (moved) { h[i] = (float) hi; markRound(mark, x, z); }
+            }
+        }
+    }
+
+    private boolean[] tMark;
+
+    /** Marks a cell and the eight round it: one of their nine heights has changed. */
+    private void markRound(boolean[] mark, int x, int z) {
+        for (int dz = -1; dz <= 1; dz++) {
+            int zz = z + dz;
+            if (zz < 0 || zz >= n) continue;
+            for (int dx = -1; dx <= 1; dx++) {
+                int xx = x + dx;
+                if (xx >= 0 && xx < n) mark[zz * n + xx] = true;
             }
         }
     }

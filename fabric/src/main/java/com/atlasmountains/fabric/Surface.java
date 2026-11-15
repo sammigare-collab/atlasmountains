@@ -96,7 +96,7 @@ final class Surface {
         // biome. Less on small mountains (in proportion, down to SMALL of it), and not on the lower part of
         // any mountain: below SNOW_UP of the way up it, snow is lost at UP_LOSS blocks for each tenth.
         // (Without these two, half the snow of a test square lay in the hollows at the feet of small peaks.)
-        double size = Math.max(SMALL, Math.min(1, SnowLine.stature(horns, x, z) / FULL_SIZE));
+        double size = Math.max(SMALL, Math.min(1, SnowLine.stature(horns, x, z) / (FULL_SIZE * Massif.size(horns))));
         double above = y - line + SNOW_LOWER * size;
         if (above < -REACH) return false;
         double[] s = shape(horns, x, z);
