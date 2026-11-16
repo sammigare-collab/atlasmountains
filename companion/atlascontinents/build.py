@@ -19,7 +19,7 @@ a plain data pack.
 """
 import json, os, shutil, sys, zipfile
 
-VERSION = '0.5.3'
+VERSION = '0.5.4'
 NS = 'atlascontinents'
 
 LAND_SHARE = 0.30          # of the world, measured where continentalness is above the coast line (-0.19)
@@ -84,6 +84,12 @@ PRESETS = {
     # low there is open ocean with island groups. The landmasses are also drawn out north to south a little.
     'earth': dict(amplitudes=[1.0, 0.9, 0.7, 0.5, 0.35], warp=3500, coast=0.17, quantiles=[-1.7978, -0.8256, -0.3251, 0.1035, 0.1934, 0.2386, 0.3193, 0.5024, 1.8339],
                   cluster=dict(octave=-15, xz=0.65, amplitudes=[1.0, 0.5, 0.25], weight=1.3), stretch=1.25, lift=1.1,
+                  # SIZE (0.5.4). Sammi, of 0.5.3: "And let's make the continents smaller". The whole pattern is drawn
+                  # at this share of its size in every direction (the big gatherings, the landmasses in them, the
+                  # sideways push), so the shapes are the ones he liked, smaller. 1.0 was 0.5.2 and 0.5.3, where the
+                  # largest landmasses ran 40,000 to 70,000 blocks. A change of size does not change the share of land,
+                  # so the measured table still holds. Vanilla's coast detail and the climate bands are NOT scaled.
+                  size=0.5,
                   # CLIMATE BANDS (0.5.3). Sammi, of the earth setting: "big fan of that earth one , can we also make it so
                   # that the temperature bands are larger ? Whatever seems most suited". With continents 50,000 blocks
                   # across, patches of climate a couple of thousand blocks wide read as speckle. So temperature goes by
@@ -104,6 +110,9 @@ CLUSTER = PRESETS[OUTLINE].get('cluster')        # the far slower noise that gat
 STRETCH = PRESETS[OUTLINE].get('stretch', 1.0)   # landmasses this many times longer north to south than east to west
 ORIGIN_LIFT = PRESETS[OUTLINE].get('lift', ORIGIN_LIFT)
 CLIMATE = PRESETS[OUTLINE].get('climate')        # temperature in bands by latitude, or None for vanilla's noise alone
+SIZE = PRESETS[OUTLINE].get('size', 1.0)         # the whole pattern at this share of its size
+CONTINENT_XZ = CONTINENT_XZ / SIZE
+WARP_BLOCKS = WARP_BLOCKS * SIZE
 
 CALIBRATE = '--calibrate' in sys.argv      # build with a plain pass-through so the noise itself can be measured
 
@@ -150,12 +159,14 @@ def main():
               {'amplitude_modifiers': WARP_AMPLITUDES, 'base_amplitude': 0.9494731054427981,
                'base_octave': WARP_OCTAVE, 'octave_count': len(WARP_AMPLITUDES)})
         write(os.path.join(df, f'warp_{axis}.json'),
-              cache(mul(WARP_BLOCKS * CONTINENT_XZ, {'type': 'minecraft:noise', 'noise': f'{NS}:warp_{axis}', 'xz_scale': 1.0, 'y_scale': 0.0})))
+              cache(mul(WARP_BLOCKS * CONTINENT_XZ, {'type': 'minecraft:noise', 'noise': f'{NS}:warp_{axis}', 'xz_scale': 1.0 / SIZE, 'y_scale': 0.0})))
     shift_x = f'{NS}:warp_x'
     if STRETCH != 1.0:
         # the noise is read (STRETCH - 1) further along x for every block east: its waves are that much shorter east to
-        # west. (A gradient is level beyond its ends, so past 2,000,000 blocks out the stretch stops growing.)
-        far = 2000000
+        # west. (A gradient is level beyond its ends, so past `far` blocks out the stretch stops growing.)
+        # The game refuses any number over 1,000,000 in these files (found in 0.5.4, when the smaller size doubled this
+        # one and the world would not load), so the gradient ends where its value reaches 900,000.
+        far = min(2000000, int(900000 / ((STRETCH - 1.0) * CONTINENT_XZ)))
         k = (STRETCH - 1.0) * CONTINENT_XZ * far
         shift_x = add(shift_x, {'type': 'minecraft:gradient', 'axis': 'x', 'from_coordinate': -far, 'from_value': -k,
                                 'to_coordinate': far, 'to_value': k})
@@ -166,7 +177,7 @@ def main():
               {'amplitude_modifiers': CLUSTER['amplitudes'], 'base_amplitude': 0.9494731054427981,
                'base_octave': CLUSTER['octave'], 'octave_count': len(CLUSTER['amplitudes'])})
         shape = add(shape, mul(CLUSTER['weight'], {'type': 'minecraft:noise', 'noise': f'{NS}:cluster',
-                                                    'xz_scale': CLUSTER['xz'], 'y_scale': 0.0}))
+                                                    'xz_scale': CLUSTER['xz'] / SIZE, 'y_scale': 0.0}))
     write(os.path.join(df, 'base.json'), cache(shape))
 
     def away(axis):     # 1 at the origin, 0 from ORIGIN_REACH blocks away along this axis

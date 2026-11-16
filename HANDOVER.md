@@ -1,6 +1,10 @@
 # Handover: atlasmountains, 14 November 2026
 
-UPDATE, 16 November 2026, 00:30: ATLAS CONTINENTS IS AT 0.5.3 (see the four companion entries at the top of the
+UPDATE, 16 November 2026, 01:00: ATLAS CONTINENTS IS AT 0.5.4 (0.5.3 with the continents at half the size, `size` in
+the earth preset; maps for him are drawn with `tools/dev/climap.py`, which shows the five climates in plain colours:
+he asked for the temperature to be easier to see). NO NUMBER OVER 1,000,000 MAY APPEAR IN A WORLDGEN FILE.
+
+BEFORE THAT, 00:30: Atlas Continents was at 0.5.3 (see the four companion entries at the top of the
 CHANGELOG, newest first). He chose the EARTH setting ("big fan of that earth one"): a few very large landmasses,
 open ocean with island groups, and now climate in bands by latitude. It is the default of `build.py`. Liked: earth's
 continents. Not yet seen by him in the game: any of Continents. Rules that still hold: land 30%, and nothing that

@@ -1,5 +1,23 @@
 # Changelog
 
+## Companion: Atlas Continents 0.5.4 (16 Nov 2026): the earth continents at half the size
+
+Sammi, of 0.5.3: "Can you make their temperature easier to see in the map ?" and "And let's make the continents
+smaller". The first is the drawing only: `tools/dev/climap.py` now colours the land by vanilla's five climates
+(frozen, cold, temperate, warm, hot: blue, light blue, green, amber, red; checked for colour-blind separation) on a
+pale sea with a key, land taken as everything inside the shore line. The second: the whole earth pattern is drawn at
+half its size in every direction (`size=0.5`: the big gatherings, the landmasses in them, the sideways push), so the
+shapes are the same, smaller. He did not say how much smaller; half was chosen. Not scaled: vanilla's coast detail,
+the climate bands (48,000 blocks to a cycle, as in 0.5.3).
+Fault found on the way: the game refuses any number over 1,000,000 in a worldgen file. Halving the size doubled the
+slope used for the north-south stretch to 1,300,000 and the world would not load ("Failed to parse
+atlascontinents:base"). The gradient now ends where its value reaches 900,000 (1,380,000 blocks from 0 0; beyond
+that the stretch stops growing).
+Measured, seed 7741903325518266401, 262,144 blocks square: land 29.0% (0.5.3: 29.4%); the largest landmasses about
+34,000 blocks across as squares (0.5.3: 69,000, 49,000, 41,000); mountain country 2.9% of the land (2.9%). Spawn on
+land. Real chunks at spawn, 1,024 square: no errors.
+Not tested: a real client; a second seed. His verdict: pending.
+
 ## Companion: Atlas Continents 0.5.3 (16 Nov 2026): earth is the default, climate in bands by latitude
 
 Sammi, of 0.5.2: "Very nice big fan of that earth one , can we also make it so that the temperature bands are larger ?
