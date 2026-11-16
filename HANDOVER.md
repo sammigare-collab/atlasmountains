@@ -1,6 +1,13 @@
 # Handover: atlasmountains, 14 November 2026
 
-UPDATE, 15 November 2026, 23:00: ATLAS CONTINENTS 0.5.0 BUILT AND SENT (a separate, code-free mod; source in
+UPDATE, 16 November 2026, 00:30: ATLAS CONTINENTS IS AT 0.5.3 (see the four companion entries at the top of the
+CHANGELOG, newest first). He chose the EARTH setting ("big fan of that earth one"): a few very large landmasses,
+open ocean with island groups, and now climate in bands by latitude. It is the default of `build.py`. Liked: earth's
+continents. Not yet seen by him in the game: any of Continents. Rules that still hold: land 30%, and nothing that
+touches the mountains (never erosion, ridges or our nine files). Known cost: `/locate biome` across a climate band
+is very slow with the mountains installed.
+
+EARLIER: UPDATE, 15 November 2026, 23:00: ATLAS CONTINENTS 0.5.0 BUILT AND SENT (a separate, code-free mod; source in
 `companion/atlascontinents/`, so it cannot be lost again; see the CHANGELOG entry above 0.6.3). He called 0.6.3
 "releasable I think" (no screenshot of it yet). What Continents is allowed to do is his sentence in that entry: land
 30% of the world, biomes halfway to Large Biomes, NOTHING that touches the mountains (so: never erosion, ridges or any

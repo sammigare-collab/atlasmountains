@@ -3,18 +3,22 @@
 A companion to Atlas Mountains, kept as a separate mod file. Minecraft 26.3, Fabric (needs Fabric API).
 It has no code: only worldgen files, written by `build.py`.
 
-What it does, and nothing else:
+What it does, and nothing else (the default, "earth", setting):
 
-- Land comes in separate landmasses, about 10,000 blocks across, over about 30% of the world.
-- Biomes are 2.5 times vanilla's size (halfway between vanilla and Large Biomes).
+- Land is about 30% of the world, as on Earth, and comes in very different sizes: a few very large landmasses with
+  gulfs, inland seas and peninsulas, some middling ones, and open ocean with island groups between.
+- Climate runs in bands by latitude: coldest 12,000 blocks north of spawn, hottest 12,000 south, and round again
+  every 48,000 blocks (the world has no edge). The bands wander. Spawn is in the temperate band.
+- Humidity (which of the biomes of a climate you get) changes 2.5 times more slowly than vanilla.
 - A new world begins on land: the landmass pattern is lifted round 0 0.
 
 It replaces three of vanilla's files (`overworld/continents`, `overworld/temperature`,
 `overworld/vegetation`) and none of the files Atlas Mountains replaces. It leaves erosion alone, which
 is what decides where mountain country is, so mountains are the size and spacing they are without it.
 
-Build: `python3 build.py` writes `build/atlascontinents-<version>.jar` (outlines 'medium'); `python3 build.py
---outline=strong` writes the rougher one beside it. `--outline=earth` writes the Earth-like one: a few very large landmasses with gulfs and inland seas, open ocean
+Build: `python3 build.py` writes `build/atlascontinents-<version>.jar` (the earth setting). `--outline=medium` and
+`--outline=strong` write the two earlier settings beside it: evenly scattered landmasses about 10,000 blocks across,
+vanilla's temperature noise at 2.5 times its size, no bands. `--outline=earth` writes the Earth-like one: a few very large landmasses with gulfs and inland seas, open ocean
 with island groups between. All have the same mod id: install one only. The same file renamed to `.zip`
 works as a plain data pack.
 

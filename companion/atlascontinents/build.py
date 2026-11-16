@@ -19,7 +19,7 @@ a plain data pack.
 """
 import json, os, shutil, sys, zipfile
 
-VERSION = '0.5.2'
+VERSION = '0.5.3'
 NS = 'atlascontinents'
 
 LAND_SHARE = 0.30          # of the world, measured where continentalness is above the coast line (-0.19)
@@ -83,13 +83,27 @@ PRESETS = {
     # Where it is high the landmasses run together into a few very large ones with gulfs and inland seas; where it is
     # low there is open ocean with island groups. The landmasses are also drawn out north to south a little.
     'earth': dict(amplitudes=[1.0, 0.9, 0.7, 0.5, 0.35], warp=3500, coast=0.17, quantiles=[-1.7978, -0.8256, -0.3251, 0.1035, 0.1934, 0.2386, 0.3193, 0.5024, 1.8339],
-                  cluster=dict(octave=-15, xz=0.65, amplitudes=[1.0, 0.5, 0.25], weight=1.3), stretch=1.25, lift=1.1),
+                  cluster=dict(octave=-15, xz=0.65, amplitudes=[1.0, 0.5, 0.25], weight=1.3), stretch=1.25, lift=1.1,
+                  # CLIMATE BANDS (0.5.3). Sammi, of the earth setting: "big fan of that earth one , can we also make it so
+                  # that the temperature bands are larger ? Whatever seems most suited". With continents 50,000 blocks
+                  # across, patches of climate a couple of thousand blocks wide read as speckle. So temperature goes by
+                  # latitude, as on Earth: coldest along a line `period`/4 blocks north of spawn, hottest the same way
+                  # south, and so on round again every `period` blocks (the world has no edge, so the bands repeat).
+                  # Spawn is in the temperate band. Vanilla's temperature noise, `noise_scale` times its size, is laid
+                  # on top so the bands wander and have pockets. The wave runs from `cold` to `hot` in vanilla's
+                  # temperature (under -0.45 frozen, to -0.15 cold, to 0.2 temperate, to 0.55 warm, above that hot)
+                  # and is `spawn` at 0 0. `hot` stops at the top of vanilla's warm climate on purpose: a first try
+                  # that ran to 0.75 made the whole hot band desert and badlands (72% of its land, measured), 8,000
+                  # blocks deep. Now the hot band is jungle, savanna and the like, with desert and badlands where the
+                  # noise lifts it. Each climate comes out 6,000 to 7,000 blocks deep. Humidity is as before.
+                  climate=dict(period=48000, cold=-0.65, hot=0.55, spawn=0.03, noise=0.45, noise_scale=6.0, folds=5)),
 }
-OUTLINE = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--outline=')), 'medium')
+OUTLINE = next((a.split('=', 1)[1] for a in sys.argv if a.startswith('--outline=')), 'earth')     # earth is the one he chose
 CONTINENT_AMPLITUDES, WARP_BLOCKS, COAST_DETAIL, QUANTILES = (PRESETS[OUTLINE][k] for k in ('amplitudes', 'warp', 'coast', 'quantiles'))
 CLUSTER = PRESETS[OUTLINE].get('cluster')        # the far slower noise that gathers landmasses together, or None
 STRETCH = PRESETS[OUTLINE].get('stretch', 1.0)   # landmasses this many times longer north to south than east to west
 ORIGIN_LIFT = PRESETS[OUTLINE].get('lift', ORIGIN_LIFT)
+CLIMATE = PRESETS[OUTLINE].get('climate')        # temperature in bands by latitude, or None for vanilla's noise alone
 
 CALIBRATE = '--calibrate' in sys.argv      # build with a plain pass-through so the noise itself can be measured
 
@@ -170,13 +184,31 @@ def main():
         shaped = spline(f'{NS}:field', [(q, v) for q, (_, v) in zip(QUANTILES, SHAPE)])
     write(os.path.join(mc, 'continents.json'), cache(add(shaped, mul(COAST_DETAIL, vanilla_detail))))
 
-    for name in ('temperature', 'vegetation'):
-        write(os.path.join(mc, f'{name}.json'),
-              {'type': 'minecraft:noise', 'noise': f'minecraft:{name}', 'shift_x': 'minecraft:shift_x',
-               'shift_z': 'minecraft:shift_z', 'xz_scale': 0.25 / BIOME_SCALE, 'y_scale': 0.0})
+    def climate_noise(name, scale):
+        return {'type': 'minecraft:noise', 'noise': f'minecraft:{name}', 'shift_x': 'minecraft:shift_x',
+                'shift_z': 'minecraft:shift_z', 'xz_scale': 0.25 / scale, 'y_scale': 0.0}
+    write(os.path.join(mc, 'vegetation.json'), climate_noise('vegetation', BIOME_SCALE))
+    if CLIMATE:
+        # A wave along z made by folding one straight slope: each fold (take the distance from the middle of the range)
+        # doubles the number of slopes. After `folds` folds there is a full wave every `period` blocks for
+        # period * 2 ** (folds - 1) blocks north and south of the centre; beyond that the value stays put.
+        period, folds = CLIMATE['period'], CLIMATE['folds']
+        reach = period * 2 ** (folds - 1)
+        mid, half = (CLIMATE['hot'] + CLIMATE['cold']) / 2, (CLIMATE['hot'] - CLIMATE['cold']) / 2
+        at_spawn = (CLIMATE['spawn'] - mid) / half          # where on the wave 0 0 sits: -1 coldest, +1 hottest
+        centre = -int(round((1 + at_spawn) * period / 4))   # the cold line, this many blocks north of 0 0
+        wave = {'type': 'minecraft:abs', 'input': {'type': 'minecraft:gradient', 'axis': 'z', 'from_coordinate': centre - reach,
+                                                   'from_value': -1.0, 'to_coordinate': centre + reach, 'to_value': 1.0}}
+        for j in range(1, folds + 1):
+            wave = {'type': 'minecraft:abs', 'input': add(wave, -(2.0 ** -j))}
+        write(os.path.join(df, 'latitude.json'), cache(add(1.0, mul(-(2.0 ** (folds + 1)), wave))))     # -1 coldest, +1 hottest
+        write(os.path.join(mc, 'temperature.json'),
+              add(add(mid, mul(half, f'{NS}:latitude')), mul(CLIMATE['noise'], climate_noise('temperature', CLIMATE['noise_scale']))))
+    else:
+        write(os.path.join(mc, 'temperature.json'), climate_noise('temperature', BIOME_SCALE))
 
     write(os.path.join(out, 'pack.mcmeta'), {'pack': {
-        'description': 'Atlas Continents: land in separate landmasses over 30% of the world, biomes 2.5x vanilla',
+        'description': 'Atlas Continents: land in separate landmasses over 30% of the world, larger biomes',
         'pack_format': 121, 'min_format': 121, 'max_format': 121}})
     write(os.path.join(out, 'fabric.mod.json'), {
         'schemaVersion': 1, 'id': NS, 'version': VERSION, 'name': 'Atlas Continents',
@@ -185,7 +217,7 @@ def main():
         'authors': ['Sammi'], 'license': 'MIT', 'environment': '*',
         'depends': {'fabricloader': '>=0.20.0', 'fabric-api': '*', 'minecraft': '~26.3'}})
 
-    jar = os.path.join(here, 'build', f'{NS}-{VERSION}' + ('' if OUTLINE == 'medium' else '-' + OUTLINE) + '.jar')
+    jar = os.path.join(here, 'build', f'{NS}-{VERSION}' + ('' if OUTLINE == 'earth' else '-' + OUTLINE) + '.jar')
     with zipfile.ZipFile(jar, 'w', zipfile.ZIP_DEFLATED) as z:
         for root, _, files in os.walk(out):
             for f in sorted(files):

@@ -1,5 +1,24 @@
 # Changelog
 
+## Companion: Atlas Continents 0.5.3 (16 Nov 2026): earth is the default, climate in bands by latitude
+
+Sammi, of 0.5.2: "Very nice big fan of that earth one , can we also make it so that the temperature bands are larger ?
+Whatever seems most suited". So `earth` is now what `build.py` writes by default, and with continents 50,000 blocks
+across the climate was the next thing out of scale (patches a couple of thousand blocks wide). Temperature now goes
+by latitude with vanilla's temperature noise (six times its size) on top: coldest 13,600 blocks north of spawn,
+hottest 10,400 south, round again every 48,000 blocks; spawn in the temperate band. Humidity unchanged.
+First try ran the wave up to vanilla's hot climate: the hot band came out 72% desert and badlands, 8,000 blocks
+deep. Changed so the wave tops out at the top of vanilla's warm climate and the noise makes the deserts.
+Measured, seed 7741903325518266401: share of the world frozen 16%, cold 25%, temperate 31%, warm 23%, hot 5%
+(vanilla's noise alone: 10, 22, 36, 25, 7). Biomes on land, sampled every 512 blocks: round the cold line snowy
+plains 35%, snowy taiga 32%, taiga 13%; round spawn forest 26%, plains 15%, savanna 9%, birch forest 8%; round the
+hot line savanna 27%, forest 16%, desert 13%, jungle 11%, plains 8%. Land and landmasses as 0.5.2 (nothing in the
+continents changed). Real chunks at spawn, 1,024 square: no errors.
+Not tested: a real client; a second seed; `/locate biome` for a biome a whole band away is very slow with Atlas
+Mountains installed (a search for desert from spawn was stopped after five minutes on the dev server: every
+region with a mountain on the way is eroded for it).
+His verdict: pending.
+
 ## Companion: Atlas Continents 0.5.2 (15 Nov 2026): an Earth-like setting (`--outline=earth`)
 
 Sammi, after the A/B/C picture (no pick given): "can we go again for another seed , is there a way we can make it
