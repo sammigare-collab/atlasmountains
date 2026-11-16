@@ -1,6 +1,12 @@
 # Handover: atlasmountains, 14 November 2026
 
-UPDATE, 16 November 2026, 01:00: ATLAS CONTINENTS IS AT 0.5.4 (0.5.3 with the continents at half the size, `size` in
+UPDATE, 16 November 2026, 13:30: ATLAS CONTINENTS NOW LIVES IN ITS OWN REPOSITORY, github.com/sammigare-collab/Atlas-Continents
+(he created it; first commit 4ed1ee2 on main: build.py, README, LICENSE, CHANGELOG). `companion/atlascontinents/` here is
+only a pointer. Work on Continents goes there from now on; to test it with the mountains, build its jar there and put
+it in `fabric/run/mods/` here (and take it out again). No release of either mod exists on GitHub yet, and PR #8 is
+still open: he was told and has not asked for them.
+
+BEFORE THAT, 01:00: Atlas Continents was at 0.5.4 (0.5.3 with the continents at half the size, `size` in
 the earth preset; maps for him are drawn with `tools/dev/climap.py`, which shows the five climates in plain colours:
 he asked for the temperature to be easier to see). NO NUMBER OVER 1,000,000 MAY APPEAR IN A WORLDGEN FILE.
 
