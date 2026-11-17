@@ -1,13 +1,5 @@
 # Changelog
 
-## 0.6.4 (17 Nov 2026)
-Rivers slightly rarer and bigger, at Sammi's request ("Can we make rivers slightly rarer and bigger?"). Vanilla's weirdness
-noise (minecraft:overworld/ridges), whose zero lines are the rivers, is drawn at 0.75 of its size (xz_scale 0.25 -> 0.1875):
-river lines are about a third further apart and each river and its valley about a third wider. Measured on seed 222 at
-x 31,000 z 129,000 (with Atlas Continents 0.5.7): rivers crossed per 10,000 blocks walked 26.8 -> 21.7. The peaks' river
-guard and the biome picker read the same noise, so they follow; vanilla's other weirdness features are larger too, and
-which peaks stand beside a river changes a little. Every seed comes out different from 0.6.3. Not yet checked in his client.
-
 ## Companion: Atlas Continents 0.5.4 (16 Nov 2026): the earth continents at half the size
 
 Sammi, of 0.5.3: "Can you make their temperature easier to see in the map ?" and "And let's make the continents

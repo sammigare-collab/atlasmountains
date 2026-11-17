@@ -129,12 +129,6 @@ RIVER_WALL_MAX = 1.73 # a piece whose summit is too close to a river for that ge
 # 722 2304, where 81% of the river biome was dry grass). So along the channels the land is now cut down to the
 # cross-section vanilla's own rivers have just outside mountain country (measured there: y 36 on the centre line,
 # 47 where |weirdness| is 0.05, 71 at 0.10, 87 at 0.13, 99 at 0.16). This is the only place the mod LOWERS vanilla's land.
-# 0.6.4: rivers slightly rarer and bigger. Sammi (17 Nov 2026): "Can we make rivers slightly rarer and bigger?" Vanilla puts
-# its rivers where its weirdness noise (minecraft:overworld/ridges) crosses zero. That noise is drawn at RIVER_SCALE of its
-# size here, so the lines lie 1/RIVER_SCALE times further apart (rarer) and every river, and its valley, is that many times
-# wider (bigger). Everything else that reads weirdness, the peaks' river guard and the biome picker among them, follows the
-# same noise, so they stay in step. Side effect: vanilla's own weirdness pattern (its plateaus and valleys) is larger too.
-RIVER_SCALE = 0.75
 RIVER_BED_Y = 36      # the land's target height on a river's centre line (the real bed comes out higher, as vanilla's does) ...
 RIVER_RIM_Y = 107     # ... rising to this where |weirdness| is RIVER_VALLEY, as a smooth step
 RIVER_VALLEY = 0.16   # (0.20 fits vanilla's own rivers best, but in mountain country, where weirdness often changes slowly, that
@@ -286,10 +280,6 @@ def main():
     for d in (offset, factor, jagged):
         assert d['type'] == 'minecraft:cache' and d['input']['type'] == 'minecraft:lerp', 'vanilla layout changed'
 
-    ridges = load('worldgen/density_function/overworld/ridges.json')
-    assert ridges['type'] == 'minecraft:cache' and ridges['input']['noise'] == 'minecraft:ridge', 'vanilla layout changed'
-    ridges['input']['xz_scale'] = ridges['input']['xz_scale'] * RIVER_SCALE
-    write('minecraft/worldgen/density_function/overworld/ridges.json', ridges)
     EROSION, CONT, W = 'minecraft:overworld/erosion', 'minecraft:overworld/continents', 'minecraft:overworld/ridges'
     DF = f'{NS}/worldgen/density_function/overworld'
     def ramp(f, lo, hi):          # 0 at lo, 1 at hi, clamped
