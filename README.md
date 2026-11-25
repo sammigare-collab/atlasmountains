@@ -1,70 +1,73 @@
 # Atlas Mountains
 
+[![build](https://github.com/sammigare-collab/atlasmountains/actions/workflows/build.yml/badge.svg)](https://github.com/sammigare-collab/atlasmountains/actions/workflows/build.yml)
+![Minecraft 26.3](https://img.shields.io/badge/Minecraft-26.3-62b47a)
+![Fabric](https://img.shields.io/badge/loader-Fabric-dbd0b4)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+A Fabric mod for Minecraft 26.3 that reshapes vanilla's own mountains into tall, eroded,
+snow-capped ranges. Everything else in the world stays vanilla.
+
 ![Snow-capped peaks above a snowy spruce valley, in the game](docs/atlas-mountains.png)
 
 ![Three snow-capped peaks over green foothills, in the game](docs/atlas-mountains-2.png)
 
-A Fabric mod for Minecraft 26.3 that overhauls **vanilla's own mountains**.
+## Features
 
-Built entirely by prompting Claude.
+- **Mountains shaped by erosion.** Each mountain is formed as a whole, from the valley floor to
+  the summit: valleys, ridges, couloirs and sharp ribs of rock. Neighbouring peaks share a base
+  and meet at saddles.
+- **Tall.** Summits reach about y 400, up to 260 blocks above the land around them. Each range has
+  one tallest peak, with the others stepping down towards its edges.
+- **Ranges that end.** A range runs for a few thousand blocks and then stops. Between ranges the
+  land is vanilla's high ground.
+- **Snow and rock that follow the shape.** Snow lies in the hollows and on the gentler ground high
+  up, and dark rock stands out on the ribs and cliffs. Lower down are grass and vanilla's own woods.
+- **Real rivers.** Rivers run at water level through mountain country instead of drying up. Where
+  a mountain is tall enough it covers the river, which comes out again on the far side.
+- **A taller world.** The overworld's build height is raised from y 320 to y 512 to make room.
 
-The mod was restarted from scratch on 11 November 2026. The earlier versions (0.1 to 0.3) replaced
-vanilla's mountains with a custom terrain generator and their own world type; that code is in the
-Git history and on the `main` branch up to v0.2. This version has no generator of its own. It works
-through vanilla's own terrain settings, so the mountains stand in vanilla's mountain country, with
-vanilla's biomes, rivers, caves and structures. It applies to the normal world type; there is nothing to pick.
+The mountains stand where vanilla already puts its peak and slope biomes. Biomes, caves,
+structures and everything outside mountain country are vanilla's.
 
-## What it changes
+## Install
 
-In vanilla's mountain country (where its peak and slope biomes are: its two lowest bands of
-erosion, inland) the blobby ranges are replaced by mountains shaped by erosion, standing about
-260 blocks above the land at their tallest (summits to about y 400). They stand in whole
-stretches of that country, about three fifths of it, so a range is a few thousand blocks long and
-then ends; in the stretches between, the land is vanilla's high ground without its spikes:
+1. Install [Fabric Loader](https://fabricmc.net/use/) 0.20 or newer for Minecraft 26.3 (Java 25).
+2. Put the Atlas Mountains jar and [Fabric API](https://modrinth.com/mod/fabric-api) in your
+   `mods` folder. The jar is attached to each run of the
+   [build workflow](https://github.com/sammigare-collab/atlasmountains/actions/workflows/build.yml),
+   or you can build it yourself (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)).
+3. **Create a new world.** Chunks that already exist keep their old shape.
 
-- **Whole mountains, from the valley floor to the summit.** Each mountain is shaped as one
-  thing from the low ground round it: running water cuts valleys and leaves ridges that run out
-  into the land, couloirs are cut into the faces and the rock between them stands as sharp ribs.
-  Peaks close together share a base and meet at saddles. What is added to vanilla's land is
-  whatever of that shape stands above it; vanilla's land is never lowered, except along rivers
-  (below).
-- **Snow and rock that follow the shape.** Snow lies in the couloirs and hollows and on the
-  gentler ground high up; ribs and cliffs stand out of it as dark rock. In frozen country a
-  mountain is white down to its foot. Lower down are open grass and then vanilla's own woods.
-- **One tallest peak, others stepping down**, biggest in the heart of the mountain country and
-  shrinking towards its edges.
-- **Real rivers.** Vanilla lifts its river valleys clear of the water inside mountain country,
-  so they are dry there. The mod cuts them down to water level like vanilla's rivers everywhere
-  else. A mountain comes down to the land at a river; where the mountains would stand 120
-  blocks or more over a river, they cover it and it comes out again on the far side.
-- **A taller world.** Vanilla's land keeps its own height and the peaks stand on top of it, so
-  the overworld's build height is raised from y 320 to y 512 and terrain may reach about y 480.
+There is nothing to pick when creating the world: the mod applies to the default world type.
 
-The top of each peak takes vanilla's own peak biome for its climate (jagged, frozen or stony
-peaks). Other biomes, caves, structures and everything outside mountain country are vanilla's.
-It applies to the default world type only (not Large Biomes or Amplified).
+## Commands
 
-Where the peaks stand and how tall they are is `HornsFunction.java`; their shape is `Massif.java`
-(read back by `ErodedPeaks.java`); where the snow lies and how dark the rock is, `Surface.java`;
-how they meet vanilla's land and biomes is set in `tools/build_overhaul.py`. `tools/preview` draws
-the mountains in seconds without Minecraft, from the mod's own code, on a stand-in land or on a
-real world's land and rivers dumped from the dev server (`tools/preview/real.sh`).
+| Command | What it does |
+|---|---|
+| `/locate mountain` | Finds the nearest mountain. |
+| `/locate mountain tallest` | Finds the tallest mountain within 6,000 blocks. |
+| `/atlasmountains` | Shows the mod's version. |
 
-Commands: `/locate mountain` finds the nearest mountain and `/locate mountain tallest` the
-tallest within 6,000 blocks, answered as vanilla's `/locate` answers (click the coordinates to
-teleport; cheats or operator needed, as for `/locate biome`). `/atlasmountains` says the version.
+`/locate mountain` needs cheats or operator, like `/locate biome`. Click the coordinates in the
+answer to teleport.
 
-For testing, under `/atlasmountains debug` (cheats or operator): `mountains <radius>` lists where
-the mountain country is; `peaks` lists the nearest peaks and how long erosion has taken;
-`snapshot <size>` generates a square and writes its top blocks and heights (draw it with
-`tools/render_snapshot.py`); `heightmap <size> <step>` dumps the surface heights without
-generating chunks; `df "<id>"` samples a density function; `dfmap "<id>" <size> <step>` and
-`biomemap <size> <step>` write a map of a density function or of the biomes into the world folder.
+## Compatibility
 
-## Building
+- **World types:** default only. Large Biomes and Amplified are not supported.
+- **[Atlas Continents](https://github.com/sammigare-collab/atlas-continents):** the companion mod
+  for continents and climate bands. The two are made to be used together, and the screenshots
+  above were taken with both installed.
+- **Other world-generation mods:** not tested. Anything that replaces the overworld's terrain
+  settings is likely to clash.
+- **Build height:** the overworld is y 512 tall with this mod, so tools and mods that assume
+  y 320 may need their limits changed.
 
-    ./gradlew build                      # the jar is in fabric/build/libs
-    python3 tools/extract_vanilla.py     # copies vanilla's worldgen JSON out of the game jar (not committed)
-    python3 tools/build_overhaul.py      # regenerates the data pack under fabric/src/main/resources/data
+## More
 
-Use a new world: chunks that already exist keep their old shape.
+- [Changelog](CHANGELOG.md)
+- [How it works, building and debug commands](docs/DEVELOPMENT.md)
+- Found a bug? [Open an issue](https://github.com/sammigare-collab/atlasmountains/issues/new/choose)
+  with the seed and coordinates.
+
+Built entirely by prompting Claude. MIT licensed.

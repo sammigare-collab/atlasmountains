@@ -1,5 +1,9 @@
 # Handover: atlasmountains, 14 November 2026
 
+NOTE, 25 November 2026: the repository was tidied. This file was `HANDOVER.md` at the root and the full changelog was
+`CHANGELOG.md`; both are now in `docs/dev-notes/` (`handover.md`, `changelog-full.md`). The root `CHANGELOG.md` is a
+short one for players. `companion/` and the one-off scripts in `tools/dev/` were removed (they are in the Git history).
+
 UPDATE, 16 November 2026, 13:30: ATLAS CONTINENTS NOW LIVES IN ITS OWN REPOSITORY, github.com/sammigare-collab/Atlas-Continents
 (he created it; first commit 4ed1ee2 on main: build.py, README, LICENSE, CHANGELOG). `companion/atlascontinents/` here is
 only a pointer. Work on Continents goes there from now on; to test it with the mountains, build its jar there and put

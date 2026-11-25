@@ -24,16 +24,7 @@ body:
     id: version
     attributes:
       label: Mod version
-      placeholder: 0.3.0
-    validations:
-      required: true
-  - type: dropdown
-    id: worldtype
-    attributes:
-      label: World type
-      options:
-        - Atlas Mountains
-        - Atlas Mountains (everywhere)
+      placeholder: 0.6.3
     validations:
       required: true
   - type: textarea

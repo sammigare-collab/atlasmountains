@@ -26,7 +26,7 @@ changed since. (a) Mountain country is all of vanilla's two lowest erosion bands
 part (EROSION_FROM / EROSION_FULL). (b) The land is vanilla's EXCEPT along rivers in mountain country,
 which are cut down to water level (RIVER_BED_Y): the one place the mod lowers vanilla's land. (c) The
 peaks' shape is made in Java by Massif.java (lumps cut by running water) and the limit near rivers
-(atlasmountains:river_wall) no longer limits anything. See CHANGELOG.md.
+(atlasmountains:river_wall) no longer limits anything. See docs/dev-notes/changelog-full.md.
 
 What this pack does
 -------------------
