@@ -1,6 +1,8 @@
 # Atlas Mountains
 
-![A row of snow-capped peaks standing over badlands, in the game](docs/atlas-mountains.png)
+![Snow-capped peaks above a snowy spruce valley, in the game](docs/atlas-mountains.png)
+
+![Three snow-capped peaks over green foothills, in the game](docs/atlas-mountains-2.png)
 
 A Fabric mod for Minecraft 26.3 that overhauls **vanilla's own mountains**.
 
