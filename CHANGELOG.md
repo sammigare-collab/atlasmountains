@@ -1,29 +1,43 @@
 # Changelog
 
-## 0.3.0 (2026-11-10)
+The short version. The full development notes, with measurements and the reasoning behind each
+change, are in [docs/dev-notes/changelog-full.md](docs/dev-notes/changelog-full.md).
 
-Minecraft 26.3.
+## 0.6.3 (November 2026)
 
-- Ported to Minecraft 26.3, Fabric Loader 0.20.1, Fabric API 0.165.2 and Java 25.
-- Mountains now fill vanilla's own mountain footprint: a network of ridges meeting at junctions,
-  with small enclosed valleys where ridges part.
-- Smaller, rougher mountain provinces; biomes elsewhere at twice vanilla size.
-- Mountains about 20% lower (design summit y 232), with summit heights varying between massifs.
-- Snow starts at a climate-dependent snow line instead of a hard biome edge.
-- Province edges blend into vanilla terrain by height, so there are no walls, flooded rings or
-  sunken plates at the edge.
-- Faster region generation.
-- Removed the older layout experiments (they are on the `archive/layout-experiments` branch).
+- Fixed thin blades and towers of rock on mountains that stand over a river.
 
-## 0.2.0 (2026-11-08)
+## 0.6.2
 
-Minecraft 1.21.1.
+- Ranges now end: mountains fill about three fifths of mountain country instead of all of it, so
+  a range is a few thousand blocks long.
+- A world opens much faster the second time.
 
-- Continents from a large fractal noise: big organic landmasses and islands, spawn on land.
-- Branching mountain chains placed inside mountain provinces, with foothills, dominant summits and
-  taller peaks at junctions.
-- Treeless biomes above the treeline; vanilla's own peaks removed.
+## 0.6.1
 
-## 0.1.0
+- Bigger, taller mountains (summits to about y 400).
+- Mountains stand in all of vanilla's mountain country, not only its jagged peaks.
+- Rivers in mountain country are cut down to water level, so they are no longer dry.
 
-Minecraft 1.21.1. First prototype: parallel horn-peak ranges over the whole world.
+## 0.6.0
+
+- Each mountain is shaped as a whole by erosion, from the valley floor to the summit.
+- Snow and rock follow the shape: snow in the hollows, dark rock on ribs and cliffs.
+
+## 0.5.x
+
+- Mountains shaped by running water, with peaks in a group joined at a shared base.
+- `/locate mountain` and `/locate mountain tallest`, answered like vanilla's `/locate`.
+- Biome fixes at the feet of mountains (no jungle on the slopes, no stray snow patches).
+
+## 0.4.x (from 11 November 2026)
+
+- The mod was restarted from scratch. The custom generator and world type were removed. The mod
+  now works through vanilla's own terrain settings, in a normal world.
+- Build height raised from y 320 to y 512.
+- Many experiments with the shape of the peaks.
+
+## 0.3.0 and earlier
+
+The original mod: a custom mountain generator with its own world type (0.1 and 0.2 for Minecraft
+1.21.1, 0.3 for 26.3). That code is in the Git history only.
